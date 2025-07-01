@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const database = firebase.database();
     
     // Đảm bảo bạn đã dán đúng URL Web App của mình vào đây
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyDTfAp4sXu0QdoD0YJ_2vx4s-Q4740vTMuRh0ZBN7M9-JudLUUKxJc3vqohw9ddCjHqA/exec"; 
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyU3Wr8o_RR4I8pU-kfNFqmz7l8v7Sw2Ge4ONlNmDUdITr6fihZW1PV5eTHU_iPxLWxbg/exec"; 
 
     // --- DOM Elements ---
     const setupSection = document.getElementById('setup-section');
