@@ -3,49 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Giao Diện Người Chơi - Ma Sói</title>
+    <title>Ma Sói - Người Chơi</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/player-style.css">
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1><span id="player-name">...</span></h1>
-            <p>Phòng: <strong id="room-id-display">...</strong></p>
-        </header>
-
-        <div class="card" id="game-info-card">
-            <h2>Trạng Thái Ván Chơi</h2>
-            <p id="game-status">Đang kết nối đến phòng...</p>
-            <div id="my-role" class="hidden">
-                Vai trò của bạn là: <strong>...</strong>
+        <!-- ============================================= -->
+        <!-- KHU VỰC ĐĂNG NHẬP (HIỂN THỊ BAN ĐẦU) -->
+        <!-- ============================================= -->
+        <div id="login-section" class="card">
+            <header>
+                <h1><span class="icon">🐺</span>Vào Phòng Chơi</h1>
+            </header>
+            <div class="form-group">
+                <label for="password-input">Mật Khẩu</label>
+                <input type="password" id="password-input" placeholder="Nhập mật khẩu của bạn...">
             </div>
-             <div id="vote-timer" class="hidden"></div>
+            <div class="form-group">
+                <label for="room-id-input">ID Phòng</label>
+                <input type="text" id="room-id-input" placeholder="Nhập ID phòng game...">
+            </div>
+            <button id="login-btn">Vào Game</button>
+            <p id="login-error" class="error-message"></p>
         </div>
 
-        <!-- Role Picking Section -->
-        <div class="card hidden" id="role-pick-section">
-            <h2>Chọn Vai Trò</h2>
-            <div id="role-choices">
-                <!-- Role buttons will be generated here -->
-            </div>
-            <button id="random-role-btn">Chọn Ngẫu Nhiên</button>
-        </div>
-        
-        <!-- Voting Section -->
-        <div class="card hidden" id="vote-section">
-            <h2 id="vote-title">Bỏ Phiếu</h2>
-            <div id="vote-options">
-                <!-- Voting options will be generated here -->
-            </div>
-        </div>
+        <!-- ============================================= -->
+        <!-- KHU VỰC TRONG GAME (ẨN ĐI BAN ĐẦU) -->
+        <!-- ============================================= -->
+        <div id="game-section" class="hidden">
+            <header>
+                <h1><span id="player-name-display">...</span></h1>
+                <p>Phòng: <strong id="room-id-display">...</strong></p>
+            </header>
 
-        <!-- Player List Section -->
-        <div class="card">
-            <h2>Danh Sách Người Chơi</h2>
-            <ul id="player-list-info">
-                <!-- Player list will be updated here -->
-            </ul>
+            <div class="card" id="game-info-card">
+                <h2>Trạng Thái Ván Chơi</h2>
+                <p id="game-status">Đang kết nối đến phòng...</p>
+                <div id="my-role" class="hidden">
+                    Vai trò của bạn là: <strong>...</strong>
+                </div>
+                 <div id="vote-timer" class="hidden"></div>
+            </div>
+    
+            <!-- Role Picking Section -->
+            <div class="card hidden" id="role-pick-section">
+                <h2>Chọn Vai Trò</h2>
+                <div id="role-choices"></div>
+                <button id="random-role-btn">Chọn Ngẫu Nhiên</button>
+            </div>
+            
+            <!-- Voting Section -->
+            <div class="card hidden" id="vote-section">
+                <h2 id="vote-title">Bỏ Phiếu</h2>
+                <div id="vote-options"></div>
+            </div>
+    
+            <!-- Player List Section -->
+            <div class="card">
+                <h2>Danh Sách Người Chơi</h2>
+                <ul id="player-list-info"></ul>
+            </div>
         </div>
     </div>
 
