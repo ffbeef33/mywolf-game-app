@@ -1,0 +1,106 @@
+:root {
+    --primary-bg: #1a1a2e;
+    --secondary-bg: #16213e;
+    --card-bg: #0f3460;
+    --text-color: #e94560;
+    --light-text: #dcdcdc;
+    --button-bg: #e94560;
+    --button-hover-bg: #f96d86;
+    --input-bg: #1f4068;
+    --border-color: #e94560;
+}
+
+body {
+    font-family: 'Montserrat', sans-serif;
+    background-color: var(--primary-bg);
+    color: var(--light-text);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+}
+
+.container {
+    width: 100%;
+    max-width: 500px;
+    padding: 20px;
+}
+
+.login-wrapper {
+    background-color: var(--secondary-bg);
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    text-align: center;
+    border: 1px solid var(--border-color);
+}
+
+h1 {
+    color: var(--text-color);
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    font-size: 1rem;
+    margin-bottom: 30px;
+    color: var(--light-text);
+}
+
+.form-container {
+    margin-bottom: 25px;
+}
+
+h2 {
+    font-size: 1.5rem;
+    color: var(--light-text);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="number"] {
+    width: 100%;
+    padding: 12px 15px;
+    margin-bottom: 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background-color: var(--input-bg);
+    color: var(--light-text);
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+input::placeholder {
+    color: #a0a0a0;
+}
+
+button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--button-bg);
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+button:hover {
+    background-color: var(--button-hover-bg);
+    transform: translateY(-2px);
+}
+
+.error-message {
+    color: #ff4d4d;
+    margin-top: 15px;
+    font-weight: 500;
+    height: 20px; /* Reserve space to prevent layout shift */
+}

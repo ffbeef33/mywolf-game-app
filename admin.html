@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Trò - Ma Sói</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/admin-style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><span class="icon">👑</span>Bảng Điều Khiển Quản Trò</h1>
+            <p>Phòng Game ID: <strong id="room-id">...</strong></p>
+        </header>
+
+        <!-- Setup Section -->
+        <div class="card" id="setup-section">
+            <h2>1. Thiết Lập Ván Chơi</h2>
+            <div class="form-group">
+                <label for="total-players">Tổng số người chơi:</label>
+                <input type="number" id="total-players" min="5" value="10">
+            </div>
+            <div class="form-group">
+                <label for="villager-roles">Các vai trò phe Dân Làng (cách nhau bằng dấu phẩy):</label>
+                <textarea id="villager-roles" rows="3">Bảo vệ, Tiên tri, Thợ săn, Phù thủy, Dân thường, Dân thường</textarea>
+            </div>
+            <div class="form-group">
+                <label for="werewolf-roles">Các vai trò phe Sói (cách nhau bằng dấu phẩy):</label>
+                <textarea id="werewolf-roles" rows="2">Sói thường, Sói thường</textarea>
+            </div>
+            <button id="create-room-btn">Tạo Phòng Chơi</button>
+        </div>
+
+        <!-- Game Management Section -->
+        <div class="card hidden" id="game-management-section">
+            <h2>2. Quản Lý Người Chơi</h2>
+            <p>Chờ người chơi tham gia... (<span id="players-joined">0</span>/<span id="players-total">0</span>)</p>
+            <ul id="player-list">
+                <!-- Player items will be added here by JavaScript -->
+            </ul>
+            <div class="action-buttons">
+                <button id="start-role-pick-btn" disabled>Bắt Đầu Chọn Vai Trò</button>
+                <button id="send-roles-btn" disabled>Gửi Vai Trò</button>
+            </div>
+        </div>
+        
+        <!-- Voting Section -->
+        <div class="card hidden" id="voting-section">
+            <h2>3. Quản Lý Bỏ Phiếu</h2>
+             <div class="form-group">
+                <label for="vote-time">Thời gian bỏ phiếu (giây):</label>
+                <input type="number" id="vote-time" value="60" min="10">
+            </div>
+            <div class="action-buttons">
+                 <button id="start-lynch-vote-btn">Bỏ Phiếu Lên Giàn</button>
+                 <button id="start-execute-vote-btn">Bỏ Phiếu Treo Cổ</button>
+                 <button id="end-vote-btn">Kết Thúc Bỏ Phiếu</button>
+            </div>
+            <div id="vote-results">
+                <!-- Voting results will be shown here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <!-- Your Admin Script -->
+    <script src="admin.js"></script>
+</body>
+</html>

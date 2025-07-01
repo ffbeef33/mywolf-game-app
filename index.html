@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng Nhập - Ma Sói</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="login-wrapper">
+            <h1>Board Game Ma Sói</h1>
+            <p class="subtitle">Chào mừng bạn đến với đêm ma sói kinh hoàng!</p>
+
+            <div class="form-container" id="player-login-form">
+                <h2><span class="icon">🧑</span>Đăng Nhập Người Chơi</h2>
+                <input type="text" id="player-id" placeholder="Tên đăng nhập" required>
+                <input type="password" id="player-pass" placeholder="Mật khẩu" required>
+                <button id="player-login-btn">Vào Làng</button>
+            </div>
+
+            <div class="form-container" id="admin-login-form">
+                <h2><span class="icon">👑</span>Đăng Nhập Quản Trò</h2>
+                <input type="password" id="admin-pass" placeholder="Mật khẩu quản trò" required>
+                <button id="admin-login-btn">Mở Phòng</button>
+            </div>
+             <p id="error-message" class="error-message"></p>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+:root {
+    --primary-bg: #1a1a2e;
+    --secondary-bg: #16213e;
+    --card-bg: #0f3460;
+    --text-color: #e94560;
+    --light-text: #dcdcdc;
+    --button-bg: #e94560;
+    --button-hover-bg: #f96d86;
+    --input-bg: #1f4068;
+    --border-color: #e94560;
+    --success-color: #32a852;
+    --danger-color: #c70039;
+}
+
+body {
+    font-family: 'Montserrat', sans-serif;
+    background-color: var(--primary-bg);
+    color: var(--light-text);
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 20px;
+}
+
+h1 {
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+#room-id {
+    background-color: var(--input-bg);
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 1.1rem;
+}
+
+.card {
+    background-color: var(--secondary-bg);
+    padding: 25px;
+    border-radius: 15px;
+    margin-bottom: 25px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.card.hidden {
+    display: none;
+}
+
+h2 {
+    color: var(--light-text);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+input[type="number"],
+textarea {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background-color: var(--input-bg);
+    color: var(--light-text);
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+textarea {
+    resize: vertical;
+}
+
+button {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--button-bg);
+    color: white;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+button:hover:not(:disabled) {
+    background-color: var(--button-hover-bg);
+}
+
+button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+
+#player-list {
+    list-style: none;
+    padding: 0;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.player-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--input-bg);
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.player-item.dead .player-name {
+    text-decoration: line-through;
+    color: #888;
+}
+
+.player-actions button {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    margin-left: 8px;
+}
+
+.btn-kick {
+    background-color: var(--danger-color);
+}
+
+.btn-toggle-status {
+    background-color: var(--success-color);
+}
+.player-item.dead .btn-toggle-status {
+     background-color: #f0ad4e;
+}
