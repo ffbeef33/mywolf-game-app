@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const database = firebase.database();
 
     // ▼▼▼ DÁN URL WEB APP BẠN ĐÃ COPY Ở BƯỚC 1 VÀO ĐÂY ▼▼▼
-    const GOOGLE_SCRIPT_URL = "URL_WEB_APP_CUA_BAN"; 
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz_U1kIxDiJUqkLOpB51fVhR7iX8edcOmxyNimcOTwGNLZOsEYrrPU0oLSgtHGIo9pRaQ/exec"; 
 
     // --- DOM Elements ---
     const createRoomBtn = document.getElementById('create-room-btn');
