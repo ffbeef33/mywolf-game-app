@@ -13,19 +13,36 @@
             <h1>Board Game Ma Sói</h1>
             <p class="subtitle">Chào mừng bạn đến với đêm ma sói kinh hoàng!</p>
 
-            <div class="form-container" id="player-login-form">
+            <!-- ===== FORM ĐĂNG NHẬP NGƯỜI CHƠI (ĐÃ SỬA) ===== -->
+            <form class="form-container" id="player-login-form">
                 <h2><span class="icon">🧑</span>Đăng Nhập Người Chơi</h2>
-                <input type="text" id="player-id" placeholder="Tên đăng nhập" required>
-                <input type="password" id="player-pass" placeholder="Mật khẩu" required>
-                <button id="player-login-btn">Vào Làng</button>
-            </div>
+                
+                <!-- Bỏ ô Tên đăng nhập, thay bằng ô ID Phòng -->
+                <div class="form-group">
+                    <label for="player-password">Mật khẩu</label>
+                    <input type="password" id="player-password" placeholder="Nhập mật khẩu của bạn" required>
+                </div>
+                <div class="form-group">
+                    <label for="room-id">ID Phòng</label>
+                    <input type="text" id="room-id" placeholder="Nhập ID phòng để vào" required>
+                </div>
+                
+                <button type="submit" id="player-login-btn">Vào Làng</button>
+            </form>
 
-            <div class="form-container" id="admin-login-form">
+            <hr> <!-- Thêm một đường kẻ để phân tách rõ ràng -->
+
+            <!-- ===== FORM ĐĂNG NHẬP QUẢN TRÒ ===== -->
+            <form class="form-container" id="admin-login-form">
                 <h2><span class="icon">👑</span>Đăng Nhập Quản Trò</h2>
-                <input type="password" id="admin-pass" placeholder="Mật khẩu quản trò" required>
-                <button id="admin-login-btn">Mở Phòng</button>
-            </div>
-             <p id="error-message" class="error-message"></p>
+                <div class="form-group">
+                    <label for="admin-pass">Mật khẩu quản trò</label>
+                    <input type="password" id="admin-pass" placeholder="Mật khẩu bí mật của quản trò" required>
+                </div>
+                <button type="submit" id="admin-login-btn">Mở Phòng</button>
+            </form>
+            
+            <p id="error-message" class="error-message"></p>
         </div>
     </div>
     <script src="script.js"></script>

@@ -1,48 +1,76 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // ▼▼▼ DÁN URL WEB APP BẠN ĐÃ COPY Ở BƯỚC 1 VÀO ĐÂY ▼▼▼
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwkZ89fOwgF0TNk14C4wtIlh1Up7vbzHxEbm06jB4QrOT1YoognMx8WMfg0H5aEnz9y1A/exec"; 
-
-    const adminLoginBtn = document.getElementById('admin-login-btn');
-    const playerLoginBtn = document.getElementById('player-login-btn');
+    const playerLoginForm = document.getElementById('player-login-form');
+    const adminLoginForm = document.getElementById('admin-login-form');
     const errorMessage = document.getElementById('error-message');
-    const ADMIN_PASSWORD = 'quenmatroi';
+    
+    // Mật khẩu để vào trang admin, bạn có thể thay đổi
+    const ADMIN_PASSWORD = 'quenmatroi'; 
 
-    adminLoginBtn.addEventListener('click', () => {
+    // --- XỬ LÝ ĐĂNG NHẬP QUẢN TRÒ ---
+    adminLoginForm.addEventListener('submit', (event) => {
+        event.preventDefault(); // Ngăn form tự gửi đi
         const adminPass = document.getElementById('admin-pass').value;
         if (adminPass === ADMIN_PASSWORD) {
-            localStorage.setItem('userType', 'admin');
+            // Không cần lưu userType, chỉ cần chuyển trang
             window.location.href = 'admin.html';
         } else {
-            errorMessage.textContent = 'Mật khẩu quản trò không đúng!';
+            showError('Mật khẩu quản trò không đúng!');
         }
     });
 
-    playerLoginBtn.addEventListener('click', async () => {
-        const playerId = document.getElementById('player-id').value;
-        const playerPass = document.getElementById('player-pass').value;
-        errorMessage.textContent = 'Đang kiểm tra...';
+    // --- XỬ LÝ ĐĂNG NHẬP NGƯỜI CHƠI (LOGIC MỚI) ---
+    playerLoginForm.addEventListener('submit', async (event) => {
+        event.preventDefault(); // Ngăn form tự gửi đi
 
-        if (!playerId || !playerPass) {
-            errorMessage.textContent = 'Vui lòng nhập đủ tên và mật khẩu!';
+        const passwordInput = document.getElementById('player-password');
+        const roomIdInput = document.getElementById('room-id');
+        const submitButton = playerLoginForm.querySelector('button');
+
+        const password = passwordInput.value.trim();
+        const roomId = roomIdInput.value.trim();
+
+        if (!password || !roomId) {
+            showError('Vui lòng nhập đủ mật khẩu và ID phòng.');
             return;
         }
 
-        try {
-            const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getPlayers`);
-            const players = await response.json();
-            const foundPlayer = players.find(p => p.Username === playerId && p.Password.toString() === playerPass);
+        showError(''); // Xóa lỗi cũ
+        submitButton.disabled = true;
+        submitButton.textContent = 'Đang kiểm tra...';
 
-            if (foundPlayer) {
-                errorMessage.textContent = '';
-                localStorage.setItem('userType', 'player');
-                localStorage.setItem('playerName', playerId);
-                window.location.href = 'player.html';
-            } else {
-                errorMessage.textContent = 'Tên đăng nhập hoặc mật khẩu không đúng!';
+        try {
+            // Gọi đến API Route mới để xác thực mật khẩu
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password })
+            });
+
+            const data = await response.json();
+
+            if (!data.success) {
+                // Nếu API trả về lỗi (sai mật khẩu, lỗi server)
+                throw new Error(data.message || 'Có lỗi xảy ra khi đăng nhập.');
             }
+
+            // Đăng nhập thành công, API trả về username
+            const username = data.username;
+
+            // Lưu thông tin cần thiết để trang player.html sử dụng
+            localStorage.setItem('playerName', username);
+            localStorage.setItem('roomId', roomId);
+            
+            // Chuyển hướng đến trang người chơi
+            window.location.href = 'player.html';
+
         } catch (error) {
-            console.error('Error authenticating player:', error);
-            errorMessage.textContent = 'Lỗi kết nối, vui lòng thử lại.';
+            showError(error.message);
+            submitButton.disabled = false;
+            submitButton.textContent = 'Vào Làng';
         }
     });
+
+    function showError(message) {
+        errorMessage.textContent = message;
+    }
 });
