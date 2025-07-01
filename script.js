@@ -1,16 +1,15 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // ▼▼▼ DÁN URL WEB APP BẠN ĐÃ COPY Ở BƯỚC 1 VÀO ĐÂY ▼▼▼
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz_U1kIxDiJUqkLOpB51fVhR7iX8edcOmxyNimcOTwGNLZOsEYrrPU0oLSgtHGIo9pRaQ/exec"; 
+
     const adminLoginBtn = document.getElementById('admin-login-btn');
     const playerLoginBtn = document.getElementById('player-login-btn');
     const errorMessage = document.getElementById('error-message');
-
-    // Mật khẩu quản trò
     const ADMIN_PASSWORD = 'quenmatroi';
 
-    // Xử lý đăng nhập quản trò
     adminLoginBtn.addEventListener('click', () => {
         const adminPass = document.getElementById('admin-pass').value;
         if (adminPass === ADMIN_PASSWORD) {
-            // Lưu trạng thái đăng nhập và chuyển hướng
             localStorage.setItem('userType', 'admin');
             window.location.href = 'admin.html';
         } else {
@@ -18,26 +17,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Xử lý đăng nhập người chơi
-    playerLoginBtn.addEventListener('click', () => {
+    playerLoginBtn.addEventListener('click', async () => {
         const playerId = document.getElementById('player-id').value;
         const playerPass = document.getElementById('player-pass').value;
+        errorMessage.textContent = 'Đang kiểm tra...';
 
         if (!playerId || !playerPass) {
             errorMessage.textContent = 'Vui lòng nhập đủ tên và mật khẩu!';
             return;
         }
 
-        // TODO: Tích hợp Google Sheet để xác thực
-        // Giả lập xác thực thành công để phát triển
-        console.log(`Đang xác thực người chơi: ${playerId}`);
-        
-        // Lưu thông tin người chơi và chuyển hướng
-        localStorage.setItem('userType', 'player');
-        localStorage.setItem('playerName', playerId);
-        window.location.href = 'player.html';
+        try {
+            const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getPlayers`);
+            const players = await response.json();
+            const foundPlayer = players.find(p => p.Username === playerId && p.Password.toString() === playerPass);
 
-        // Nếu xác thực thất bại từ Google Sheet
-        // errorMessage.textContent = 'Tên hoặc mật khẩu người chơi không đúng!';
+            if (foundPlayer) {
+                errorMessage.textContent = '';
+                localStorage.setItem('userType', 'player');
+                localStorage.setItem('playerName', playerId);
+                window.location.href = 'player.html';
+            } else {
+                errorMessage.textContent = 'Tên đăng nhập hoặc mật khẩu không đúng!';
+            }
+        } catch (error) {
+            console.error('Error authenticating player:', error);
+            errorMessage.textContent = 'Lỗi kết nối, vui lòng thử lại.';
+        }
     });
 });

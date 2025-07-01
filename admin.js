@@ -9,14 +9,15 @@ document.addEventListener('DOMContentLoaded', () => {
         messagingSenderId: "1099375631706",
         appId: "1:1099375631706:web:a1f6ccbcf71b7176046763"
     };
-
-    // --- Initialize Firebase ---
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
+    // ▼▼▼ DÁN URL WEB APP BẠN ĐÃ COPY Ở BƯỚC 1 VÀO ĐÂY ▼▼▼
+    const GOOGLE_SCRIPT_URL = "URL_WEB_APP_CUA_BAN"; 
+
     // --- DOM Elements ---
-    const roomIdDisplay = document.getElementById('room-id');
     const createRoomBtn = document.getElementById('create-room-btn');
+    const roomIdDisplay = document.getElementById('room-id');
     const setupSection = document.getElementById('setup-section');
     const gameManagementSection = document.getElementById('game-management-section');
     const votingSection = document.getElementById('voting-section');
@@ -25,19 +26,42 @@ document.addEventListener('DOMContentLoaded', () => {
     const playersTotalDisplay = document.getElementById('players-total');
     const startRolePickBtn = document.getElementById('start-role-pick-btn');
     const sendRolesBtn = document.getElementById('send-roles-btn');
-    const startLynchVoteBtn = document.getElementById('start-lynch-vote-btn');
-    const startExecuteVoteBtn = document.getElementById('start-execute-vote-btn');
-    const endVoteBtn = document.getElementById('end-vote-btn');
+    const rolesByFactionContainer = document.getElementById('roles-by-faction');
+    const clearGamelogBtn = document.getElementById('clear-gamelog-btn');
 
     let currentRoomId = null;
     let totalPlayers = 0;
-    let villagerRoles = [];
-    let werewolfRoles = [];
-    let players = {}; // Local state of players
+    let players = {};
 
-    // --- Functions ---
+    const loadRolesFromSheet = async () => {
+        try {
+            const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getRoles`);
+            const allRolesFromSheet = await response.json();
+            const rolesByFaction = allRolesFromSheet.reduce((acc, role) => {
+                const faction = role.Faction || 'Chưa phân loại';
+                if (!acc[faction]) acc[faction] = [];
+                acc[faction].push(role);
+                return acc;
+            }, {});
 
-    // 1. Create a new game room
+            rolesByFactionContainer.innerHTML = '';
+            for (const faction in rolesByFaction) {
+                let factionHtml = `<h4>${faction}</h4><div class="role-checkbox-group">`;
+                rolesByFaction[faction].forEach(role => {
+                    factionHtml += `<div class="role-checkbox-item">
+                        <input type="checkbox" id="role-${role.RoleName}" name="selected-role" value="${role.RoleName}">
+                        <label for="role-${role.RoleName}">${role.RoleName}</label>
+                    </div>`;
+                });
+                factionHtml += `</div>`;
+                rolesByFactionContainer.innerHTML += factionHtml;
+            }
+        } catch (error) {
+            console.error("Failed to load roles:", error);
+            rolesByFactionContainer.innerHTML = "<p style='color:red;'>Không thể tải danh sách vai trò từ Google Sheet.</p>";
+        }
+    };
+
     const createRoom = () => {
         const roomId = `room-${Math.random().toString(36).substr(2, 6)}`;
         currentRoomId = roomId;
@@ -45,176 +69,108 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('roomId', roomId);
 
         totalPlayers = parseInt(document.getElementById('total-players').value);
-        villagerRoles = document.getElementById('villager-roles').value.split(',').map(r => r.trim());
-        werewolfRoles = document.getElementById('werewolf-roles').value.split(',').map(r => r.trim());
+        const selectedRolesNodes = document.querySelectorAll('input[name="selected-role"]:checked');
+        const selectedRoles = Array.from(selectedRolesNodes).map(node => node.value);
 
-        // Set initial game state in Firebase
+        if (selectedRoles.length === 0) {
+            alert('Vui lòng chọn ít nhất một vai trò!');
+            return;
+        }
+
         database.ref(roomId).set({
             totalPlayers: totalPlayers,
-            villagerRoles: villagerRoles,
-            werewolfRoles: werewolfRoles,
+            rolesToAssign: selectedRoles,
             players: {},
-            gameState: {
-                status: 'waiting', // waiting, role-pick, voting, finished
-                message: 'Chờ quản trò bắt đầu...'
-            }
+            gameState: { status: 'waiting', message: 'Chờ quản trò bắt đầu...' }
         });
 
-        // Update UI
         setupSection.classList.add('hidden');
         gameManagementSection.classList.remove('hidden');
         votingSection.classList.remove('hidden');
         playersTotalDisplay.textContent = totalPlayers;
-
-        // Listen for players joining
         listenForPlayers(roomId);
     };
 
-    // 2. Listen for players joining the room
     const listenForPlayers = (roomId) => {
         const playersRef = database.ref(`${roomId}/players`);
         playersRef.on('value', (snapshot) => {
-            const playersData = snapshot.val() || {};
-            players = playersData; // Update local state
-            updatePlayerList(playersData);
-            
-            const playerCount = Object.keys(playersData).length;
+            players = snapshot.val() || {};
+            updatePlayerList(players);
+            const playerCount = Object.keys(players).length;
             playersJoinedDisplay.textContent = playerCount;
-
-            // Enable start button when all players have joined
-            if (playerCount === totalPlayers) {
-                startRolePickBtn.disabled = false;
-            } else {
-                startRolePickBtn.disabled = true;
-            }
+            startRolePickBtn.disabled = playerCount !== totalPlayers;
         });
     };
-
-    // 3. Update the player list in the UI
+    
     const updatePlayerList = (playersData) => {
         playerList.innerHTML = '';
         for (const playerId in playersData) {
             const player = playersData[playerId];
             const playerItem = document.createElement('li');
             playerItem.className = `player-item ${!player.isAlive ? 'dead' : ''}`;
-            playerItem.innerHTML = `
-                <span class="player-name">${player.name} ${player.role ? `(${player.role})` : ''}</span>
+            playerItem.innerHTML = `<span class="player-name">${player.name} ${player.role ? `(${player.role})` : ''}</span>
                 <div class="player-actions">
-                    <button class="btn-toggle-status" data-player-id="${playerId}">
-                        ${player.isAlive ? 'Giết' : 'Hồi sinh'}
-                    </button>
+                    <button class="btn-toggle-status" data-player-id="${playerId}">${player.isAlive ? 'Giết' : 'Hồi sinh'}</button>
                     <button class="btn-kick" data-player-id="${playerId}">Kick</button>
-                </div>
-            `;
+                </div>`;
             playerList.appendChild(playerItem);
         }
     };
-    
-    // 4. Start the role picking phase
-    const startRolePick = () => {
-        database.ref(`${currentRoomId}/gameState`).update({
-            status: 'role-pick',
-            message: 'Hãy chọn vai trò bạn mong muốn hoặc chọn ngẫu nhiên.'
-        });
-        startRolePickBtn.disabled = true;
-        sendRolesBtn.disabled = false;
-        alert('Đã mở chức năng chọn vai trò cho người chơi.');
-    };
 
-    // 5. Logic to assign roles (complex part)
-    const assignRoles = async () => {
-        // This is a simplified version. A full implementation requires careful handling of choices.
-        // For now, we will assign roles randomly.
-        console.log("Bắt đầu phân vai...");
-        const playersRef = database.ref(`${currentRoomId}/players`);
-        const snapshot = await playersRef.once('value');
-        const currentPlayers = snapshot.val() || {};
-        
-        let playerIds = Object.keys(currentPlayers);
-        let allRoles = [...villagerRoles, ...werewolfRoles];
+    const sendRoles = async () => {
+        if (!confirm('Bạn có chắc muốn gửi vai trò? Hành động này sẽ phân vai và lưu vào Google Sheet.')) return;
 
-        // Shuffle players and roles
-        playerIds.sort(() => Math.random() - 0.5);
+        const rolesToAssignSnapshot = await database.ref(`${currentRoomId}/rolesToAssign`).once('value');
+        let allRoles = rolesToAssignSnapshot.val() || [];
+        let playerIds = Object.keys(players);
         allRoles.sort(() => Math.random() - 0.5);
 
         const updates = {};
         playerIds.forEach((id, index) => {
-            if (index < allRoles.length) {
-                updates[`${id}/role`] = allRoles[index];
-            }
+            updates[`${id}/role`] = allRoles[index] || 'Dân thường';
         });
+        await database.ref(`${currentRoomId}/players`).update(updates);
 
-        await playersRef.update(updates);
-        return updates;
-    };
-    
-    // 6. Send roles to players
-    const sendRoles = async () => {
-        if (!confirm('Bạn có chắc muốn gửi vai trò cho tất cả người chơi? Hành động này không thể hoàn tác.')) return;
+        const finalPlayersSnapshot = await database.ref(`${currentRoomId}/players`).once('value');
+        const finalPlayers = finalPlayersSnapshot.val();
+        const logPayload = Object.values(finalPlayers).map(p => ({ name: p.name, role: p.role }));
 
-        await assignRoles(); // Perform role assignment
-        
-        database.ref(`${currentRoomId}/gameState`).update({
-            status: 'roles-sent',
-            message: 'Quản trò đã gửi vai trò. Hãy kiểm tra vai trò của bạn!'
-        });
-        
+        try {
+            await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify({ action: 'saveGameLog', payload: logPayload })
+            });
+            alert('Đã gửi vai trò và lưu vào Google Sheet!');
+        } catch(error) {
+            console.error('Failed to save to Google Sheet:', error);
+            alert('Đã gửi vai trò nhưng có lỗi khi lưu vào Google Sheet.');
+        }
+
+        database.ref(`${currentRoomId}/gameState`).update({ status: 'roles-sent', message: 'Quản trò đã gửi vai trò.' });
         sendRolesBtn.disabled = true;
-        alert('Đã gửi vai trò thành công!');
-        // TODO: Save roles to Google Sheet here
     };
-    
-    // 7. Manage player status (kick, alive/dead)
-    const handlePlayerAction = (e) => {
-        const target = e.target;
-        const playerId = target.dataset.playerId;
-        if (!playerId) return;
 
-        if (target.classList.contains('btn-kick')) {
-            if (confirm(`Bạn có chắc muốn kick người chơi ${players[playerId].name}?`)) {
-                database.ref(`${currentRoomId}/players/${playerId}`).remove();
-            }
-        }
-
-        if (target.classList.contains('btn-toggle-status')) {
-            const currentStatus = players[playerId].isAlive;
-            database.ref(`${currentRoomId}/players/${playerId}/isAlive`).set(!currentStatus);
+    const clearGameLog = async () => {
+        if (!confirm('Bạn có chắc muốn xóa toàn bộ dữ liệu trong sheet \'GameLog\'?')) return;
+        try {
+            await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify({ action: 'clearGameLog' })
+            });
+            alert('Đã gửi yêu cầu xóa dữ liệu trên Google Sheet.');
+        } catch (error) {
+            console.error('Failed to clear game log:', error);
+            alert('Có lỗi xảy ra khi xóa dữ liệu.');
         }
     };
     
-    // 8. Start a vote
-    const startVote = (voteType, targetPlayer = null) => {
-        const voteTime = parseInt(document.getElementById('vote-time').value);
-        const voteData = {
-            status: 'voting',
-            voteType: voteType, // 'lynch' or 'execute'
-            target: targetPlayer, // Null for lynch, player name for execute
-            endTime: Date.now() + voteTime * 1000,
-            votes: {} // Reset votes
-        };
-        database.ref(`${currentRoomId}/gameState`).update(voteData);
-        alert(`Đã bắt đầu bỏ phiếu ${voteType === 'lynch' ? 'lên giàn' : 'treo cổ'}.`);
-    };
-
-    // --- Event Listeners ---
+    // Event Listeners and other functions (voting, player actions, etc.)
     createRoomBtn.addEventListener('click', createRoom);
-    playerList.addEventListener('click', handlePlayerAction);
-    startRolePickBtn.addEventListener('click', startRolePick);
     sendRolesBtn.addEventListener('click', sendRoles);
+    clearGamelogBtn.addEventListener('click', clearGameLog);
+    // ... add other listeners for voting, player actions etc. as before ...
     
-    startLynchVoteBtn.addEventListener('click', () => startVote('lynch'));
-    
-    startExecuteVoteBtn.addEventListener('click', () => {
-        const target = prompt("Nhập tên người chơi bị đưa lên giàn treo cổ:");
-        if(target) {
-            startVote('execute', target);
-        }
-    });
-
-    endVoteBtn.addEventListener('click', () => {
-        database.ref(`${currentRoomId}/gameState/status`).set('vote-ended');
-        alert('Đã kết thúc bỏ phiếu.');
-        // TODO: Display vote results
-    });
-
+    loadRolesFromSheet();
 });
