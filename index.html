@@ -13,34 +13,39 @@
             <h1>Board Game Ma Sói</h1>
             <p class="subtitle">Chào mừng bạn đến với đêm ma sói kinh hoàng!</p>
 
-            <!-- ===== FORM ĐĂNG NHẬP NGƯỜI CHƠI (ĐÃ SỬA) ===== -->
-            <form class="form-container" id="player-login-form">
-                <h2><span class="icon">🧑</span>Đăng Nhập Người Chơi</h2>
-                
-                <!-- Bỏ ô Tên đăng nhập, thay bằng ô ID Phòng -->
-                <div class="form-group">
-                    <label for="player-password">Mật khẩu</label>
-                    <input type="password" id="player-password" placeholder="Nhập mật khẩu của bạn" required>
-                </div>
-                <div class="form-group">
-                    <label for="room-id">ID Phòng</label>
-                    <input type="text" id="room-id" placeholder="Nhập ID phòng để vào" required>
-                </div>
-                
-                <button type="submit" id="player-login-btn">Vào Làng</button>
-            </form>
+            <!-- ===== KHU VỰC ĐĂNG NHẬP (HIỂN THỊ BAN ĐẦU) ===== -->
+            <div id="login-forms-container">
+                <form class="form-container" id="player-login-form">
+                    <h2><span class="icon">🧑</span>Đăng Nhập Người Chơi</h2>
+                    <div class="form-group">
+                        <label for="player-password">Mật khẩu</label>
+                        <input type="password" id="player-password" placeholder="Nhập mật khẩu của bạn" required>
+                    </div>
+                    <button type="submit" id="player-login-btn">Đăng Nhập</button>
+                </form>
 
-            <hr> <!-- Thêm một đường kẻ để phân tách rõ ràng -->
+                <hr>
 
-            <!-- ===== FORM ĐĂNG NHẬP QUẢN TRÒ ===== -->
-            <form class="form-container" id="admin-login-form">
-                <h2><span class="icon">👑</span>Đăng Nhập Quản Trò</h2>
-                <div class="form-group">
-                    <label for="admin-pass">Mật khẩu quản trò</label>
-                    <input type="password" id="admin-pass" placeholder="Mật khẩu bí mật của quản trò" required>
+                <form class="form-container" id="admin-login-form">
+                    <h2><span class="icon">👑</span>Đăng Nhập Quản Trò</h2>
+                    <div class="form-group">
+                        <label for="admin-pass">Mật khẩu quản trò</label>
+                        <input type="password" id="admin-pass" placeholder="Mật khẩu bí mật" required>
+                    </div>
+                    <button type="submit" id="admin-login-btn">Mở Phòng</button>
+                </form>
+            </div>
+
+            <!-- ===== KHU VỰC CHỌN PHÒNG (BAN ĐẦU BỊ ẨN) ===== -->
+            <div id="room-selection-container" class="hidden">
+                <h2 id="welcome-player">Chào mừng bạn!</h2>
+                <p>Vui lòng chọn một phòng để tham gia:</p>
+                <div id="room-list">
+                    <!-- Danh sách phòng sẽ được chèn vào đây -->
+                    <p>Đang tìm các phòng khả dụng...</p>
                 </div>
-                <button type="submit" id="admin-login-btn">Mở Phòng</button>
-            </form>
+                <button id="logout-btn">Đăng xuất</button>
+            </div>
             
             <p id="error-message" class="error-message"></p>
         </div>
