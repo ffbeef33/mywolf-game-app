@@ -14,28 +14,32 @@
             <p>Phòng Game ID: <strong id="room-id-display">Chưa tạo</strong></p>
         </header>
 
-        <!-- Khu vực thiết lập game, sẽ bị ẩn sau khi tạo phòng -->
+        <!-- Khu vực thiết lập game, đã được thiết kế lại -->
         <div class="card" id="setup-section">
             <h2>1. Thiết Lập Ván Chơi Mới</h2>
-            <div class="form-group">
-                <label for="total-players">Tổng số người chơi:</label>
-                <input type="number" id="total-players" min="5" value="10">
+
+            <!-- Khu vực chọn người chơi tham gia -->
+            <div class="form-group" id="player-selection-section">
+                <h3>Chọn người chơi tham gia:</h3>
+                <div id="player-list-container">
+                    <p>Đang tải danh sách người chơi...</p>
+                </div>
             </div>
             
+            <!-- Khu vực chọn các vai trò cho game -->
             <div class="form-group" id="roles-selection-container">
-                <p>Chọn các vai trò sẽ có trong game (lấy từ Google Sheet):</p>
+                <h3>Chọn các vai trò:</h3>
                 <div id="roles-by-faction">
                     <p>Đang tải danh sách vai trò...</p>
                 </div>
             </div>
 
-            <!-- ===== PHẦN ĐƯỢC THÊM MỚI ===== -->
+            <!-- Khu vực kiểm đếm -->
             <div class="form-group" id="role-counter-container">
-                <p id="role-count-display">Đã chọn: 0 / 10 vai trò</p>
+                <p id="role-count-display">Người chơi: 0 | Vai trò: 0</p>
             </div>
-            <!-- =============================== -->
 
-            <button id="create-room-btn">Tạo Phòng Chơi</button>
+            <button id="create-room-btn" disabled>Tạo Phòng Chơi</button>
         </div>
 
         <!-- Khu vực quản lý phòng đang hoạt động -->
@@ -44,15 +48,15 @@
             
             <!-- Hiển thị các vai trò đã chọn -->
             <div class="room-info-section">
-                <h3>Các vai trò trong game:</h3>
+                <h3>Các vai trò trong game (<span id="roles-total">0</span>):</h3>
                 <ul id="roles-in-game-list">
                     <!-- Các vai trò sẽ được thêm vào đây bằng JS -->
                 </ul>
             </div>
 
-            <!-- Hiển thị danh sách người chơi -->
+            <!-- Hiển thị danh sách người chơi đã được chọn -->
             <div class="room-info-section">
-                <h3>Danh sách người chơi (<span id="players-joined">0</span>/<span id="players-total">0</span>):</h3>
+                <h3>Danh sách người chơi (<span id="players-total">0</span>):</h3>
                 <ul id="player-list">
                     <!-- Danh sách người chơi sẽ được thêm vào đây bằng JS -->
                 </ul>
@@ -60,7 +64,7 @@
             
             <!-- Các nút hành động -->
             <div class="action-buttons">
-                <button id="send-roles-btn" disabled>Gửi Vai Trò & Lưu Log</button>
+                <button id="send-roles-btn">Gửi Vai Trò & Lưu Log</button>
                 <button id="clear-gamelog-btn" class="btn-secondary">Xóa Log Sheet</button>
                 <button id="delete-room-btn" class="btn-danger">Xóa Phòng Này</button>
             </div>
