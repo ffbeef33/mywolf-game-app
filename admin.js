@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Firebase Configuration ---
+    // --- Firebase & Google Script Configuration ---
     const firebaseConfig = {
         apiKey: "AIzaSyAYUuNxsYWI59ahvjKHZujKyTfi95DzNwU",
         authDomain: "mywolf-game.firebaseapp.com",
@@ -11,32 +11,38 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
-
-    // ▼▼▼ DÁN URL WEB APP BẠN ĐÃ COPY Ở BƯỚC 1 VÀO ĐÂY ▼▼▼
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz_U1kIxDiJUqkLOpB51fVhR7iX8edcOmxyNimcOTwGNLZOsEYrrPU0oLSgtHGIo9pRaQ/exec"; 
+    
+    // Đảm bảo bạn đã dán đúng URL Web App của mình vào đây
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx_F8qGg0bE5r8y_k7W6v0s5z4xZ9x_7j3n6lR9o1c/exec"; 
 
     // --- DOM Elements ---
-    const createRoomBtn = document.getElementById('create-room-btn');
-    const roomIdDisplay = document.getElementById('room-id');
     const setupSection = document.getElementById('setup-section');
-    const gameManagementSection = document.getElementById('game-management-section');
-    const votingSection = document.getElementById('voting-section');
+    const activeRoomSection = document.getElementById('active-room-section');
+    const createRoomBtn = document.getElementById('create-room-btn');
+    const roomIdDisplay = document.getElementById('room-id-display');
+    const rolesByFactionContainer = document.getElementById('roles-by-faction');
+    const rolesInGameList = document.getElementById('roles-in-game-list');
     const playerList = document.getElementById('player-list');
     const playersJoinedDisplay = document.getElementById('players-joined');
     const playersTotalDisplay = document.getElementById('players-total');
-    const startRolePickBtn = document.getElementById('start-role-pick-btn');
     const sendRolesBtn = document.getElementById('send-roles-btn');
-    const rolesByFactionContainer = document.getElementById('roles-by-faction');
     const clearGamelogBtn = document.getElementById('clear-gamelog-btn');
+    const deleteRoomBtn = document.getElementById('delete-room-btn');
 
     let currentRoomId = null;
     let totalPlayers = 0;
     let players = {};
+    let playerListener = null; // Biến để lưu listener, giúp ta ngắt kết nối khi cần
 
+    // --- Functions ---
+
+    // Hàm tải vai trò từ Google Sheet (giữ nguyên)
     const loadRolesFromSheet = async () => {
         try {
             const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getRoles`);
             const allRolesFromSheet = await response.json();
+            if (allRolesFromSheet.error) throw new Error(allRolesFromSheet.error);
+            
             const rolesByFaction = allRolesFromSheet.reduce((acc, role) => {
                 const faction = role.Faction || 'Chưa phân loại';
                 if (!acc[faction]) acc[faction] = [];
@@ -58,16 +64,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error("Failed to load roles:", error);
-            rolesByFactionContainer.innerHTML = "<p style='color:red;'>Không thể tải danh sách vai trò từ Google Sheet.</p>";
+            rolesByFactionContainer.innerHTML = `<p style='color:red;'>Lỗi tải vai trò: ${error.message}.</p>`;
         }
     };
 
+    // SỬA ĐỔI: Hàm tạo phòng
     const createRoom = () => {
-        const roomId = `room-${Math.random().toString(36).substr(2, 6)}`;
-        currentRoomId = roomId;
-        roomIdDisplay.textContent = roomId;
-        localStorage.setItem('roomId', roomId);
-
+        currentRoomId = `room-${Math.random().toString(36).substr(2, 6)}`;
+        roomIdDisplay.textContent = currentRoomId;
+        
         totalPlayers = parseInt(document.getElementById('total-players').value);
         const selectedRolesNodes = document.querySelectorAll('input[name="selected-role"]:checked');
         const selectedRoles = Array.from(selectedRolesNodes).map(node => node.value);
@@ -77,46 +82,60 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        database.ref(roomId).set({
+        database.ref(currentRoomId).set({
             totalPlayers: totalPlayers,
             rolesToAssign: selectedRoles,
             players: {},
-            gameState: { status: 'waiting', message: 'Chờ quản trò bắt đầu...' }
+            gameState: { status: 'waiting', message: 'Chờ người chơi tham gia...' }
         });
 
+        // Cập nhật giao diện
         setupSection.classList.add('hidden');
-        gameManagementSection.classList.remove('hidden');
-        votingSection.classList.remove('hidden');
-        playersTotalDisplay.textContent = totalPlayers;
-        listenForPlayers(roomId);
-    };
+        activeRoomSection.classList.remove('hidden');
+        
+        // Hiển thị các vai trò đã chọn trong khu vực quản lý
+        rolesInGameList.innerHTML = '';
+        selectedRoles.forEach(role => {
+            const li = document.createElement('li');
+            li.textContent = role;
+            rolesInGameList.appendChild(li);
+        });
 
+        playersTotalDisplay.textContent = totalPlayers;
+        listenForPlayers(currentRoomId);
+    };
+    
+    // Hàm lắng nghe người chơi tham gia (giữ nguyên)
     const listenForPlayers = (roomId) => {
         const playersRef = database.ref(`${roomId}/players`);
-        playersRef.on('value', (snapshot) => {
+        // Ngắt listener cũ nếu có
+        if (playerListener) playersRef.off('value', playerListener);
+        
+        playerListener = playersRef.on('value', (snapshot) => {
             players = snapshot.val() || {};
-            updatePlayerList(players);
+            updatePlayerListUI(players);
             const playerCount = Object.keys(players).length;
             playersJoinedDisplay.textContent = playerCount;
-            startRolePickBtn.disabled = playerCount !== totalPlayers;
+            sendRolesBtn.disabled = playerCount !== totalPlayers;
         });
     };
     
-    const updatePlayerList = (playersData) => {
+    // Hàm cập nhật danh sách người chơi trên UI (giữ nguyên)
+    const updatePlayerListUI = (playersData) => {
         playerList.innerHTML = '';
         for (const playerId in playersData) {
             const player = playersData[playerId];
-            const playerItem = document.createElement('li');
-            playerItem.className = `player-item ${!player.isAlive ? 'dead' : ''}`;
-            playerItem.innerHTML = `<span class="player-name">${player.name} ${player.role ? `(${player.role})` : ''}</span>
-                <div class="player-actions">
-                    <button class="btn-toggle-status" data-player-id="${playerId}">${player.isAlive ? 'Giết' : 'Hồi sinh'}</button>
-                    <button class="btn-kick" data-player-id="${playerId}">Kick</button>
-                </div>`;
-            playerList.appendChild(playerItem);
+            const li = document.createElement('li');
+            li.className = 'player-item';
+            // Thêm class 'dead' nếu người chơi đã chết
+            if (!player.isAlive) li.classList.add('dead');
+            
+            li.innerHTML = `<span class="player-name">${player.name} ${player.role ? `<strong>(${player.role})</strong>` : ''}</span>`;
+            playerList.appendChild(li);
         }
     };
 
+    // Hàm gửi vai trò (giữ nguyên)
     const sendRoles = async () => {
         if (!confirm('Bạn có chắc muốn gửi vai trò? Hành động này sẽ phân vai và lưu vào Google Sheet.')) return;
 
@@ -151,8 +170,9 @@ document.addEventListener('DOMContentLoaded', () => {
         sendRolesBtn.disabled = true;
     };
 
+    // Hàm xóa log trên Google Sheet (giữ nguyên)
     const clearGameLog = async () => {
-        if (!confirm('Bạn có chắc muốn xóa toàn bộ dữ liệu trong sheet \'GameLog\'?')) return;
+        if (!confirm('Hành động này chỉ xóa dữ liệu trong sheet \'GameLog\'. Bạn có chắc muốn tiếp tục?')) return;
         try {
             await fetch(GOOGLE_SCRIPT_URL, {
                 method: 'POST',
@@ -165,12 +185,58 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Có lỗi xảy ra khi xóa dữ liệu.');
         }
     };
-    
-    // Event Listeners and other functions (voting, player actions, etc.)
+
+    // HÀM MỚI: Xóa phòng khỏi Firebase và reset giao diện
+    const deleteRoom = () => {
+        if (!currentRoomId) {
+            alert("Không có phòng nào để xóa.");
+            return;
+        }
+        if (!confirm(`Bạn có chắc muốn xóa vĩnh viễn phòng '${currentRoomId}'? Tất cả dữ liệu của phòng này trên Firebase sẽ bị mất.`)) return;
+
+        // Ngắt kết nối listener để tránh lỗi
+        if (playerListener) {
+            database.ref(`${currentRoomId}/players`).off('value', playerListener);
+            playerListener = null;
+        }
+
+        // Xóa dữ liệu trên Firebase
+        database.ref(currentRoomId).remove()
+            .then(() => {
+                alert(`Phòng '${currentRoomId}' đã được xóa thành công.`);
+                // Reset giao diện về trạng thái ban đầu
+                resetAdminUI();
+            })
+            .catch((error) => {
+                alert("Có lỗi xảy ra khi xóa phòng: " + error.message);
+                console.error("Error deleting room: ", error);
+            });
+    };
+
+    // HÀM MỚI: Reset giao diện về trạng thái ban đầu
+    const resetAdminUI = () => {
+        currentRoomId = null;
+        players = {};
+        totalPlayers = 0;
+        
+        roomIdDisplay.textContent = "Chưa tạo";
+        activeRoomSection.classList.add('hidden');
+        setupSection.classList.remove('hidden');
+
+        // Xóa danh sách người chơi và vai trò cũ
+        playerList.innerHTML = '';
+        rolesInGameList.innerHTML = '';
+        playersJoinedDisplay.textContent = '0';
+        playersTotalDisplay.textContent = '0';
+    };
+
+
+    // --- Event Listeners ---
     createRoomBtn.addEventListener('click', createRoom);
     sendRolesBtn.addEventListener('click', sendRoles);
     clearGamelogBtn.addEventListener('click', clearGameLog);
-    // ... add other listeners for voting, player actions etc. as before ...
+    deleteRoomBtn.addEventListener('click', deleteRoom); // Gắn sự kiện cho nút xóa mới
     
+    // Tải vai trò ngay khi trang được mở
     loadRolesFromSheet();
 });
