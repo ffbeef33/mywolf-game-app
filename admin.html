@@ -14,11 +14,9 @@
             <p>Phòng Game ID: <strong id="room-id-display">Chưa tạo</strong></p>
         </header>
 
-        <!-- Khu vực thiết lập game, đã được thiết kế lại -->
         <div class="card" id="setup-section">
             <h2>1. Thiết Lập Ván Chơi Mới</h2>
 
-            <!-- Khu vực chọn người chơi tham gia -->
             <div class="form-group" id="player-selection-section">
                 <h3>Chọn người chơi tham gia:</h3>
                 <div id="player-list-container">
@@ -26,7 +24,6 @@
                 </div>
             </div>
             
-            <!-- Khu vực chọn các vai trò cho game -->
             <div class="form-group" id="roles-selection-container">
                 <h3>Chọn các vai trò:</h3>
                 <div id="roles-by-faction">
@@ -34,10 +31,18 @@
                 </div>
             </div>
 
-            <!-- Khu vực kiểm đếm -->
+            <!-- ===== BỘ ĐẾM ĐƯỢC NÂNG CẤP HOÀN TOÀN ===== -->
             <div class="form-group" id="role-counter-container">
-                <p id="role-count-display">Người chơi: 0 | Vai trò: 0</p>
+                <div id="role-count-display">
+                    <div><span class="icon">👥</span>Người chơi: <strong id="player-count">0</strong></div>
+                    <div><span class="icon">🐺</span>Bầy Sói: <strong id="wolf-pack-count">0</strong></div>
+                    <div><span class="icon">👨‍🌾</span>Phe Dân: <strong id="villager-faction-count">0</strong></div>
+                    <div><span class="icon">🔥</span>Phe Sói: <strong id="wolf-faction-count">0</strong></div>
+                    <div><span class="icon">❓</span>Phe Trung Lập: <strong id="neutral-faction-count">0</strong></div>
+                    <div><span class="icon">🃏</span>Tổng Vai Trò: <strong id="role-count">0</strong></div>
+                </div>
             </div>
+            <!-- ============================================= -->
 
             <button id="create-room-btn" disabled>Tạo Phòng Chơi</button>
         </div>
@@ -46,7 +51,6 @@
         <div class="card hidden" id="active-room-section">
             <h2>Quản Lý Phòng Hiện Tại</h2>
             
-            <!-- Hiển thị các vai trò đã chọn -->
             <div class="room-info-section">
                 <h3>Các vai trò trong game (<span id="roles-total">0</span>):</h3>
                 <ul id="roles-in-game-list">
@@ -54,7 +58,6 @@
                 </ul>
             </div>
 
-            <!-- Hiển thị danh sách người chơi đã được chọn -->
             <div class="room-info-section">
                 <h3>Danh sách người chơi (<span id="players-total">0</span>):</h3>
                 <ul id="player-list">
@@ -62,7 +65,6 @@
                 </ul>
             </div>
             
-            <!-- Các nút hành động -->
             <div class="action-buttons">
                 <button id="send-roles-btn">Gửi Vai Trò & Lưu Log</button>
                 <button id="clear-gamelog-btn" class="btn-secondary">Xóa Log Sheet</button>

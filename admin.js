@@ -1,6 +1,6 @@
 // =================================================================
-// === admin.js - PHIÊN BẢN CHỌN NGƯỜI CHƠI TRỰC TIẾP ===
-console.log("ĐANG CHẠY admin.js PHIÊN BẢN CHỌN NGƯỜI CHƠI TRỰC TIẾP!");
+// === admin.js - PHIÊN BẢN GIAO DIỆN NÂNG CAO ===
+console.log("ĐANG CHẠY admin.js PHIÊN BẢN GIAO DIỆN NÂNG CAO!");
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -26,9 +26,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const playerListContainer = document.getElementById('player-list-container');
     const roomIdDisplay = document.getElementById('room-id-display');
     const rolesByFactionContainer = document.getElementById('roles-by-faction');
-    const roleCountDisplay = document.getElementById('role-count-display');
+    const roleCounterContainer = document.getElementById('role-counter-container');
+    // Bộ đếm chi tiết
+    const playerCountEl = document.getElementById('player-count');
+    const wolfPackCountEl = document.getElementById('wolf-pack-count');
+    const villagerFactionCountEl = document.getElementById('villager-faction-count');
+    const wolfFactionCountEl = document.getElementById('wolf-faction-count');
+    const neutralFactionCountEl = document.getElementById('neutral-faction-count');
+    const roleCountEl = document.getElementById('role-count');
+    // Các elements khác
     const rolesInGameList = document.getElementById('roles-in-game-list');
-    const playerListUI = document.getElementById('player-list'); // Đổi tên để tránh xung đột
+    const playerListUI = document.getElementById('player-list');
     const rolesTotalDisplay = document.getElementById('roles-total');
     const playersTotalDisplay = document.getElementById('players-total');
     const sendRolesBtn = document.getElementById('send-roles-btn');
@@ -37,30 +45,77 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentRoomId = null;
     let playerListener = null;
+    let allRolesData = []; // Biến lưu trữ toàn bộ dữ liệu vai trò để tra cứu
 
     // --- Functions ---
 
     /**
-     * MỚI: Cập nhật bộ đếm người chơi và vai trò, kiểm tra hợp lệ
+     * NÂNG CẤP: Bộ đếm chi tiết với các phe phái
      */
     const updateCounters = () => {
         const totalPlayers = document.querySelectorAll('input[name="selected-player"]:checked').length;
-        
-        const checkedRolesCount = document.querySelectorAll('input[name="selected-role"]:checked').length;
-        const quantityInputs = document.querySelectorAll('input[name="quantity-role"]');
-        let quantityCount = 0;
-        quantityInputs.forEach(input => {
-            quantityCount += parseInt(input.value) || 0;
-        });
-        const totalRoles = checkedRolesCount + quantityCount;
 
-        roleCountDisplay.textContent = `Người chơi: ${totalPlayers} | Vai trò: ${totalRoles}`;
+        // Lấy danh sách tên tất cả các vai trò đã chọn
+        let selectedRoleNames = [];
+        document.querySelectorAll('input[name="selected-role"]:checked').forEach(node => {
+            selectedRoleNames.push(node.value);
+        });
+        document.querySelectorAll('input[name="quantity-role"]').forEach(input => {
+            const count = parseInt(input.value) || 0;
+            const roleName = input.dataset.roleName;
+            for (let i = 0; i < count; i++) {
+                selectedRoleNames.push(roleName);
+            }
+        });
+        const totalRoles = selectedRoleNames.length;
+
+        // Bắt đầu đếm phe phái và bầy sói
+        let counts = {
+            wolfPack: 0,
+            villagerFaction: 0,
+            wolfFaction: 0,
+            neutralFaction: 0,
+        };
+
+        selectedRoleNames.forEach(roleName => {
+            // Tìm thông tin đầy đủ của vai trò từ dữ liệu đã lưu
+            const roleData = allRolesData.find(r => r.RoleName === roleName);
+            if (roleData) {
+                // Đếm bầy sói (bất kỳ vai trò nào có chữ "Sói")
+                if (roleName.toLowerCase().includes('sói')) {
+                    counts.wolfPack++;
+                }
+                // Đếm phe dựa trên cột "Faction"
+                switch (roleData.Faction) {
+                    case 'Phe Dân':
+                        counts.villagerFaction++;
+                        break;
+                    case 'Phe Sói':
+                        counts.wolfFaction++;
+                        break;
+                    case 'Phe Trung Lập':
+                        counts.neutralFaction++;
+                        break;
+                }
+            }
+        });
+
+        // Cập nhật giao diện bộ đếm
+        playerCountEl.textContent = totalPlayers;
+        wolfPackCountEl.textContent = counts.wolfPack;
+        villagerFactionCountEl.textContent = counts.villagerFaction;
+        wolfFactionCountEl.textContent = counts.wolfFaction;
+        neutralFactionCountEl.textContent = counts.neutralFaction;
+        roleCountEl.textContent = totalRoles;
         
+        // Kiểm tra hợp lệ và đổi màu viền
         if (totalPlayers === totalRoles && totalPlayers > 0) {
-            roleCountDisplay.style.color = 'lime';
+            roleCounterContainer.classList.add('valid');
+            roleCounterContainer.classList.remove('invalid');
             createRoomBtn.disabled = false;
         } else {
-            roleCountDisplay.style.color = 'red';
+            roleCounterContainer.classList.add('invalid');
+            roleCounterContainer.classList.remove('valid');
             createRoomBtn.disabled = true;
         }
     };
@@ -74,10 +129,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error('Không thể tải danh sách người chơi.');
             const allPlayers = await response.json();
             
-            playerListContainer.innerHTML = ''; // Xóa thông báo "đang tải"
+            playerListContainer.innerHTML = '';
             let playerHtml = '<div class="player-checkbox-grid">';
             allPlayers.forEach(player => {
-                // Đảm bảo chỉ lấy người chơi có tên (Username)
                 if (player.Username) { 
                     playerHtml += `<div class="player-checkbox-item">
                         <input type="checkbox" id="player-${player.Username}" name="selected-player" value="${player.Username}">
@@ -95,16 +149,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     /**
-     * CHỈNH SỬA: Tải vai trò và ưu tiên Dân, Sói
+     * CHỈNH SỬA: Tải vai trò, lưu vào biến toàn cục và ưu tiên Dân, Sói
      */
     const loadRolesFromSheet = async () => {
         try {
             const response = await fetch(`${API_ENDPOINT}?sheetName=Roles`);
             if (!response.ok) throw new Error('Không thể tải danh sách vai trò.');
-            let allRolesFromSheet = await response.json();
+            allRolesData = await response.json(); // Lưu dữ liệu vào biến toàn cục
             
-            // Sắp xếp lại mảng, đưa Dân và Sói lên đầu
-            allRolesFromSheet.sort((a, b) => {
+            allRolesData.sort((a, b) => {
                 const aName = a.RoleName.toLowerCase();
                 const bName = b.RoleName.toLowerCase();
                 const priorityRoles = ['dân làng', 'dân', 'sói', 'sói thường', 'ma sói'];
@@ -117,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return 0;
             });
 
-            const rolesByFaction = allRolesFromSheet.reduce((acc, role) => {
+            const rolesByFaction = allRolesData.reduce((acc, role) => {
                 const faction = role.Faction || 'Chưa phân loại';
                 if (!acc[faction]) acc[faction] = [];
                 acc[faction].push(role);
@@ -146,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 factionHtml += `</div>`;
                 rolesByFactionContainer.innerHTML += factionHtml;
             }
-            updateCounters(); // Cập nhật bộ đếm sau khi render
+            updateCounters();
         } catch (error) {
             console.error("Lỗi tải vai trò:", error);
             rolesByFactionContainer.innerHTML = `<p style='color:red;'>Lỗi tải danh sách vai trò.</p>`;
@@ -243,7 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let allRoles = roomData.rolesToAssign;
         let playerIds = Object.keys(roomData.players);
 
-        allRoles.sort(() => Math.random() - 0.5); // Xáo trộn vai trò
+        allRoles.sort(() => Math.random() - 0.5);
 
         const updates = {};
         playerIds.forEach((id, index) => {
@@ -273,7 +326,20 @@ document.addEventListener('DOMContentLoaded', () => {
         sendRolesBtn.disabled = true;
     };
 
-    const clearGameLog = async () => { /* ... giữ nguyên logic cũ ... */ };
+    const clearGameLog = async () => {
+        if (!confirm('Bạn có chắc muốn xóa log game?')) return;
+        try {
+            await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'clearGameLog' })
+            });
+            alert('Đã gửi yêu cầu xóa log.');
+        } catch (error) {
+            console.error('Lỗi khi xóa log:', error);
+            alert('Có lỗi xảy ra khi xóa log.');
+        }
+    };
     
     const deleteRoom = () => {
         if (!currentRoomId || !confirm(`Bạn có chắc muốn xóa phòng '${currentRoomId}'?`)) return;
@@ -290,7 +356,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const resetAdminUI = () => {
-        // Bỏ check tất cả người chơi và vai trò
         document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
         document.querySelectorAll('input[type="number"]').forEach(num => num.value = 0);
         
@@ -312,7 +377,6 @@ document.addEventListener('DOMContentLoaded', () => {
     clearGamelogBtn.addEventListener('click', clearGameLog);
     deleteRoomBtn.addEventListener('click', deleteRoom);
     
-    // Gán sự kiện để gọi bộ đếm
     playerListContainer.addEventListener('change', updateCounters);
     rolesByFactionContainer.addEventListener('change', updateCounters);
     
