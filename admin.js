@@ -1,3 +1,8 @@
+// =================================================================
+// === admin.js - PHIÊN BẢN HOÀN THIỆN CHO PROXY ===
+console.log("ĐANG CHẠY admin.js PHIÊN BẢN HOÀN THIỆN!");
+// =================================================================
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- Firebase Configuration ---
     const firebaseConfig = {
@@ -12,9 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
     
-    // THAY ĐỔI QUAN TRỌNG: Chúng ta không cần URL Google Script ở đây nữa
-    // const GOOGLE_SCRIPT_URL = "URL_CŨ_CỦA_BẠN"; 
-    const API_PROXY_ENDPOINT = "/api/proxy"; // Đây là cầu nối trung gian của chúng ta
+    const API_PROXY_ENDPOINT = "/api/proxy"; 
 
     // --- DOM Elements ---
     const setupSection = document.getElementById('setup-section');
@@ -36,28 +39,21 @@ document.addEventListener('DOMContentLoaded', () => {
     let playerListener = null;
 
     // --- Functions ---
-
-    // THAY ĐỔI QUAN TRỌNG: Hàm tải vai trò giờ sẽ gọi đến proxy
     const loadRolesFromSheet = async () => {
         try {
-            // Gọi đến cầu nối trung gian thay vì gọi trực tiếp đến Google
             const response = await fetch(`${API_PROXY_ENDPOINT}?action=getRoles`);
-            
             if (!response.ok) {
-                 const errorData = await response.json();
-                 throw new Error(errorData.details || `Server responded with ${response.status}`);
+                 const errorData = await response.json().catch(() => ({ details: `Máy chủ proxy phản hồi với mã lỗi ${response.status}` }));
+                 throw new Error(errorData.details);
             }
-
             const allRolesFromSheet = await response.json();
             if (allRolesFromSheet.error) throw new Error(allRolesFromSheet.error);
-            
             const rolesByFaction = allRolesFromSheet.reduce((acc, role) => {
                 const faction = role.Faction || 'Chưa phân loại';
                 if (!acc[faction]) acc[faction] = [];
                 acc[faction].push(role);
                 return acc;
             }, {});
-
             rolesByFactionContainer.innerHTML = '';
             for (const faction in rolesByFaction) {
                 let factionHtml = `<h4>${faction}</h4><div class="role-checkbox-group">`;
@@ -71,52 +67,88 @@ document.addEventListener('DOMContentLoaded', () => {
                 rolesByFactionContainer.innerHTML += factionHtml;
             }
         } catch (error) {
-            console.error("Failed to load roles:", error);
+            console.error("Lỗi nghiêm trọng khi tải vai trò:", error);
             rolesByFactionContainer.innerHTML = `<p style='color:red;'>Lỗi tải vai trò: ${error.message}.</p>`;
         }
     };
 
-    // Các hàm còn lại giữ nguyên logic, chỉ cần thay đổi cách gọi fetch nếu cần
-    // (Trong trường hợp này, các hàm còn lại không gọi đến Google Script nên không cần sửa)
+    const sendRoles = async () => {
+        if (!confirm('Bạn có chắc muốn gửi vai trò và lưu log?')) return;
+        const rolesToAssignSnapshot = await database.ref(`${currentRoomId}/rolesToAssign`).once('value');
+        let allRoles = rolesToAssignSnapshot.val() || [];
+        let playerIds = Object.keys(players);
+        allRoles.sort(() => Math.random() - 0.5);
+        const updates = {};
+        playerIds.forEach((id, index) => {
+            updates[`${id}/role`] = allRoles[index] || 'Dân thường';
+        });
+        await database.ref(`${currentRoomId}/players`).update(updates);
+        const finalPlayersSnapshot = await database.ref(`${currentRoomId}/players`).once('value');
+        const finalPlayers = finalPlayersSnapshot.val();
+        const logPayload = Object.values(finalPlayers).map(p => ({ name: p.name, role: p.role }));
+        try {
+            // Gửi yêu cầu POST đúng chuẩn
+            await fetch(API_PROXY_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'saveGameLog', payload: logPayload })
+            });
+            alert('Đã gửi vai trò và lưu vào Google Sheet!');
+        } catch(error) {
+            console.error('Lỗi khi lưu vào Google Sheet:', error);
+            alert('Đã gửi vai trò nhưng có lỗi khi lưu vào Google Sheet.');
+        }
+        database.ref(`${currentRoomId}/gameState`).update({ status: 'roles-sent', message: 'Quản trò đã gửi vai trò.' });
+        sendRolesBtn.disabled = true;
+    };
 
+    const clearGameLog = async () => {
+        if (!confirm('Bạn có chắc muốn xóa log game?')) return;
+        try {
+            // Gửi yêu cầu POST đúng chuẩn
+            await fetch(API_PROXY_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'clearGameLog' })
+            });
+            alert('Đã gửi yêu cầu xóa log.');
+        } catch (error) {
+            console.error('Lỗi khi xóa log:', error);
+            alert('Có lỗi xảy ra khi xóa log.');
+        }
+    };
+
+    // Các hàm còn lại không thay đổi
     const createRoom = () => {
         currentRoomId = `room-${Math.random().toString(36).substr(2, 6)}`;
         roomIdDisplay.textContent = currentRoomId;
-        
         totalPlayers = parseInt(document.getElementById('total-players').value);
         const selectedRolesNodes = document.querySelectorAll('input[name="selected-role"]:checked');
         const selectedRoles = Array.from(selectedRolesNodes).map(node => node.value);
-
         if (selectedRoles.length === 0) {
             alert('Vui lòng chọn ít nhất một vai trò!');
             return;
         }
-
         database.ref(currentRoomId).set({
             totalPlayers: totalPlayers,
             rolesToAssign: selectedRoles,
             players: {},
             gameState: { status: 'waiting', message: 'Chờ người chơi tham gia...' }
         });
-
         setupSection.classList.add('hidden');
         activeRoomSection.classList.remove('hidden');
-        
         rolesInGameList.innerHTML = '';
         selectedRoles.forEach(role => {
             const li = document.createElement('li');
             li.textContent = role;
             rolesInGameList.appendChild(li);
         });
-
         playersTotalDisplay.textContent = totalPlayers;
         listenForPlayers(currentRoomId);
     };
-    
     const listenForPlayers = (roomId) => {
         const playersRef = database.ref(`${roomId}/players`);
         if (playerListener) playersRef.off('value', playerListener);
-        
         playerListener = playersRef.on('value', (snapshot) => {
             players = snapshot.val() || {};
             updatePlayerListUI(players);
@@ -125,7 +157,6 @@ document.addEventListener('DOMContentLoaded', () => {
             sendRolesBtn.disabled = playerCount !== totalPlayers;
         });
     };
-    
     const updatePlayerListUI = (playersData) => {
         playerList.innerHTML = '';
         for (const playerId in playersData) {
@@ -133,102 +164,38 @@ document.addEventListener('DOMContentLoaded', () => {
             const li = document.createElement('li');
             li.className = 'player-item';
             if (!player.isAlive) li.classList.add('dead');
-            
             li.innerHTML = `<span class="player-name">${player.name} ${player.role ? `<strong>(${player.role})</strong>` : ''}</span>`;
             playerList.appendChild(li);
         }
     };
-
-    // THAY ĐỔI: Hàm sendRoles và clearGameLog cần được cập nhật
-    const sendRoles = async () => {
-        if (!confirm('Bạn có chắc muốn gửi vai trò? Hành động này sẽ phân vai và lưu vào Google Sheet.')) return;
-
-        const rolesToAssignSnapshot = await database.ref(`${currentRoomId}/rolesToAssign`).once('value');
-        let allRoles = rolesToAssignSnapshot.val() || [];
-        let playerIds = Object.keys(players);
-        allRoles.sort(() => Math.random() - 0.5);
-
-        const updates = {};
-        playerIds.forEach((id, index) => {
-            updates[`${id}/role`] = allRoles[index] || 'Dân thường';
-        });
-        await database.ref(`${currentRoomId}/players`).update(updates);
-
-        const finalPlayersSnapshot = await database.ref(`${currentRoomId}/players`).once('value');
-        const finalPlayers = finalPlayersSnapshot.val();
-        const logPayload = Object.values(finalPlayers).map(p => ({ name: p.name, role: p.role }));
-
-        try {
-            // Gọi đến proxy thay vì gọi trực tiếp
-            await fetch(`${API_PROXY_ENDPOINT}?action=saveGameLog`, {
-                method: 'POST', // Chuyển phương thức POST qua proxy
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ payload: logPayload })
-            });
-            alert('Đã gửi vai trò và lưu vào Google Sheet!');
-        } catch(error) {
-            console.error('Failed to save to Google Sheet:', error);
-            alert('Đã gửi vai trò nhưng có lỗi khi lưu vào Google Sheet.');
-        }
-
-        database.ref(`${currentRoomId}/gameState`).update({ status: 'roles-sent', message: 'Quản trò đã gửi vai trò.' });
-        sendRolesBtn.disabled = true;
-    };
-
-    const clearGameLog = async () => {
-        if (!confirm('Hành động này chỉ xóa dữ liệu trong sheet \'GameLog\'. Bạn có chắc muốn tiếp tục?')) return;
-        try {
-            // Gọi đến proxy
-            await fetch(`${API_PROXY_ENDPOINT}?action=clearGameLog`, { method: 'POST' });
-            alert('Đã gửi yêu cầu xóa dữ liệu trên Google Sheet.');
-        } catch (error) {
-            console.error('Failed to clear game log:', error);
-            alert('Có lỗi xảy ra khi xóa dữ liệu.');
-        }
-    };
-
     const deleteRoom = () => {
-        if (!currentRoomId) {
-            alert("Không có phòng nào để xóa.");
-            return;
-        }
-        if (!confirm(`Bạn có chắc muốn xóa vĩnh viễn phòng '${currentRoomId}'?`)) return;
-
+        if (!currentRoomId || !confirm(`Bạn có chắc muốn xóa phòng '${currentRoomId}'?`)) return;
         if (playerListener) {
             database.ref(`${currentRoomId}/players`).off('value', playerListener);
             playerListener = null;
         }
-
         database.ref(currentRoomId).remove()
             .then(() => {
                 alert(`Phòng '${currentRoomId}' đã được xóa.`);
                 resetAdminUI();
             })
-            .catch((error) => {
-                alert("Lỗi khi xóa phòng: " + error.message);
-            });
+            .catch((error) => alert("Lỗi khi xóa phòng: " + error.message));
     };
-
     const resetAdminUI = () => {
         currentRoomId = null;
         players = {};
         totalPlayers = 0;
-        
         roomIdDisplay.textContent = "Chưa tạo";
         activeRoomSection.classList.add('hidden');
         setupSection.classList.remove('hidden');
-
         playerList.innerHTML = '';
         rolesInGameList.innerHTML = '';
         playersJoinedDisplay.textContent = '0';
         playersTotalDisplay.textContent = '0';
     };
-
-    // --- Event Listeners ---
     createRoomBtn.addEventListener('click', createRoom);
     sendRolesBtn.addEventListener('click', sendRoles);
     clearGamelogBtn.addEventListener('click', clearGameLog);
     deleteRoomBtn.addEventListener('click', deleteRoom);
-    
     loadRolesFromSheet();
 });
