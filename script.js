@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     // ▼▼▼ DÁN URL WEB APP BẠN ĐÃ COPY Ở BƯỚC 1 VÀO ĐÂY ▼▼▼
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0ywuw19nJLojPQJJGWOph5B2FwbtlBKJw2AaZlOCKINRsQLCn7fOBtrgQa8-a-JPcvg/exec"; 
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyYDmNsnaECuVh2bjKeHQTvW9zRfgMFFV9TlnZvwW0wceuON4iCpQdWQ8mXZnD9YBNIng/exec"; 
 
     const adminLoginBtn = document.getElementById('admin-login-btn');
     const playerLoginBtn = document.getElementById('player-login-btn');
