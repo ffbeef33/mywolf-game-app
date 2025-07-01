@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
     
-    const API_PROXY_ENDPOINT = "/api/proxy"; 
+    const API_ENDPOINT = "/api/sheets"; 
 
     // --- DOM Elements ---
     const setupSection = document.getElementById('setup-section');
@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Functions ---
     const loadRolesFromSheet = async () => {
         try {
-            const response = await fetch(`${API_PROXY_ENDPOINT}?action=getRoles`);
+            const response = await fetch(`${API_ENDPOINT}?action=getRoles`);
             if (!response.ok) {
                  const errorData = await response.json().catch(() => ({ details: `Máy chủ proxy phản hồi với mã lỗi ${response.status}` }));
                  throw new Error(errorData.details);
@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const logPayload = Object.values(finalPlayers).map(p => ({ name: p.name, role: p.role }));
         try {
             // Gửi yêu cầu POST đúng chuẩn
-            await fetch(API_PROXY_ENDPOINT, {
+            await fetch(API_ENDPOINT, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'saveGameLog', payload: logPayload })
@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm('Bạn có chắc muốn xóa log game?')) return;
         try {
             // Gửi yêu cầu POST đúng chuẩn
-            await fetch(API_PROXY_ENDPOINT, {
+            await fetch(API_ENDPOINT, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'clearGameLog' })
