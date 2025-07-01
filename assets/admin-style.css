@@ -159,3 +159,63 @@ button:disabled {
 .player-item.dead .btn-toggle-status {
      background-color: #f0ad4e;
 }
+
+
+/* ================================================= */
+/* === PHẦN CSS MỚI ĐỂ TỐI ƯU GIAO DIỆN CHỌN ROLE === */
+/* ================================================= */
+
+/* Tạo kiểu cho tiêu đề mỗi phe (Phe Dân, Phe Sói...) */
+#roles-by-faction h4 {
+    color: var(--text-color);
+    margin-top: 20px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+    font-size: 1.2rem;
+}
+
+/* Sử dụng CSS Grid để tạo lưới cho các vai trò */
+.role-checkbox-group {
+    display: grid;
+    /* 
+     Tự động tạo các cột:
+     - auto-fill: Tự điền vào không gian có sẵn.
+     - minmax(220px, 1fr): Mỗi cột có chiều rộng tối thiểu là 220px 
+       và sẽ co giãn đều nhau để lấp đầy không gian.
+    */
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px; /* Khoảng cách giữa các ô */
+}
+
+/* Tạo kiểu cho từng ô checkbox vai trò */
+.role-checkbox-item {
+    display: flex;
+    align-items: center;
+    background-color: var(--input-bg);
+    padding: 10px 12px;
+    border-radius: 8px;
+    border-left: 3px solid transparent; /* Tạo một đường viền ẩn để làm hiệu ứng */
+    transition: all 0.2s ease-in-out;
+}
+
+/* Thêm hiệu ứng khi người dùng di chuột qua */
+.role-checkbox-item:hover {
+    background-color: var(--card-bg);
+    border-left: 3px solid var(--text-color);
+}
+
+/* Tăng kích thước checkbox và thêm khoảng cách */
+.role-checkbox-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin-right: 12px;
+    flex-shrink: 0; /* Không cho checkbox bị co lại */
+}
+
+.btn-danger {
+    background-color: var(--danger-color);
+}
+.btn-danger:hover {
+    background-color: #ff4d4d;
+}
