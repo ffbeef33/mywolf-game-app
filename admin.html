@@ -1,53 +1,81 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Trang quản trò - Ma Sói</title>
-  <link rel="stylesheet" href="assets/admin-style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Trò - Ma Sói</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/admin-style.css">
 </head>
 <body>
-  <div class="admin-header">
-    <h1>Trang quản trị Ma Sói</h1>
-    <p class="admin-subtitle">Quản lý trò chơi và người chơi</p>
-  </div>
+    <div class="container">
+        <header>
+            <h1><span class="icon">👑</span>Bảng Điều Khiển Quản Trò</h1>
+            <p>Phòng Game ID: <strong id="room-id-display">Chưa tạo</strong></p>
+        </header>
 
-  <div class="admin-dashboard">
-    <!-- Phần chức năng quản trò -->
-    <div class="admin-functions-container">
-      <h2>Chức năng quản lý</h2>
-      <div class="admin-functions-list scrollable-container">
-        <!-- Các chức năng ở đây -->
-        <div class="function-item">
-          <button id="startGameBtn">Bắt đầu trò chơi</button>
+        <div class="card" id="setup-section">
+            <h2>1. Thiết Lập Ván Chơi Mới</h2>
+
+            <div class="form-group" id="player-selection-section">
+                <h3>Chọn người chơi tham gia:</h3>
+                <div id="player-list-container">
+                    <p>Đang tải danh sách người chơi...</p>
+                </div>
+            </div>
+            
+            <div class="form-group" id="roles-selection-container">
+                <h3>Chọn các vai trò:</h3>
+                <div id="roles-by-faction">
+                    <p>Đang tải danh sách vai trò...</p>
+                </div>
+            </div>
+
+            <!-- ===== BỘ ĐẾM ĐƯỢC NÂNG CẤP HOÀN TOÀN ===== -->
+            <div class="form-group" id="role-counter-container">
+                <div id="role-count-display">
+                    <div><span class="icon">👥</span>Người chơi: <strong id="player-count">0</strong></div>
+                    <div><span class="icon">🐺</span>Bầy Sói: <strong id="wolf-pack-count">0</strong></div>
+                    <div><span class="icon">👨‍🌾</span>Phe Dân: <strong id="villager-faction-count">0</strong></div>
+                    <div><span class="icon">🔥</span>Phe Sói: <strong id="wolf-faction-count">0</strong></div>
+                    <div><span class="icon">❓</span>Phe Trung Lập: <strong id="neutral-faction-count">0</strong></div>
+                    <div><span class="icon">🃏</span>Tổng Vai Trò: <strong id="role-count">0</strong></div>
+                </div>
+            </div>
+            <!-- ============================================= -->
+
+            <button id="create-room-btn" disabled>Tạo Phòng Chơi</button>
         </div>
-        <div class="function-item">
-          <button id="nightPhaseBtn">Chuyển sang đêm</button>
+
+        <!-- Khu vực quản lý phòng đang hoạt động -->
+        <div class="card hidden" id="active-room-section">
+            <h2>Quản Lý Phòng Hiện Tại</h2>
+            
+            <div class="room-info-section">
+                <h3>Các vai trò trong game (<span id="roles-total">0</span>):</h3>
+                <ul id="roles-in-game-list">
+                    <!-- Các vai trò sẽ được thêm vào đây bằng JS -->
+                </ul>
+            </div>
+
+            <div class="room-info-section">
+                <h3>Danh sách người chơi (<span id="players-total">0</span>):</h3>
+                <ul id="player-list">
+                    <!-- Danh sách người chơi sẽ được thêm vào đây bằng JS -->
+                </ul>
+            </div>
+            
+            <div class="action-buttons">
+                <button id="send-roles-btn">Gửi Vai Trò & Lưu Log</button>
+                <button id="clear-gamelog-btn" class="btn-secondary">Xóa Log Sheet</button>
+                <button id="delete-room-btn" class="btn-danger">Xóa Phòng Này</button>
+            </div>
         </div>
-                <div class="function-item">
-          <button id="dayPhaseBtn">Chuyển sang ngày</button>
-        </div>
-        <div class="function-item">
-          <button id="votePhaseBtn">Bắt đầu bỏ phiếu</button>
-        </div>
-        <div class="function-item">
-          <button id="endVoteBtn">Kết thúc bỏ phiếu</button>
-        </div>
-        <div class="function-item">
-          <button id="resetGameBtn">Khởi động lại trò chơi</button>
-        </div>
-      </div>
+
     </div>
 
-    <!-- Phần danh sách người chơi -->
-    <div class="players-container">
-      <h2>Danh sách người chơi</h2>
-      <div class="players-list scrollable-container">
-        <!-- Danh sách người chơi sẽ được thêm vào đây bằng JavaScript -->
-      </div>
-    </div>
-  </div>
-
-  <script src="admin.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="admin.js"></script>
 </body>
 </html>
