@@ -1,55 +1,35 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đăng Nhập - Ma Sói</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Board Game Ma Sói</title>
+  <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-    <div class="container">
-        <div class="login-wrapper">
-            <h1>Board Game Ma Sói</h1>
-            <p class="subtitle">Chào mừng bạn đến với đêm ma sói kinh hoàng!</p>
-
-            <!-- ===== KHU VỰC ĐĂNG NHẬP (HIỂN THỊ BAN ĐẦU) ===== -->
-            <div id="login-forms-container">
-                <form class="form-container" id="player-login-form">
-                    <h2><span class="icon">🧑</span>Đăng Nhập Người Chơi</h2>
-                    <div class="form-group">
-                        <label for="player-password">Mật khẩu</label>
-                        <input type="password" id="player-password" placeholder="Nhập mật khẩu của bạn" required>
-                    </div>
-                    <button type="submit" id="player-login-btn">Đăng Nhập</button>
-                </form>
-
-                <hr>
-
-                <form class="form-container" id="admin-login-form">
-                    <h2><span class="icon">👑</span>Đăng Nhập Quản Trò</h2>
-                    <div class="form-group">
-                        <label for="admin-pass">Mật khẩu quản trò</label>
-                        <input type="password" id="admin-pass" placeholder="Mật khẩu bí mật" required>
-                    </div>
-                    <button type="submit" id="admin-login-btn">Mở Phòng</button>
-                </form>
-            </div>
-
-            <!-- ===== KHU VỰC CHỌN PHÒNG (BAN ĐẦU BỊ ẨN) ===== -->
-            <div id="room-selection-container" class="hidden">
-                <h2 id="welcome-player">Chào mừng bạn!</h2>
-                <p>Vui lòng chọn một phòng để tham gia:</p>
-                <div id="room-list">
-                    <!-- Danh sách phòng sẽ được chèn vào đây -->
-                    <p>Đang tìm các phòng khả dụng...</p>
-                </div>
-                <button id="logout-btn">Đăng xuất</button>
-            </div>
-            
-            <p id="error-message" class="error-message"></p>
-        </div>
+  <div class="container">
+    <h1 class="title">Board Game Ma Sói</h1>
+    <p class="welcome-text">Chào mừng bạn đến với đêm ma sói kinh hoàng!</p>
+    
+    <!-- Phần đăng nhập người chơi -->
+    <div class="login-section">
+      <h2 class="login-title">👤 Đăng Nhập Người Chơi</h2>
+      <p class="password-label">Mật khẩu</p>
+      <input type="password" id="playerPassword" class="password-input" placeholder="Nhập mật khẩu của bạn">
+      <button id="loginButton" class="login-button">Đăng Nhập</button>
     </div>
-    <script src="script.js"></script>
+    
+    <hr class="divider">
+    
+    <!-- Phần đăng nhập quản trò -->
+    <div class="admin-section">
+      <h2 class="login-title">👑 Đăng Nhập Quản Trò</h2>
+      <p class="password-label">Mật khẩu quản trò</p>
+      <input type="password" id="adminPassword" class="password-input" placeholder="Mật khẩu bí mật">
+      <button id="adminButton" class="login-button">Mở Phòng</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>

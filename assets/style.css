@@ -104,3 +104,46 @@ button:hover {
     font-weight: 500;
     height: 20px; /* Reserve space to prevent layout shift */
 }
+
+/* Thêm style cho divider giữa người chơi và quản trò */
+.divider {
+    margin: 30px 0;
+    border: none;
+    height: 1px;
+    background-color: var(--border-color);
+    opacity: 0.3;
+}
+
+/* Thêm style cho phần quản trò */
+.admin-section {
+    margin-top: 30px;
+    padding-top: 10px;
+}
+
+/* Hiệu ứng cho các phần đăng nhập */
+.login-section, .admin-section {
+    transition: transform 0.3s ease;
+}
+
+.login-section:hover, .admin-section:hover {
+    transform: translateY(-5px);
+}
+
+/* Đảm bảo nút có padding đủ */
+#loginButton, #adminButton {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+/* Đảm bảo khoảng cách dưới cùng của container */
+.login-wrapper {
+    margin-bottom: 20px;
+}
+
+/* Style cho label mật khẩu */
+.password-label {
+    text-align: left;
+    margin-bottom: 5px;
+    color: var(--light-text);
+    font-weight: 500;
+}
