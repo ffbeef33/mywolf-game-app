@@ -1,13 +1,31 @@
+/* ==========================================================================
+   1. Biến toàn cục (Global Variables) & Thiết lập cơ bản (Base Setup)
+   ========================================================================== */
+
 :root {
   --primary-bg: #1a1a2e;
   --secondary-bg: #16213e;
   --card-bg: #0f3460;
-  --text-color: #e94560;
-  --light-text: #dcdcdc;
+  --text-color: #e94560; /* Màu nhấn chính */
+  --light-text: #dcdcdc; /* Màu chữ phụ */
   --button-bg: #e94560;
   --button-hover-bg: #f96d86;
-  --input-bg: #1f4068;
-  --border-color: #e94560;
+  --danger-bg: #c0392b; /* Màu cho hành động nguy hiểm */
+  --danger-hover-bg: #e74c3c;
+  --secondary-button-bg: #5a6a8a; /* Màu cho nút phụ */
+  --secondary-button-hover-bg: #7b8aab;
+  --border-color: #3a4b6f; /* Màu viền nhẹ nhàng hơn */
+  --success-color: #2ecc71;
+  --error-color: var(--danger-bg);
+  --skeleton-bg: #1f3a5c; /* Màu cho skeleton loader */
+
+  --border-radius: 8px;
+  --box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  --transition-speed: 0.3s;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
 body {
@@ -16,189 +34,262 @@ body {
   color: var(--light-text);
   margin: 0;
   padding: 20px;
+  line-height: 1.6;
 }
 
-.admin-header {
+/* ==========================================================================
+   2. Bố cục & Các thành phần chính (Layout & Main Components)
+   ========================================================================== */
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 15px;
+}
+
+.main-header {
   text-align: center;
+  margin-bottom: 40px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 20px;
+}
+
+.card {
+  background-color: var(--secondary-bg);
+  border-radius: var(--border-radius);
+  padding: 25px;
   margin-bottom: 30px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--box-shadow);
+  transition: transform var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
+}
+
+.card.hidden {
+  display: none;
+}
+
+/* ==========================================================================
+   3. Typography (Kiểu chữ)
+   ========================================================================== */
+
+h1, h2, h3 {
+  color: var(--text-color);
+  font-weight: 700;
+  margin-top: 0;
 }
 
 h1 {
-  color: var(--text-color);
-  font-size: 2.2rem;
-  margin-bottom: 10px;
+  font-size: 2rem;
+  margin-bottom: 5px;
 }
 
-.admin-subtitle {
-  font-size: 1.1rem;
-  margin-bottom: 20px;
-}
-
-/* Style cho container chứa danh sách chức năng */
-.admin-functions-container {
-  margin-bottom: 20px;
-  width: 100%;
-}
-
-/* Style cho tiêu đề */
-.admin-functions-container h2, .players-container h2 {
-  margin-bottom: 10px;
-  color: var(--text-color);
+h2 {
   font-size: 1.5rem;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 10px;
 }
 
-/* Style cho container có thể cuộn */
-.scrollable-container {
-  max-height: 300px;
+h3 {
+  font-size: 1.2rem;
+  margin-bottom: 15px;
+  color: var(--light-text);
+}
+
+p {
+  margin-bottom: 10px;
+}
+
+strong {
+  color: var(--text-color);
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   4. Form & Các vùng chọn (Form & Selection Areas)
+   ========================================================================== */
+
+.form-group {
+  margin-bottom: 30px;
+}
+
+/* Vùng chứa danh sách người chơi và vai trò có thể cuộn */
+#player-list-container, #roles-by-faction {
+  max-height: 250px;
   overflow-y: auto;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 10px;
-  background-color: var(--card-bg);
-  margin-bottom: 20px;
+  border-radius: var(--border-radius);
+  padding: 15px;
+  background-color: var(--primary-bg);
 }
 
 /* Style cho thanh cuộn */
-.scrollable-container::-webkit-scrollbar {
+#player-list-container::-webkit-scrollbar, 
+#roles-by-faction::-webkit-scrollbar {
   width: 8px;
 }
 
-.scrollable-container::-webkit-scrollbar-track {
+#player-list-container::-webkit-scrollbar-track, 
+#roles-by-faction::-webkit-scrollbar-track {
   background: var(--secondary-bg);
   border-radius: 10px;
 }
 
-.scrollable-container::-webkit-scrollbar-thumb {
+#player-list-container::-webkit-scrollbar-thumb, 
+#roles-by-faction::-webkit-scrollbar-thumb {
   background: var(--text-color);
   border-radius: 10px;
 }
 
-/* Style cho các item chức năng */
-.function-item {
-  margin-bottom: 10px;
+/* Checkbox và Label cho người chơi/vai trò */
+.checkbox-item {
+  display: block;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+.checkbox-item input {
+  margin-right: 10px;
 }
 
-.function-item button {
+/* ==========================================================================
+   5. Các thành phần cụ thể (Specific Components)
+   ========================================================================== */
+
+/* Bộ đếm vai trò */
+#role-count-display {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+  background-color: var(--primary-bg);
+  padding: 15px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  text-align: center;
+}
+
+#role-count-display div {
+  font-size: 0.9rem;
+}
+
+#role-count-display strong {
+  font-size: 1.5rem;
+  display: block;
+}
+
+/* Nút bấm */
+button {
   width: 100%;
-  padding: 12px;
+  padding: 12px 20px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--border-radius);
   background-color: var(--button-bg);
   color: white;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s ease, transform 0.2s ease;
+  transition: background-color var(--transition-speed) ease, transform 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
-.function-item button:hover {
+button:hover:not(:disabled) {
   background-color: var(--button-hover-bg);
   transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
-.function-item button:active {
+button:active:not(:disabled) {
   transform: translateY(0);
 }
 
-/* Style cho danh sách người chơi */
-.player-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px;
-  margin-bottom: 8px;
-  background-color: var(--secondary-bg);
-  border-radius: 6px;
-  transition: transform 0.2s ease;
+button:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
-.player-item:hover {
-  transform: translateX(5px);
-}
-
-.player-name {
-  font-weight: 500;
-  flex-grow: 1;
-}
-
-.player-controls {
-  display: flex;
-  gap: 5px;
-}
-
-.player-controls button {
-  padding: 6px 10px;
-  border: none;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-/* Bố cục linh hoạt */
-.admin-dashboard {
+.action-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 20px;
+  gap: 15px;
+  margin-top: 20px;
 }
 
-.admin-functions-container, .players-container {
-  flex: 1;
-  min-width: 300px;
+.action-buttons button {
+  flex-grow: 1; /* Các nút sẽ chia đều không gian */
 }
 
-/* Style cho trạng thái game */
-.game-status {
-  background-color: var(--secondary-bg);
+button.btn-secondary {
+  background-color: var(--secondary-button-bg);
+}
+button.btn-secondary:hover:not(:disabled) {
+  background-color: var(--secondary-button-hover-bg);
+}
+
+button.btn-danger {
+  background-color: var(--danger-bg);
+}
+button.btn-danger:hover:not(:disabled) {
+  background-color: var(--danger-hover-bg);
+}
+
+/* Vùng thông báo (Thêm từ HTML tối ưu) */
+.notification {
   padding: 15px;
-  border-radius: 8px;
   margin-bottom: 20px;
+  border-radius: var(--border-radius);
   text-align: center;
-  border: 1px solid var(--border-color);
-}
-
-.status-text {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--text-color);
-}
-
-.phase-indicator {
-  display: inline-block;
-  padding: 5px 10px;
-  background-color: var(--card-bg);
-  border-radius: 20px;
-  margin-top: 10px;
   font-weight: 500;
+  display: none; /* Mặc định ẩn */
+}
+.notification.success {
+  background-color: var(--success-color);
+  color: white;
+  display: block;
+}
+.notification.error {
+  background-color: var(--error-color);
+  color: white;
+  display: block;
 }
 
-/* Responsive cho màn hình nhỏ */
+/* Skeleton Loader (Thêm từ HTML tối ưu) */
+.skeleton-loader .skeleton-line {
+  height: 1.8em;
+  background-color: var(--skeleton-bg);
+  margin-bottom: 12px;
+  border-radius: 4px;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0% { background-color: var(--skeleton-bg); }
+  50% { background-color: var(--secondary-bg); }
+  100% { background-color: var(--skeleton-bg); }
+}
+
+/* ==========================================================================
+   6. Responsive Design
+   ========================================================================== */
+
 @media (max-width: 768px) {
-  .scrollable-container {
-    max-height: 250px;
-  }
-  
-  .admin-functions-list, .players-list {
-    max-height: 200px;
-  }
-  
-  .function-item button {
+  body {
     padding: 10px;
-    font-size: 0.9rem;
   }
-  
-  .admin-dashboard {
-    flex-direction: column;
-  }
-  
-  .admin-functions-container, .players-container {
-    width: 100%;
-  }
-  
+
   h1 {
     font-size: 1.8rem;
   }
-  
-  .admin-subtitle {
-    font-size: 1rem;
+
+  .card {
+    padding: 15px;
+  }
+
+  #role-count-display {
+    grid-template-columns: 1fr 1fr; /* 2 cột trên màn hình nhỏ */
+  }
+
+  .action-buttons {
+    flex-direction: column;
   }
 }

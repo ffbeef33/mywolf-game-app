@@ -8,70 +8,84 @@
     <link rel="stylesheet" href="assets/admin-style.css">
 </head>
 <body>
+
+    <!-- TỐI ƯU: Thêm một vùng chứa thông báo toàn cục -->
+    <div id="notification-area" class="notification" aria-live="polite"></div>
+
     <div class="container">
-        <header>
-            <h1><span class="icon">👑</span>Bảng Điều Khiển Quản Trò</h1>
+        <header class="main-header">
+            <h1><span aria-hidden="true">👑</span> Bảng Điều Khiển Quản Trò</h1>
             <p>Phòng Game ID: <strong id="room-id-display">Chưa tạo</strong></p>
         </header>
 
-        <div class="card" id="setup-section">
-            <h2>1. Thiết Lập Ván Chơi Mới</h2>
+        <!-- TỐI ƯU: Sử dụng thẻ <main> cho nội dung chính -->
+        <main>
+            <!-- TỐI ƯU: Sử dụng thẻ <section> thay cho <div> cho các vùng nội dung lớn -->
+            <section class="card" id="setup-section">
+                <h2>1. Thiết Lập Ván Chơi Mới</h2>
 
-            <div class="form-group" id="player-selection-section">
-                <h3>Chọn người chơi tham gia:</h3>
-                <div id="player-list-container">
-                    <p>Đang tải danh sách người chơi...</p>
+                <div class="form-group" id="player-selection-section">
+                    <h3>Chọn người chơi tham gia:</h3>
+                    <!-- TỐI ƯU: Thêm cấu trúc cho trạng thái loading (skeleton loader) -->
+                    <div id="player-list-container">
+                        <div class="skeleton-loader">
+                            <div class="skeleton-line"></div>
+                            <div class="skeleton-line"></div>
+                            <div class="skeleton-line"></div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="form-group" id="roles-selection-container">
-                <h3>Chọn các vai trò:</h3>
-                <div id="roles-by-faction">
-                    <p>Đang tải danh sách vai trò...</p>
+                
+                <div class="form-group" id="roles-selection-container">
+                    <h3>Chọn các vai trò:</h3>
+                    <!-- TỐI ƯU: Thêm cấu trúc cho trạng thái loading -->
+                    <div id="roles-by-faction">
+                        <div class="skeleton-loader">
+                            <div class="skeleton-line"></div>
+                            <div class="skeleton-line"></div>
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <!-- ===== BỘ ĐẾM ĐƯỢC NÂNG CẤP HOÀN TOÀN ===== -->
-            <div class="form-group" id="role-counter-container">
-                <div id="role-count-display">
-                    <div><span class="icon">👥</span>Người chơi: <strong id="player-count">0</strong></div>
-                    <div><span class="icon">🐺</span>Bầy Sói: <strong id="wolf-pack-count">0</strong></div>
-                    <div><span class="icon">👨‍🌾</span>Phe Dân: <strong id="villager-faction-count">0</strong></div>
-                    <div><span class="icon">🔥</span>Phe Sói: <strong id="wolf-faction-count">0</strong></div>
-                    <div><span class="icon">❓</span>Phe Trung Lập: <strong id="neutral-faction-count">0</strong></div>
-                    <div><span class="icon">🃏</span>Tổng Vai Trò: <strong id="role-count">0</strong></div>
+                <div class="form-group" id="role-counter-container">
+                    <div id="role-count-display">
+                        <!-- TỐI ƯU: Thêm aria-hidden để screen reader không đọc các icon trang trí -->
+                        <div><span aria-hidden="true">👥</span> Người chơi: <strong id="player-count">0</strong></div>
+                        <div><span aria-hidden="true">🐺</span> Bầy Sói: <strong id="wolf-pack-count">0</strong></div>
+                        <div><span aria-hidden="true">👨‍🌾</span> Phe Dân: <strong id="villager-faction-count">0</strong></div>
+                        <div><span aria-hidden="true">🔥</span> Phe Sói: <strong id="wolf-faction-count">0</strong></div>
+                        <div><span aria-hidden="true">❓</span> Phe Trung Lập: <strong id="neutral-faction-count">0</strong></div>
+                        <div><span aria-hidden="true">🃏</span> Tổng Vai Trò: <strong id="role-count">0</strong></div>
+                    </div>
                 </div>
-            </div>
-            <!-- ============================================= -->
 
-            <button id="create-room-btn" disabled>Tạo Phòng Chơi</button>
-        </div>
+                <button id="create-room-btn" disabled>Tạo Phòng Chơi</button>
+            </section>
 
-        <!-- Khu vực quản lý phòng đang hoạt động -->
-        <div class="card hidden" id="active-room-section">
-            <h2>Quản Lý Phòng Hiện Tại</h2>
-            
-            <div class="room-info-section">
-                <h3>Các vai trò trong game (<span id="roles-total">0</span>):</h3>
-                <ul id="roles-in-game-list">
-                    <!-- Các vai trò sẽ được thêm vào đây bằng JS -->
-                </ul>
-            </div>
+            <section class="card hidden" id="active-room-section">
+                <h2>Quản Lý Phòng Hiện Tại</h2>
+                
+                <div class="room-info-section">
+                    <h3>Các vai trò trong game (<span id="roles-total">0</span>):</h3>
+                    <ul id="roles-in-game-list">
+                        <!-- Các vai trò sẽ được thêm vào đây bằng JS -->
+                    </ul>
+                </div>
 
-            <div class="room-info-section">
-                <h3>Danh sách người chơi (<span id="players-total">0</span>):</h3>
-                <ul id="player-list">
-                    <!-- Danh sách người chơi sẽ được thêm vào đây bằng JS -->
-                </ul>
-            </div>
-            
-            <div class="action-buttons">
-                <button id="send-roles-btn">Gửi Vai Trò & Lưu Log</button>
-                <button id="clear-gamelog-btn" class="btn-secondary">Xóa Log Sheet</button>
-                <button id="delete-room-btn" class="btn-danger">Xóa Phòng Này</button>
-            </div>
-        </div>
-
+                <div class="room-info-section">
+                    <h3>Danh sách người chơi (<span id="players-total">0</span>):</h3>
+                    <ul id="player-list">
+                        <!-- Danh sách người chơi sẽ được thêm vào đây bằng JS -->
+                    </ul>
+                </div>
+                
+                <div class="action-buttons">
+                    <button id="send-roles-btn">Gửi Vai Trò & Lưu Log</button>
+                    <button id="clear-gamelog-btn" class="btn-secondary">Xóa Log Sheet</button>
+                    <button id="delete-room-btn" class="btn-danger">Xóa Phòng Này</button>
+                </div>
+            </section>
+        </main>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
