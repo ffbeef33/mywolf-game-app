@@ -16,7 +16,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginSection = document.getElementById('login-section');
     const gameSection = document.getElementById('game-section');
     const passwordInput = document.getElementById('password-input');
-    const roomIdInput = document.getElementById('room-id-input');
     const loginBtn = document.getElementById('login-btn');
     const loginError = document.getElementById('login-error');
 
@@ -25,61 +24,80 @@ document.addEventListener('DOMContentLoaded', () => {
     const waitingSection = document.getElementById('waiting-section');
     const roleRevealSection = document.getElementById('role-reveal-section');
 
-    // --- LOGIN LOGIC ---
+    // --- LOGIN LOGIC (REWRITTEN) ---
     const handleLogin = async () => {
         const password = passwordInput.value.trim();
-        const roomId = roomIdInput.value.trim();
-
-        if (!password || !roomId) {
-            loginError.textContent = 'Vui lòng nhập đủ mật khẩu và ID phòng.';
+        if (!password) {
+            loginError.textContent = 'Vui lòng nhập mật khẩu của bạn.';
             return;
         }
 
         loginError.textContent = '';
         loginBtn.disabled = true;
-        loginBtn.textContent = 'Đang vào...';
+        loginBtn.textContent = 'Đang tìm game...';
 
         try {
-            const response = await fetch('/api/login', {
+            // Step 1: Get username from password via API
+            const apiResponse = await fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ password })
             });
-            const data = await response.json();
+            const userData = await apiResponse.json();
+            if (!userData.success) {
+                throw new Error(userData.message || 'Mật khẩu không hợp lệ.');
+            }
+            const username = userData.username;
 
-            if (!data.success) throw new Error(data.message || 'Mật khẩu không hợp lệ.');
-            
-            await joinRoom(roomId, data.username);
+            // Step 2: Find the game room that contains this player
+            await findAndJoinRoom(username);
 
         } catch (error) {
             loginError.textContent = error.message;
             loginBtn.disabled = false;
-            loginBtn.textContent = 'Vào Game';
+            loginBtn.textContent = 'Tìm và Vào Game';
         }
     };
 
-    const joinRoom = (roomId, username) => {
-        const roomRef = database.ref(`rooms/${roomId}`);
+    // New function to automatically find the room
+    const findAndJoinRoom = (username) => {
+        const roomsRef = database.ref('rooms');
         return new Promise((resolve, reject) => {
-            roomRef.once('value', (snapshot) => {
+            roomsRef.once('value', (snapshot) => {
                 if (!snapshot.exists()) {
-                    return reject(new Error('Phòng không tồn tại!'));
-                }
-                
-                const players = snapshot.val().players || {};
-                const playerEntry = Object.values(players).find(p => p.name === username);
-                const playerId = Object.keys(players).find(key => players[key].name === username);
-
-                if (!playerEntry || !playerId) {
-                    return reject(new Error(`Bạn (${username}) không có trong danh sách chơi của phòng này.`));
+                    return reject(new Error('Không có phòng chơi nào đang hoạt động.'));
                 }
 
-                // --- Login successful ---
-                loginSection.classList.remove('active');
-                gameSection.classList.add('active');
+                let foundRoom = false;
+                const allRooms = snapshot.val();
 
-                initializeGame(username, roomId, playerId);
-                resolve();
+                // Iterate through all available rooms
+                for (const roomId in allRooms) {
+                    const room = allRooms[roomId];
+                    if (room.players) {
+                        // Find the player key (ID) by their name
+                        const playerId = Object.keys(room.players).find(key => room.players[key].name === username);
+                        
+                        if (playerId) {
+                            // Player found in this room!
+                            foundRoom = true;
+                            
+                            // Switch UI
+                            loginSection.classList.remove('active');
+                            gameSection.classList.add('active');
+
+                            // Start the game logic
+                            initializeGame(username, roomId, playerId);
+                            resolve(); // Successfully joined
+                            break; // Stop searching
+                        }
+                    }
+                }
+
+                if (!foundRoom) {
+                    // If loop finishes and no room was found for the player
+                    reject(new Error('Hiện tại không có game nào có tên bạn.'));
+                }
             });
         });
     };
@@ -93,24 +111,22 @@ document.addEventListener('DOMContentLoaded', () => {
         playerRef.update({ isOnline: true });
         playerRef.onDisconnect().update({ isOnline: false });
 
-        // SỬA LỖI: Lắng nghe vai trò
+        // Listen for role updates
         const roleRef = database.ref(`rooms/${roomId}/players/${playerId}/role`);
         roleRef.on('value', (snapshot) => {
             const roleData = snapshot.val();
-            // QUAN TRỌNG: Kiểm tra xem roleData có phải là một object và có thuộc tính 'name' không
             if (roleData && typeof roleData === 'object' && roleData.name) {
                 updateRoleUI(roleData);
             }
         });
 
-        // Logic lật thẻ bài
+        // Add click listener for the role card
         roleRevealSection.addEventListener('click', () => {
             roleRevealSection.classList.toggle('is-flipped');
         });
     }
 
     function updateRoleUI(role) {
-        // Cập nhật thông tin trên thẻ bài
         document.getElementById('role-name').textContent = role.name || 'Chưa có tên';
         document.getElementById('role-faction').textContent = `Phe ${role.faction || 'Chưa rõ'}`;
         document.getElementById('role-description').textContent = role.description || 'Chưa có mô tả.';
@@ -118,19 +134,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const roleImage = document.getElementById('role-image');
         const roleFactionEl = document.getElementById('role-faction');
         
-        roleImage.src = role.image || 'assets/images/default-role.png'; // Cần có ảnh mặc định
+        roleImage.src = role.image || 'assets/images/default-role.png';
         roleImage.alt = `Hình ảnh cho ${role.name}`;
         
         roleFactionEl.className = 'role-faction'; // Reset class
-        if (role.faction === 'Sói') {
-            roleFactionEl.classList.add('wolf');
-        } else if (role.faction === 'Dân Làng') {
-            roleFactionEl.classList.add('villager');
-        } else {
-            roleFactionEl.classList.add('neutral');
-        }
+        if (role.faction === 'Sói') roleFactionEl.classList.add('wolf');
+        else if (role.faction === 'Dân Làng') roleFactionEl.classList.add('villager');
+        else roleFactionEl.classList.add('neutral');
 
-        // Ẩn màn hình chờ và hiện thẻ bài
         waitingSection.classList.add('hidden');
         roleRevealSection.classList.remove('hidden');
     }
@@ -138,9 +149,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- EVENT LISTENERS ---
     loginBtn.addEventListener('click', handleLogin);
     passwordInput.addEventListener('keyup', (event) => {
-        if (event.key === 'Enter') loginBtn.click();
-    });
-    roomIdInput.addEventListener('keyup', (event) => {
-        if (event.key === 'Enter') loginBtn.click();
+        if (event.key === 'Enter') {
+            event.preventDefault(); // Prevent form submission
+            loginBtn.click();
+        }
     });
 });
