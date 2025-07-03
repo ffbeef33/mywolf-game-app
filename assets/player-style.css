@@ -7,119 +7,204 @@
     --button-bg: #e94560;
     --button-hover-bg: #f96d86;
     --input-bg: #1f4068;
-    --border-color: #e94560;
+    --border-color: #3a4b6f;
+    --wolf-color: #c0392b;
+    --villager-color: #27ae60;
+    --neutral-color: #f39c12;
+    --font-main: 'Roboto', sans-serif;
+    --font-display: 'Teko', sans-serif;
+    --border-radius: 12px;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
 }
 
 body {
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--font-main);
     background-color: var(--primary-bg);
     color: var(--light-text);
     margin: 0;
     padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
 }
 
 .container {
-    max-width: 600px;
-    margin: 0 auto;
-}
-
-header {
+    width: 100%;
+    max-width: 400px;
     text-align: center;
-    margin-bottom: 20px;
 }
 
-h1 {
-    color: var(--text-color);
-    margin: 0;
-}
-
-#room-id-display {
-    background-color: var(--input-bg);
-    padding: 3px 8px;
-    border-radius: 5px;
-}
-
-.card {
+/* --- SECTIONS & CARDS --- */
+section.card {
     background-color: var(--secondary-bg);
-    padding: 20px;
-    border-radius: 15px;
-    margin-bottom: 20px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    padding: 30px;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+    display: none; /* Hide all sections by default */
+}
+section.card.active {
+    display: block; /* Show only the active section */
+}
+.hidden { /* Utility class for JS toggling */
+    display: none !important;
 }
 
-.card.hidden {
-    display: none;
-}
-
-h2 {
-    color: var(--light-text);
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 10px;
-    margin-top: 0;
-    margin-bottom: 15px;
-}
-
-#game-status {
-    font-size: 1.1rem;
-    font-weight: 500;
-    text-align: center;
-    padding: 10px;
-    background-color: var(--input-bg);
-    border-radius: 8px;
-}
-
-#my-role {
-    text-align: center;
-    margin-top: 15px;
-    font-size: 1.2rem;
-    background-color: var(--text-color);
-    color: white;
-    padding: 10px;
-    border-radius: 8px;
-}
-
-#vote-timer {
-    text-align: center;
-    font-size: 2rem;
-    font-weight: bold;
+/* --- LOGIN FORM --- */
+.card-header h1 {
+    font-family: var(--font-display);
+    font-size: 3rem;
     color: var(--text-color);
-    margin-top: 10px;
+    margin: 0 0 20px 0;
 }
-
-#role-choices, #vote-options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
+.form-group {
+    margin-bottom: 20px;
+    text-align: left;
 }
-
-#role-choices button, #vote-options button {
-    flex-grow: 1;
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+input[type="text"], input[type="password"] {
+    width: 100%;
     padding: 12px;
+    background-color: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--light-text);
+    font-size: 1rem;
+}
+button {
+    width: 100%;
+    padding: 14px;
     border: none;
     border-radius: 8px;
     background-color: var(--button-bg);
     color: white;
-    font-size: 1rem;
+    font-size: 1.1rem;
+    font-weight: 700;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.2s ease;
 }
-
-#role-choices button:hover, #vote-options button:hover {
+button:hover:not(:disabled) {
     background-color: var(--button-hover-bg);
+    transform: translateY(-2px);
+}
+button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+.error-message {
+    color: var(--text-color);
+    margin-top: 15px;
+    min-height: 1.2em;
 }
 
-#player-list-info {
-    list-style: none;
-    padding: 0;
+/* --- IN-GAME VIEW --- */
+.player-header {
+    margin-bottom: 30px;
+}
+.player-header h1 {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    color: var(--text-color);
+    margin: 0;
+}
+.player-header p {
+    font-size: 1.1rem;
+    color: var(--light-text);
+    margin: 5px 0 0;
+}
+.game-card {
+    border-radius: var(--border-radius);
 }
 
-#player-list-info li {
-    padding: 8px;
-    border-radius: 5px;
-    margin-bottom: 5px;
+/* --- WAITING STATE --- */
+.waiting-card .spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #444;
+    border-top-color: var(--text-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
 }
+@keyframes spin { to { transform: rotate(360deg); } }
+.waiting-card h2 { color: var(--light-text); }
 
-#player-list-info li.dead {
-    text-decoration: line-through;
-    color: #777;
+/* --- ROLE REVEAL CARD --- */
+.role-card {
+    perspective: 1000px;
+    cursor: pointer;
+    background-color: transparent; /* Remove card background */
+}
+.card-inner {
+    position: relative;
+    width: 100%;
+    height: 480px;
+    transition: transform 0.8s;
+    transform-style: preserve-3d;
+}
+.role-card.is-flipped .card-inner {
+    transform: rotateY(180deg);
+}
+.card-front, .card-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-radius: var(--border-radius);
+    background: linear-gradient(145deg, var(--card-bg), var(--secondary-bg));
+    border: 1px solid var(--border-color);
+}
+.card-front .card-logo {
+    font-family: var(--font-display);
+    font-size: 8rem;
+    color: var(--text-color);
+    line-height: 1;
+}
+.card-back {
+    transform: rotateY(180deg);
+    padding: 20px;
+}
+.role-image {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 4px solid var(--text-color);
+    margin-bottom: 15px;
+    object-fit: cover;
+    background-color: var(--primary-bg);
+}
+#role-name {
+    font-family: var(--font-display);
+    font-size: 3rem;
+    margin: 0;
+    color: var(--text-color);
+}
+.role-faction {
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 5px 15px;
+    border-radius: 20px;
+    margin: 5px 0 15px;
+    color: white;
+}
+.role-faction.wolf { background-color: var(--wolf-color); }
+.role-faction.villager { background-color: var(--villager-color); }
+.role-faction.neutral { background-color: var(--neutral-color); }
+.role-description {
+    font-size: 0.9rem;
+    color: var(--light-text);
 }

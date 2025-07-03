@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    // --- DOM Elements for Login ---
+    // --- DOM Elements ---
     const loginSection = document.getElementById('login-section');
     const gameSection = document.getElementById('game-section');
     const passwordInput = document.getElementById('password-input');
@@ -20,20 +20,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginBtn = document.getElementById('login-btn');
     const loginError = document.getElementById('login-error');
 
-    // --- DOM Elements for Game ---
     const playerNameDisplay = document.getElementById('player-name-display');
     const roomIdDisplay = document.getElementById('room-id-display');
-    const gameStatusDisplay = document.getElementById('game-status');
-    const myRoleDisplay = document.getElementById('my-role');
-    const rolePickSection = document.getElementById('role-pick-section');
-    const roleChoicesContainer = document.getElementById('role-choices');
-    const voteSection = document.getElementById('vote-section');
-    const voteOptionsContainer = document.getElementById('vote-options');
-    const voteTimerDisplay = document.getElementById('vote-timer');
-    const playerListInfo = document.getElementById('player-list-info');
-
-    let currentPlayerName = null;
-    let currentRoomId = null;
+    const waitingSection = document.getElementById('waiting-section');
+    const roleRevealSection = document.getElementById('role-reveal-section');
 
     // --- LOGIN LOGIC ---
     const handleLogin = async () => {
@@ -50,7 +40,6 @@ document.addEventListener('DOMContentLoaded', () => {
         loginBtn.textContent = 'Đang vào...';
 
         try {
-            // 1. Call API to get username from password
             const response = await fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -58,11 +47,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const data = await response.json();
 
-            if (!data.success) {
-                throw new Error(data.message || 'Mật khẩu không hợp lệ.');
-            }
+            if (!data.success) throw new Error(data.message || 'Mật khẩu không hợp lệ.');
             
-            // 2. If successful, join the room with the retrieved username
             await joinRoom(roomId, data.username);
 
         } catch (error) {
@@ -73,8 +59,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const joinRoom = (roomId, username) => {
+        const roomRef = database.ref(`rooms/${roomId}`);
         return new Promise((resolve, reject) => {
-            const roomRef = database.ref(roomId);
             roomRef.once('value', (snapshot) => {
                 if (!snapshot.exists()) {
                     return reject(new Error('Phòng không tồn tại!'));
@@ -82,107 +68,79 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const players = snapshot.val().players || {};
                 const playerEntry = Object.values(players).find(p => p.name === username);
+                const playerId = Object.keys(players).find(key => players[key].name === username);
 
-                if (!playerEntry) {
+                if (!playerEntry || !playerId) {
                     return reject(new Error(`Bạn (${username}) không có trong danh sách chơi của phòng này.`));
                 }
 
                 // --- Login successful ---
-                currentPlayerName = username;
-                currentRoomId = roomId;
+                loginSection.classList.remove('active');
+                gameSection.classList.add('active');
 
-                // Switch UI
-                loginSection.classList.add('hidden');
-                gameSection.classList.remove('hidden');
-
-                // Start game logic
-                initializeGame(username, roomId);
+                initializeGame(username, roomId, playerId);
                 resolve();
             });
         });
     };
 
-    // --- GAME LOGIC (functions from your original file) ---
-    function initializeGame(playerName, roomId) {
+    // --- GAME LOGIC ---
+    function initializeGame(playerName, roomId, playerId) {
         playerNameDisplay.textContent = playerName;
         roomIdDisplay.textContent = roomId;
 
-        const playerRef = database.ref(`${roomId}/players`).orderByChild('name').equalTo(playerName);
-        playerRef.once('value', (snapshot) => {
-            if (!snapshot.exists()) return;
-            const playerId = Object.keys(snapshot.val())[0];
-            const singlePlayerRef = database.ref(`${roomId}/players/${playerId}`);
+        const playerRef = database.ref(`rooms/${roomId}/players/${playerId}`);
+        playerRef.update({ isOnline: true });
+        playerRef.onDisconnect().update({ isOnline: false });
 
-            // Announce presence and set disconnect handler
-            singlePlayerRef.update({ isOnline: true }); // Mark as online
-            singlePlayerRef.onDisconnect().update({ isOnline: false });
-
-            // Listen for my own role update
-            const roleRef = database.ref(`${roomId}/players/${playerId}/role`);
-            roleRef.on('value', (roleSnapshot) => {
-                const role = roleSnapshot.val();
-                if (role) {
-                    myRoleDisplay.querySelector('strong').textContent = role;
-                    myRoleDisplay.classList.remove('hidden');
-                }
-            });
+        // SỬA LỖI: Lắng nghe vai trò
+        const roleRef = database.ref(`rooms/${roomId}/players/${playerId}/role`);
+        roleRef.on('value', (snapshot) => {
+            const roleData = snapshot.val();
+            // QUAN TRỌNG: Kiểm tra xem roleData có phải là một object và có thuộc tính 'name' không
+            if (roleData && typeof roleData === 'object' && roleData.name) {
+                updateRoleUI(roleData);
+            }
         });
 
-        // Listen for Game State Changes
-        const gameStateRef = database.ref(`${roomId}/gameState`);
-        gameStateRef.on('value', (snapshot) => {
-            const state = snapshot.val();
-            if (state) updateUIForState(state);
-        });
-
-        // Listen for Player List Changes
-        const playersRef = database.ref(`${roomId}/players`);
-        playersRef.on('value', (snapshot) => {
-            const players = snapshot.val() || {};
-            updatePlayerList(players);
+        // Logic lật thẻ bài
+        roleRevealSection.addEventListener('click', () => {
+            roleRevealSection.classList.toggle('is-flipped');
         });
     }
 
-    let voteTimerInterval;
-    function updateUIForState(state) {
-        gameStatusDisplay.textContent = state.message || '...';
-        rolePickSection.classList.add('hidden');
-        voteSection.classList.add('hidden');
-        voteTimerDisplay.classList.add('hidden');
-        clearInterval(voteTimerInterval);
-
-        switch (state.status) {
-            case 'role-pick':
-                rolePickSection.classList.remove('hidden');
-                loadRoleChoices();
-                break;
-            case 'voting':
-                voteSection.classList.remove('hidden');
-                voteTimerDisplay.classList.remove('hidden');
-                loadVoteOptions(state);
-                startTimer(state.endTime);
-                break;
+    function updateRoleUI(role) {
+        // Cập nhật thông tin trên thẻ bài
+        document.getElementById('role-name').textContent = role.name || 'Chưa có tên';
+        document.getElementById('role-faction').textContent = `Phe ${role.faction || 'Chưa rõ'}`;
+        document.getElementById('role-description').textContent = role.description || 'Chưa có mô tả.';
+        
+        const roleImage = document.getElementById('role-image');
+        const roleFactionEl = document.getElementById('role-faction');
+        
+        roleImage.src = role.image || 'assets/images/default-role.png'; // Cần có ảnh mặc định
+        roleImage.alt = `Hình ảnh cho ${role.name}`;
+        
+        roleFactionEl.className = 'role-faction'; // Reset class
+        if (role.faction === 'Sói') {
+            roleFactionEl.classList.add('wolf');
+        } else if (role.faction === 'Dân Làng') {
+            roleFactionEl.classList.add('villager');
+        } else {
+            roleFactionEl.classList.add('neutral');
         }
-    }
 
-    function updatePlayerList(players) {
-        playerListInfo.innerHTML = '';
-        Object.values(players).forEach(player => {
-            const li = document.createElement('li');
-            li.textContent = player.name;
-            if (!player.isAlive) li.classList.add('dead');
-            playerListInfo.appendChild(li);
-        });
+        // Ẩn màn hình chờ và hiện thẻ bài
+        waitingSection.classList.add('hidden');
+        roleRevealSection.classList.remove('hidden');
     }
-
-    // Other game functions remain mostly the same
-    async function loadRoleChoices() { /* ... your existing code ... */ }
-    function selectRole(role) { /* ... your existing code ... */ }
-    async function loadVoteOptions(state) { /* ... your existing code ... */ }
-    function castVote(vote) { /* ... your existing code ... */ }
-    function startTimer(endTime) { /* ... your existing code ... */ }
 
     // --- EVENT LISTENERS ---
     loginBtn.addEventListener('click', handleLogin);
-    document.getElementById('random-role-btn').onclick = () => selectRole('random');
+    passwordInput.addEventListener('keyup', (event) => {
+        if (event.key === 'Enter') loginBtn.click();
+    });
+    roomIdInput.addEventListener('keyup', (event) => {
+        if (event.key === 'Enter') loginBtn.click();
+    });
 });
