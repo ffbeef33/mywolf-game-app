@@ -25,9 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const roleRevealSection = document.getElementById('role-reveal-section');
 
     // --- LOGIN LOGIC ---
-    let roomsListener = null; 
-    let searchTimeout = null; 
-
     const handleLogin = async () => {
         const password = passwordInput.value.trim();
         if (!password) {
@@ -50,7 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(userData.message || 'Mật khẩu không hợp lệ.');
             }
             const username = userData.username;
-            findAndJoinRoom(username);
+            
+            // Sử dụng logic tìm phòng mới, đáng tin cậy và dứt điểm
+            await findAndJoinRoom(username);
 
         } catch (error) {
             loginError.textContent = error.message;
@@ -59,49 +58,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // =================================================================
+    // === SỬA LỖI DỨT ĐIỂM: Logic tìm phòng mới, đáng tin cậy hơn ===
+    // =================================================================
     const findAndJoinRoom = (username) => {
         const roomsRef = database.ref('rooms');
+        return new Promise((resolve, reject) => {
+            // Dùng .once() để quét các phòng một lần duy nhất, tránh race condition.
+            roomsRef.once('value', (snapshot) => {
+                if (!snapshot.exists()) {
+                    return reject(new Error('Không có phòng chơi nào đang hoạt động.'));
+                }
 
-        searchTimeout = setTimeout(() => {
-            roomsRef.off('value', roomsListener); 
-            loginError.textContent = 'Không tìm thấy game nào trong 30 giây. Quản trò đã tạo phòng chưa?';
-            loginBtn.disabled = false;
-            loginBtn.textContent = 'Tìm và Vào Game';
-        }, 30000);
+                let playerInfo = null;
+                const allRooms = snapshot.val();
 
-        roomsListener = (snapshot) => {
-            if (!snapshot.exists()) return;
-
-            const allRooms = snapshot.val();
-            let foundRoom = false;
-
-            for (const roomId in allRooms) {
-                const room = allRooms[roomId];
-                if (room.players) {
-                    const playerId = Object.keys(room.players).find(key => room.players[key].name === username);
-                    
-                    if (playerId) {
-                        foundRoom = true;
-                        
-                        clearTimeout(searchTimeout);
-                        roomsRef.off('value', roomsListener);
-
-                        // SỬA LỖI HIỂN THỊ TRANG TRẮNG
-                        loginSection.classList.remove('active');
-                        loginSection.classList.add('hidden');
-                        
-                        gameSection.classList.remove('hidden');
-                        gameSection.classList.add('active');
-
-                        initializeGame(username, roomId, playerId);
-                        
-                        break;
+                // Lặp qua tất cả các phòng để tìm người chơi
+                for (const roomId in allRooms) {
+                    const room = allRooms[roomId];
+                    if (room.players) {
+                        const playerId = Object.keys(room.players).find(key => room.players[key].name === username);
+                        if (playerId) {
+                            // Khi tìm thấy, lưu lại thông tin và thoát khỏi vòng lặp
+                            playerInfo = { roomId, playerId, username };
+                            break; 
+                        }
                     }
                 }
-            }
-        };
 
-        roomsRef.on('value', roomsListener);
+                if (playerInfo) {
+                    // Nếu tìm thấy, chuyển đổi giao diện và bắt đầu lắng nghe vai trò
+                    loginSection.classList.remove('active');
+                    loginSection.classList.add('hidden');
+                    
+                    gameSection.classList.remove('hidden');
+                    gameSection.classList.add('active');
+                    
+                    initializeGame(playerInfo.username, playerInfo.roomId, playerInfo.playerId);
+                    resolve(); // Hoàn thành Promise
+                } else {
+                    // Nếu không tìm thấy sau khi đã quét hết, báo lỗi.
+                    reject(new Error('Hiện tại không có game nào có tên bạn trong danh sách chờ.'));
+                }
+            });
+        });
     };
 
     // --- GAME LOGIC ---
@@ -110,17 +110,21 @@ document.addEventListener('DOMContentLoaded', () => {
         roomIdDisplay.textContent = roomId;
 
         const playerRef = database.ref(`rooms/${roomId}/players/${playerId}`);
+        // Cập nhật trạng thái online và xử lý khi mất kết nối
         playerRef.update({ isOnline: true });
         playerRef.onDisconnect().update({ isOnline: false });
 
+        // Gắn trình lắng nghe trực tiếp và bền bỉ vào `role` của chính người chơi này
         const roleRef = database.ref(`rooms/${roomId}/players/${playerId}/role`);
         roleRef.on('value', (snapshot) => {
             const roleData = snapshot.val();
+            // Điều kiện kiểm tra vẫn giữ nguyên, rất quan trọng
             if (roleData && typeof roleData === 'object' && roleData.name) {
                 updateRoleUI(roleData);
             }
         });
 
+        // Logic lật thẻ bài
         roleRevealSection.addEventListener('click', () => {
             roleRevealSection.classList.toggle('is-flipped');
         });
@@ -138,10 +142,11 @@ document.addEventListener('DOMContentLoaded', () => {
         roleImage.alt = `Hình ảnh cho ${role.name}`;
         
         roleFactionEl.className = 'role-faction'; 
-        if (role.faction === 'Sói') roleFactionEl.classList.add('wolf');
-        else if (role.faction === 'Dân Làng') roleFactionEl.classList.add('villager');
+        if (role.faction === 'Phe Sói') roleFactionEl.classList.add('wolf');
+        else if (role.faction === 'Phe Dân') roleFactionEl.classList.add('villager');
         else roleFactionEl.classList.add('neutral');
 
+        // Ẩn màn hình chờ và hiện thẻ bài
         waitingSection.classList.add('hidden');
         roleRevealSection.classList.remove('hidden');
     }
