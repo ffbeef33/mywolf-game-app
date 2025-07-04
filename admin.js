@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentRoomId = null;
     let playerListener = null;
-    let allRolesData = []; // Biến lưu trữ toàn bộ dữ liệu vai trò để tra cứu
+    let allRolesData = [];
 
     // --- Functions ---
     const updateCounters = () => {
@@ -116,16 +116,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // ==================================================
+    // === SỬA LỖI UNDEFINED TẠI ĐÂY ===
+    // ==================================================
     const loadRolesFromSheet = async () => {
         try {
             const response = await fetch(`${API_ENDPOINT}?sheetName=Roles`);
             if (!response.ok) throw new Error('Không thể tải danh sách vai trò.');
             const rawData = await response.json();
+            
+            // Thêm giá trị dự phòng (fallback) để đảm bảo không có `undefined`
             allRolesData = rawData.map(role => ({
-                name: role.RoleName,
-                faction: role.Faction,
-                description: role.Description,
-                image: role.ImageURL
+                name: role.RoleName || 'Tên vai trò lỗi',
+                faction: role.Faction || 'Chưa phân loại',
+                description: role.Description || 'Không có mô tả cho vai trò này.',
+                image: role.ImageURL || '' // Chuỗi rỗng là giá trị an toàn
             }));
             
             allRolesData.sort((a, b) => {
@@ -252,61 +257,61 @@ document.addEventListener('DOMContentLoaded', () => {
         sendRolesBtn.disabled = true;
         sendRolesBtn.textContent = 'Đang gửi...';
 
-        const roomRef = database.ref(`rooms/${currentRoomId}`);
-        const roomSnapshot = await roomRef.once('value');
-        const roomData = roomSnapshot.val();
-
-        if (!roomData || !roomData.players || !roomData.rolesToAssign) {
-            alert("Lỗi: Không tìm thấy dữ liệu phòng.");
-            sendRolesBtn.disabled = false;
-            sendRolesBtn.textContent = 'Gửi Vai Trò & Lưu Log';
-            return;
-        }
-
-        let rolesToAssign = [...roomData.rolesToAssign];
-        let playerIds = Object.keys(roomData.players);
-
-        rolesToAssign.sort(() => Math.random() - 0.5);
-        playerIds.sort(() => Math.random() - 0.5);
-
-        const updates = {};
-        const logPayload = [];
-
-        playerIds.forEach((id, index) => {
-            const assignedRoleName = rolesToAssign[index];
-            let assignedRoleData = allRolesData.find(r => r.name === assignedRoleName);
-
-            if (!assignedRoleData) {
-                assignedRoleData = {
-                    name: "Dân Làng",
-                    faction: "Phe Dân",
-                    description: "Không có chức năng đặc biệt.",
-                    image: ""
-                };
-            }
-            
-            updates[`/players/${id}/role`] = assignedRoleData;
-            logPayload.push({ name: roomData.players[id].name, role: assignedRoleData.name });
-        });
-
-        updates['/gameState/status'] = 'roles-sent';
-        updates['/gameState/message'] = 'Quản trò đã gửi vai trò. Người chơi có thể xem vai trò của mình.';
-
-        await roomRef.update(updates);
-        
         try {
+            const roomRef = database.ref(`rooms/${currentRoomId}`);
+            const roomSnapshot = await roomRef.once('value');
+            const roomData = roomSnapshot.val();
+
+            if (!roomData || !roomData.players || !roomData.rolesToAssign) {
+                throw new Error("Lỗi: Không tìm thấy dữ liệu phòng.");
+            }
+
+            let rolesToAssign = [...roomData.rolesToAssign];
+            let playerIds = Object.keys(roomData.players);
+
+            rolesToAssign.sort(() => Math.random() - 0.5);
+            playerIds.sort(() => Math.random() - 0.5);
+
+            const updates = {};
+            const logPayload = [];
+
+            playerIds.forEach((id, index) => {
+                const assignedRoleName = rolesToAssign[index];
+                let assignedRoleData = allRolesData.find(r => r.name === assignedRoleName);
+
+                if (!assignedRoleData) {
+                    assignedRoleData = {
+                        name: "Dân Làng",
+                        faction: "Phe Dân",
+                        description: "Không có chức năng đặc biệt.",
+                        image: ""
+                    };
+                }
+                
+                updates[`/players/${id}/role`] = assignedRoleData;
+                logPayload.push({ name: roomData.players[id].name, role: assignedRoleData.name });
+            });
+
+            updates['/gameState/status'] = 'roles-sent';
+            updates['/gameState/message'] = 'Quản trò đã gửi vai trò. Người chơi có thể xem vai trò của mình.';
+
+            await roomRef.update(updates);
+            
             await fetch(API_ENDPOINT, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'saveGameLog', payload: logPayload })
             });
-            alert('Đã gửi vai trò và lưu vào Google Sheet!');
-        } catch(error) {
-            console.error('Lỗi khi lưu vào Google Sheet:', error);
-            alert('Đã gửi vai trò nhưng có lỗi khi lưu vào Google Sheet.');
-        }
 
-        sendRolesBtn.textContent = 'Đã Gửi';
+            alert('Đã gửi vai trò và lưu vào Google Sheet!');
+            sendRolesBtn.textContent = 'Đã Gửi';
+
+        } catch (error) {
+            console.error("Lỗi nghiêm trọng khi gửi vai trò:", error);
+            alert("Lỗi nghiêm trọng: " + error.message + ". Vui lòng kiểm tra lại Google Sheet và thử lại.");
+            sendRolesBtn.disabled = false;
+            sendRolesBtn.textContent = 'Gửi Vai Trò & Lưu Log';
+        }
     };
 
     const clearGameLog = async () => {
