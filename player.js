@@ -24,7 +24,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const waitingSection = document.getElementById('waiting-section');
     const roleRevealSection = document.getElementById('role-reveal-section');
 
-    // --- LOGIN LOGIC (REWRITTEN) ---
+    // --- LOGIN LOGIC (REWRITTEN WITH A PERSISTENT LISTENER) ---
+    let roomsListener = null; // To hold the listener so we can detach it later
+    let searchTimeout = null; // To hold the timeout
+
     const handleLogin = async () => {
         const password = passwordInput.value.trim();
         if (!password) {
@@ -49,8 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const username = userData.username;
 
-            // Step 2: Find the game room that contains this player
-            await findAndJoinRoom(username);
+            // Step 2: Start listening for a room containing the player
+            findAndJoinRoom(username);
 
         } catch (error) {
             loginError.textContent = error.message;
@@ -59,47 +62,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // New function to automatically find the room
+    // **SỬA LỖI:** This function now uses .on() to listen for changes
     const findAndJoinRoom = (username) => {
         const roomsRef = database.ref('rooms');
-        return new Promise((resolve, reject) => {
-            roomsRef.once('value', (snapshot) => {
-                if (!snapshot.exists()) {
-                    return reject(new Error('Không có phòng chơi nào đang hoạt động.'));
-                }
 
-                let foundRoom = false;
-                const allRooms = snapshot.val();
+        // Set a timeout to prevent infinite waiting
+        searchTimeout = setTimeout(() => {
+            roomsRef.off('value', roomsListener); // Stop listening to prevent memory leaks
+            loginError.textContent = 'Không tìm thấy game nào trong 30 giây. Quản trò đã tạo phòng chưa?';
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Tìm và Vào Game';
+        }, 30000); // 30-second timeout
 
-                // Iterate through all available rooms
-                for (const roomId in allRooms) {
-                    const room = allRooms[roomId];
-                    if (room.players) {
-                        // Find the player key (ID) by their name
-                        const playerId = Object.keys(room.players).find(key => room.players[key].name === username);
+        // The listener function
+        roomsListener = (snapshot) => {
+            if (!snapshot.exists()) {
+                // No rooms exist yet, just wait. The timeout will handle it.
+                return;
+            }
+
+            const allRooms = snapshot.val();
+            let foundRoom = false;
+
+            // Iterate through all available rooms
+            for (const roomId in allRooms) {
+                const room = allRooms[roomId];
+                if (room.players) {
+                    const playerId = Object.keys(room.players).find(key => room.players[key].name === username);
+                    
+                    if (playerId) {
+                        foundRoom = true;
                         
-                        if (playerId) {
-                            // Player found in this room!
-                            foundRoom = true;
-                            
-                            // Switch UI
-                            loginSection.classList.remove('active');
-                            gameSection.classList.add('active');
+                        // **QUAN TRỌNG:** Cleanup! Stop listening and clear the timeout once found.
+                        clearTimeout(searchTimeout);
+                        roomsRef.off('value', roomsListener);
 
-                            // Start the game logic
-                            initializeGame(username, roomId, playerId);
-                            resolve(); // Successfully joined
-                            break; // Stop searching
-                        }
+                        // Switch UI and initialize the game
+                        loginSection.classList.remove('active');
+                        gameSection.classList.add('active');
+                        initializeGame(username, roomId, playerId);
+                        
+                        break; // Stop the loop
                     }
                 }
+            }
+        };
 
-                if (!foundRoom) {
-                    // If loop finishes and no room was found for the player
-                    reject(new Error('Hiện tại không có game nào có tên bạn.'));
-                }
-            });
-        });
+        // Attach the persistent listener
+        roomsRef.on('value', roomsListener);
     };
 
     // --- GAME LOGIC ---
@@ -120,7 +130,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Add click listener for the role card
         roleRevealSection.addEventListener('click', () => {
             roleRevealSection.classList.toggle('is-flipped');
         });
@@ -150,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loginBtn.addEventListener('click', handleLogin);
     passwordInput.addEventListener('keyup', (event) => {
         if (event.key === 'Enter') {
-            event.preventDefault(); // Prevent form submission
+            event.preventDefault();
             loginBtn.click();
         }
     });
