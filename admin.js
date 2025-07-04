@@ -63,10 +63,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let counts = { wolfPack: 0, villagerFaction: 0, wolfFaction: 0, neutralFaction: 0 };
         selectedRoleNames.forEach(roleName => {
-            const roleData = allRolesData.find(r => r.RoleName === roleName);
+            const roleData = allRolesData.find(r => r.name === roleName);
             if (roleData) {
                 if (roleName.toLowerCase().includes('sói')) counts.wolfPack++;
-                switch (roleData.Faction) {
+                switch (roleData.faction) {
                     case 'Phe Dân': counts.villagerFaction++; break;
                     case 'Phe Sói': counts.wolfFaction++; break;
                     case 'Phe Trung Lập': counts.neutralFaction++; break;
@@ -120,7 +120,6 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(`${API_ENDPOINT}?sheetName=Roles`);
             if (!response.ok) throw new Error('Không thể tải danh sách vai trò.');
-            // Đổi tên các trường để nhất quán (JS thường dùng camelCase)
             const rawData = await response.json();
             allRolesData = rawData.map(role => ({
                 name: role.RoleName,
@@ -200,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const playersObject = {};
         selectedPlayers.forEach(playerName => {
             const playerId = `player_${playerName.replace(/\s+/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
-            playersObject[playerId] = { name: playerName, isAlive: true, role: null }; // role là null ban đầu
+            playersObject[playerId] = { name: playerName, isAlive: true, role: null };
         });
         
         database.ref(`rooms/${currentRoomId}`).set({
@@ -246,7 +245,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // SỬA LỖI QUAN TRỌNG: Gửi cả object vai trò thay vì chỉ tên vai trò
     const sendRoles = async () => {
         if (!currentRoomId) return;
         if (!confirm('Bạn có chắc muốn gửi vai trò và lưu log?')) return;
@@ -268,7 +266,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let rolesToAssign = [...roomData.rolesToAssign];
         let playerIds = Object.keys(roomData.players);
 
-        // Xáo trộn cả 2 mảng để đảm bảo ngẫu nhiên
         rolesToAssign.sort(() => Math.random() - 0.5);
         playerIds.sort(() => Math.random() - 0.5);
 
@@ -277,10 +274,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         playerIds.forEach((id, index) => {
             const assignedRoleName = rolesToAssign[index];
-            // Tìm object vai trò đầy đủ từ dữ liệu đã tải
             let assignedRoleData = allRolesData.find(r => r.name === assignedRoleName);
 
-            // Nếu không tìm thấy, tạo vai trò Dân Làng mặc định
             if (!assignedRoleData) {
                 assignedRoleData = {
                     name: "Dân Làng",
@@ -290,7 +285,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             }
             
-            // Chuẩn bị dữ liệu để cập nhật và ghi log
             updates[`/players/${id}/role`] = assignedRoleData;
             logPayload.push({ name: roomData.players[id].name, role: assignedRoleData.name });
         });
