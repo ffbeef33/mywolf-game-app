@@ -158,9 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateGameState(username, roomId, roomData) {
         roomIdDisplay.textContent = roomId;
-        // Sửa lỗi: Đảm bảo luôn lấy danh sách vai trò từ `rolesToAssign`
-        const rolesForDisplay = roomData.rolesToAssign || [];
-        displayRolesInGame(rolesForDisplay);
+        displayRolesInGame(roomData.rolesToAssign || []);
         
         const myPlayer = Object.values(roomData.players).find(p => p.name === username);
         if (!myPlayer) {
@@ -276,18 +274,28 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => console.error("Lỗi khi gửi lựa chọn:", err));
     }
     
+    // *** HÀM ĐÃ ĐƯỢC SỬA LỖI ***
     function updateRoleCard(role) {
         document.getElementById('role-name').textContent = role.name || 'Chưa có tên';
         document.getElementById('role-faction').textContent = `Phe ${role.faction || 'Chưa rõ'}`;
         document.getElementById('role-description').textContent = role.description || 'Chưa có mô tả.';
         const roleImage = document.getElementById('role-image');
         const roleFactionEl = document.getElementById('role-faction');
+        
+        // Reset class list trước khi thêm class mới
+        roleFactionEl.className = 'role-faction'; 
+        
+        // Thêm class màu sắc dựa trên phe
+        if (role.faction === 'Phe Sói') {
+            roleFactionEl.classList.add('wolf');
+        } else if (role.faction === 'Phe Dân') {
+            roleFactionEl.classList.add('villager');
+        } else if (role.faction === 'Phe Trung Lập') {
+            roleFactionEl.classList.add('neutral'); // Sửa lỗi: Thêm class neutral vào đúng thẻ
+        }
+        
         roleImage.src = role.image || 'assets/images/default-role.png';
         roleImage.alt = `Hình ảnh cho ${role.name}`;
-        roleFactionEl.className = 'role-faction';
-        if (role.faction === 'Phe Sói') roleFactionEl.classList.add('wolf');
-        else if (role.faction === 'Phe Dân') roleFactionEl.classList.add('villager');
-        else if (role.faction === 'Phe Trung Lập') roleFactionEl.classList.add('neutral');
     }
 
     // --- EVENT LISTENERS ---
