@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!userData.success) throw new Error(userData.message || 'Mật khẩu không hợp lệ.');
             
             sessionStorage.setItem('mywolf_username', userData.username);
-            listenForMyRoom(userData.username);
+            findAndListenToMyRoom(userData.username); // Gọi hàm kiến trúc mới
 
         } catch (error) {
             loginError.textContent = error.message;
@@ -64,65 +64,91 @@ document.addEventListener('DOMContentLoaded', () => {
     const checkSessionAndAutoLogin = () => {
         const username = sessionStorage.getItem('mywolf_username');
         if (username) {
-            listenForMyRoom(username);
+            findAndListenToMyRoom(username); // Gọi hàm kiến trúc mới
         } else {
             loginSection.classList.remove('hidden');
         }
     };
 
-    // --- CORE GAME LOGIC & UI ---
+    // --- CORE GAME LOGIC & UI (RE-ARCHITECTED) ---
 
-    // *** HÀM MỚI: DỌN DẸP TRẠNG THÁI VÀ QUAY VỀ MÀN HÌNH ĐĂNG NHẬP ***
     const goBackToLogin = (message) => {
-        if (roomListener) {
-            // Đảm bảo listener được gỡ bỏ đúng cách
-            database.ref('rooms').off('value', roomListener);
-            roomListener = null;
+        // 1. Dọn dẹp listener cũ nếu có
+        if (roomListener && currentRoomId) {
+            database.ref(`rooms/${currentRoomId}`).off('value', roomListener);
         }
+        // 2. Dọn dẹp timer
         if (pickTimerInterval) {
             clearInterval(pickTimerInterval);
-            pickTimerInterval = null;
         }
         
+        // 3. Reset các biến trạng thái
+        roomListener = null;
+        pickTimerInterval = null;
+        currentRoomId = null;
+        
+        // 4. Cập nhật giao diện
         gameSection.classList.add('hidden');
         loginSection.classList.remove('hidden');
         loginError.textContent = message;
-        passwordInput.value = ''; // Xóa mật khẩu cũ
+        passwordInput.value = '';
         loginBtn.disabled = false;
         loginBtn.textContent = 'Tìm và Vào Game';
     };
 
-    function listenForMyRoom(username) {
+    async function findAndListenToMyRoom(username) {
         loginSection.classList.add('hidden');
         gameSection.classList.remove('hidden');
         playerNameDisplay.textContent = username;
+        showSection(waitingSection); // Hiển thị màn hình chờ trong lúc tìm kiếm
 
-        const roomsRef = database.ref('rooms');
-        if (roomListener) roomsRef.off('value', roomListener);
-
-        roomListener = roomsRef.on('value', (snapshot) => {
+        try {
+            const roomsRef = database.ref('rooms');
+            const snapshot = await roomsRef.get(); // Tìm kiếm 1 lần duy nhất
             const allRooms = snapshot.val();
-            let playerRoom = null;
             let foundRoomId = null;
 
             if (allRooms) {
                 for (const roomId in allRooms) {
                     const room = allRooms[roomId];
                     if (room.players && Object.values(room.players).some(p => p.name === username)) {
-                        playerRoom = room;
                         foundRoomId = roomId;
-                        currentRoomId = roomId;
                         break;
                     }
                 }
             }
 
-            if (playerRoom) {
-                updateGameState(username, foundRoomId, playerRoom);
+            if (foundRoomId) {
+                attachListenerToSpecificRoom(username, foundRoomId);
             } else {
-                // Bị kick hoặc phòng bị xóa -> Gọi hàm dọn dẹp tập trung
-                goBackToLogin('Bạn không còn ở trong phòng nào. Vui lòng thử lại.');
+                goBackToLogin('Không tìm thấy phòng nào có bạn. Quản trò đã tạo game chưa?');
             }
+        } catch (error) {
+            console.error("Lỗi khi tìm phòng:", error);
+            goBackToLogin('Đã xảy ra lỗi khi kết nối tới máy chủ.');
+        }
+    }
+
+    function attachListenerToSpecificRoom(username, roomId) {
+        currentRoomId = roomId;
+        const roomRef = database.ref(`rooms/${roomId}`);
+
+        if (roomListener) roomRef.off('value', roomListener); // Đảm bảo an toàn
+
+        roomListener = roomRef.on('value', (snapshot) => {
+            const roomData = snapshot.val();
+            
+            // Đây là điểm mấu chốt của việc sửa lỗi
+            if (roomData) {
+                // Nếu phòng tồn tại, cập nhật trạng thái game
+                updateGameState(username, roomId, roomData);
+            } else {
+                // Nếu roomData là null, phòng đã bị xóa.
+                goBackToLogin('Phòng đã bị quản trò xóa.');
+            }
+        }, (error) => {
+            console.error("Firebase listener error:", error);
+            goBackToLogin('Mất kết nối với phòng chơi.');
         });
     }
 
@@ -130,48 +156,38 @@ document.addEventListener('DOMContentLoaded', () => {
         roomIdDisplay.textContent = roomId;
         const myPlayer = Object.values(roomData.players).find(p => p.name === username);
 
-        // Ưu tiên 1: Nếu đã có vai trò cuối cùng -> Hiển thị thẻ bài
-        if (myPlayer && myPlayer.role) {
-            showSection(roleRevealSection);
-            updateRoleCard(myPlayer.role);
+        if (!myPlayer) {
+            // Trường hợp người chơi bị kick khỏi phòng
+            goBackToLogin('Bạn đã bị quản trò kick khỏi phòng.');
             return;
         }
 
-        // Ưu tiên 2: Nếu đang trong giai đoạn Player Pick -> Hiển thị giao diện chọn
-        if (roomData.playerPickState && roomData.playerPickState.status === 'picking') {
+        if (myPlayer.role) {
+            showSection(roleRevealSection);
+            updateRoleCard(myPlayer.role);
+        } else if (roomData.playerPickState && roomData.playerPickState.status === 'picking') {
             showSection(playerPickSection);
             handlePlayerPickState(username, roomId, roomData.playerPickState);
-            return;
+        } else {
+            showSection(waitingSection);
         }
-        
-        // Mặc định: Hiển thị màn hình chờ
-        showSection(waitingSection);
     }
     
     function showSection(sectionToShow) {
         [waitingSection, playerPickSection, roleRevealSection].forEach(section => {
-            if (section === sectionToShow) {
-                section.classList.remove('hidden');
-            } else {
-                section.classList.add('hidden');
-            }
+            section.classList.toggle('hidden', section !== sectionToShow);
         });
     }
 
-    // --- PLAYER PICK FEATURE ---
     function handlePlayerPickState(username, roomId, state) {
-        if (pickTimerInterval) clearInterval(pickTimerInterval); // Dọn dẹp timer cũ
+        if (pickTimerInterval) clearInterval(pickTimerInterval);
         
         const updateTimer = () => {
             const remaining = Math.round((state.endTime - Date.now()) / 1000);
-            if (remaining >= 0) {
-                pickTimerDisplay.textContent = `${remaining}s`;
-            } else {
-                pickTimerDisplay.textContent = "Hết giờ!";
-                clearInterval(pickTimerInterval);
-            }
+            pickTimerDisplay.textContent = remaining > 0 ? `${remaining}s` : "Hết giờ!";
+            if (remaining <= 0) clearInterval(pickTimerInterval);
         };
-        updateTimer(); // Chạy ngay lần đầu
+        updateTimer();
         pickTimerInterval = setInterval(updateTimer, 1000);
 
         const myChoice = state.playerChoices[username];
@@ -196,13 +212,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function selectRole(username, roomId, choice) {
-        const choiceRef = database.ref(`rooms/${roomId}/playerPickState/playerChoices/${username}`);
-        choiceRef.set(choice)
-            .then(() => console.log(`Player ${username} chose ${choice}`))
+        database.ref(`rooms/${roomId}/playerPickState/playerChoices/${username}`).set(choice)
             .catch(err => console.error("Lỗi khi gửi lựa chọn:", err));
     }
     
-    // --- ROLE REVEAL FEATURE ---
     function updateRoleCard(role) {
         document.getElementById('role-name').textContent = role.name || 'Chưa có tên';
         document.getElementById('role-faction').textContent = `Phe ${role.faction || 'Chưa rõ'}`;
