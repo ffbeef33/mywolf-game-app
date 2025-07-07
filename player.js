@@ -1,3 +1,8 @@
+// =================================================================
+// === player.js - PHIÊN BẢN SỬA LỖI HIỂN THỊ CUỐI CÙNG ===
+console.log("ĐANG CHẠY player.js PHIÊN BẢN SỬA LỖI HIỂN THỊ!");
+// =================================================================
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- Firebase Configuration ---
     const firebaseConfig = {
@@ -42,8 +47,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error('Không thể tải dữ liệu vai trò.');
             const rawData = await response.json();
             allRolesData = rawData.map(role => ({
-                name: role.RoleName || 'Lỗi',
-                faction: role.Faction || 'Chưa phân loại'
+                name: (role.RoleName || 'Lỗi').trim(),
+                faction: (role.Faction || 'Chưa phân loại').trim()
             }));
         } catch (error) {
             console.error("Lỗi nghiêm trọng khi tải dữ liệu vai trò:", error);
@@ -183,6 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // *** HÀM ĐÃ ĐƯỢC SỬA LỖI ***
     function displayRolesInGame(roleNames) {
         rolesInGameDisplay.innerHTML = '';
         if (roleNames.length === 0 || allRolesData.length === 0) {
@@ -191,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const rolesByFaction = roleNames.reduce((acc, name) => {
-            const roleData = allRolesData.find(r => r.name === name);
+            const roleData = allRolesData.find(r => r.name.trim() === name.trim());
             const faction = roleData ? roleData.faction : 'Chưa phân loại';
             if (!acc[faction]) {
                 acc[faction] = [];
@@ -200,12 +206,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return acc;
         }, {});
 
-        const factionOrder = ['Phe Sói', 'Phe Dân', 'Phe Trung Lập', 'Chưa phân loại'];
+        // SỬA LỖI: Cập nhật mảng này để khớp với Google Sheets
+        const factionOrder = ['Phe Sói', 'Bầy Sói', 'Phe Dân', 'Phe trung lập', 'Chưa phân loại'];
 
         const getFactionClass = (faction) => {
-            if (faction === 'Phe Sói') return 'faction-wolf';
+            if (faction === 'Phe Sói' || faction === 'Bầy Sói') return 'faction-wolf';
             if (faction === 'Phe Dân') return 'faction-villager';
-            if (faction === 'Phe Trung Lập') return 'faction-neutral';
+            if (faction === 'Phe trung lập') return 'faction-neutral';
             return 'faction-unknown';
         };
 
@@ -274,7 +281,6 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => console.error("Lỗi khi gửi lựa chọn:", err));
     }
     
-    // *** HÀM ĐÃ ĐƯỢC SỬA LỖI ***
     function updateRoleCard(role) {
         document.getElementById('role-name').textContent = role.name || 'Chưa có tên';
         document.getElementById('role-faction').textContent = `Phe ${role.faction || 'Chưa rõ'}`;
@@ -282,16 +288,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const roleImage = document.getElementById('role-image');
         const roleFactionEl = document.getElementById('role-faction');
         
-        // Reset class list trước khi thêm class mới
         roleFactionEl.className = 'role-faction'; 
         
-        // Thêm class màu sắc dựa trên phe
-        if (role.faction === 'Phe Sói') {
+        // Cập nhật logic gán class để bao gồm các phe mới
+        const faction = role.faction.trim();
+        if (faction === 'Phe Sói' || faction === 'Bầy Sói') {
             roleFactionEl.classList.add('wolf');
-        } else if (role.faction === 'Phe Dân') {
+        } else if (faction === 'Phe Dân') {
             roleFactionEl.classList.add('villager');
-        } else if (role.faction === 'Phe Trung Lập') {
-            roleFactionEl.classList.add('neutral'); // Sửa lỗi: Thêm class neutral vào đúng thẻ
+        } else if (faction === 'Phe trung lập') {
+            roleFactionEl.classList.add('neutral');
         }
         
         roleImage.src = role.image || 'assets/images/default-role.png';
