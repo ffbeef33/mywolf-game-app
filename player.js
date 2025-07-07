@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let pickTimerInterval = null;
     let searchInterval = null;
     let currentRoomId = null;
-    let allRolesData = []; // Biến mới để lưu toàn bộ dữ liệu vai trò
+    let allRolesData = [];
 
     // --- DATA FETCHING ---
     const fetchAllRolesData = async () => {
@@ -47,7 +47,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }));
         } catch (error) {
             console.error("Lỗi nghiêm trọng khi tải dữ liệu vai trò:", error);
-            // Có thể hiển thị lỗi cho người dùng nếu cần
         }
     };
 
@@ -159,7 +158,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateGameState(username, roomId, roomData) {
         roomIdDisplay.textContent = roomId;
-        // *** LUÔN HIỂN THỊ DANH SÁCH VAI TRÒ ***
         displayRolesInGame(roomData.rolesToAssign || []);
         
         const myPlayer = Object.values(roomData.players).find(p => p.name === username);
@@ -185,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // *** HÀM MỚI: PHÂN LOẠI VÀ HIỂN THỊ VAI TRÒ ***
+    // *** HÀM ĐÃ ĐƯỢC CẬP NHẬT ĐỂ HIỂN THỊ ĐẸP HƠN ***
     function displayRolesInGame(roleNames) {
         rolesInGameDisplay.innerHTML = '';
         if (roleNames.length === 0 || allRolesData.length === 0) {
@@ -203,7 +201,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return acc;
         }, {});
 
-        // Định nghĩa thứ tự hiển thị phe
         const factionOrder = ['Phe Sói', 'Phe Dân', 'Phe Trung Lập', 'Chưa phân loại'];
 
         factionOrder.forEach(faction => {
@@ -212,6 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 factionBox.className = 'faction-box';
 
                 const factionTitle = document.createElement('h4');
+                factionTitle.className = 'faction-title';
                 factionTitle.textContent = faction;
                 factionBox.appendChild(factionTitle);
 
@@ -301,8 +299,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- INITIAL LOAD ---
     const initialize = async () => {
-        await fetchAllRolesData(); // Tải dữ liệu vai trò trước
-        checkSessionAndAutoLogin(); // Sau đó mới kiểm tra session
+        await fetchAllRolesData();
+        checkSessionAndAutoLogin();
     };
 
     initialize();
