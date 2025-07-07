@@ -24,23 +24,22 @@ export default async function handler(request, response) {
   }
 
   try {
-    // Lấy đối tượng database bên trong handler để đảm bảo app đã được khởi tạo
     const db = getDatabase();
     const roomsRef = db.ref('rooms');
     const snapshot = await roomsRef.once('value');
     const allRooms = snapshot.val();
 
     if (!allRooms) {
-      return response.status(200).json([]); // Trả về mảng rỗng nếu không có phòng nào
+      return response.status(200).json([]); // Trả về mảng rỗng nếu không có phòng
     }
 
-    // Lọc và lấy thông tin các phòng đang hoạt động
     const activeRooms = Object.keys(allRooms)
       .map(roomId => {
         const roomData = allRooms[roomId];
         return {
           id: roomId,
-          createdAt: roomData.createdAt || 'Không rõ',
+          // SỬA LỖI: Gán giá trị 0 nếu createdAt không tồn tại để sắp xếp an toàn
+          createdAt: roomData.createdAt || 0,
           playerCount: roomData.players ? Object.keys(roomData.players).length : 0,
         };
       })
@@ -50,7 +49,7 @@ export default async function handler(request, response) {
     return response.status(200).json(activeRooms);
 
   } catch (error) {
-    console.error('Error fetching rooms:', error);
+    console.error('API /api/room Error:', error);
     return response.status(500).json({ error: 'Lỗi máy chủ khi lấy danh sách phòng.', details: error.message });
   }
 }
