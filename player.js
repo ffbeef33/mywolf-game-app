@@ -18,11 +18,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const passwordInput = document.getElementById('password-input');
     const loginBtn = document.getElementById('login-btn');
     const loginError = document.getElementById('login-error');
-
     const playerNameDisplay = document.getElementById('player-name-display');
     const roomIdDisplay = document.getElementById('room-id-display');
     const waitingSection = document.getElementById('waiting-section');
     const roleRevealSection = document.getElementById('role-reveal-section');
+
+    let roomListener = null; // Biến toàn cục để lưu trữ trình lắng nghe
 
     // --- LOGIN LOGIC ---
     const handleLogin = async () => {
@@ -31,24 +32,20 @@ document.addEventListener('DOMContentLoaded', () => {
             loginError.textContent = 'Vui lòng nhập mật khẩu của bạn.';
             return;
         }
-
         loginError.textContent = '';
         loginBtn.disabled = true;
-        loginBtn.textContent = 'Đang tìm game...';
-
+        loginBtn.textContent = 'Đang xác thực...';
         try {
-            const apiResponse = await fetch('/api/login', {
+            const response = await fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ password })
             });
-            const userData = await apiResponse.json();
-            if (!userData.success) {
-                throw new Error(userData.message || 'Mật khẩu không hợp lệ.');
-            }
-            const username = userData.username;
+            const userData = await response.json();
+            if (!userData.success) throw new Error(userData.message || 'Mật khẩu không hợp lệ.');
             
-            await findAndJoinRoom(username);
+            // Bắt đầu lắng nghe phòng cho người dùng này
+            listenForMyRoom(userData.username);
 
         } catch (error) {
             loginError.textContent = error.message;
@@ -57,71 +54,79 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const findAndJoinRoom = (username) => {
+    // =====================================================================
+    // === SỬA LỖI: LOGIC TÌM VÀ LẮNG NGHE PHÒNG BỀN BỈ ===
+    // =====================================================================
+    function listenForMyRoom(username) {
         const roomsRef = database.ref('rooms');
-        return new Promise((resolve, reject) => {
-            roomsRef.once('value', (snapshot) => {
-                if (!snapshot.exists()) {
-                    return reject(new Error('Không có phòng chơi nào đang hoạt động.'));
-                }
+        
+        // Gỡ trình lắng nghe cũ nếu có để tránh việc lắng nghe nhiều lần
+        if (roomListener) roomsRef.off('value', roomListener);
 
-                let playerInfo = null;
-                const allRooms = snapshot.val();
+        loginError.textContent = 'Đang tìm phòng của bạn...';
 
+        roomListener = roomsRef.on('value', (snapshot) => {
+            const allRooms = snapshot.val();
+            let playerInfo = null;
+
+            if (allRooms) {
+                // Lặp qua tất cả các phòng để tìm người chơi
                 for (const roomId in allRooms) {
                     const room = allRooms[roomId];
                     if (room.players) {
                         const playerId = Object.keys(room.players).find(key => room.players[key].name === username);
                         if (playerId) {
-                            playerInfo = { roomId, playerId, username };
-                            break; 
+                            playerInfo = { 
+                                roomId, 
+                                playerId, 
+                                username, 
+                                role: room.players[playerId].role // Lấy luôn dữ liệu vai trò
+                            };
+                            break;
                         }
                     }
                 }
+            }
 
-                if (playerInfo) {
+            if (playerInfo) {
+                // Nếu tìm thấy phòng -> chuyển sang giao diện game
+                if (!gameSection.classList.contains('active')) {
                     loginSection.classList.remove('active');
                     loginSection.classList.add('hidden');
-                    
-                    gameSection.classList.remove('hidden');
                     gameSection.classList.add('active');
-                    
-                    initializeGame(playerInfo.username, playerInfo.roomId, playerInfo.playerId);
-                    resolve();
-                } else {
-                    reject(new Error('Hiện tại không có game nào có tên bạn trong danh sách chờ.'));
+                    gameSection.classList.remove('hidden');
                 }
-            }, (error) => {
-                console.error("Lỗi đọc dữ liệu Firebase:", error);
-                reject(new Error('Không thể kết nối đến máy chủ game.'));
-            });
-        });
-    };
-
-    // --- GAME LOGIC ---
-    function initializeGame(playerName, roomId, playerId) {
-        playerNameDisplay.textContent = playerName;
-        roomIdDisplay.textContent = roomId;
-
-        const playerRef = database.ref(`rooms/${roomId}/players/${playerId}`);
-        playerRef.update({ isOnline: true });
-        playerRef.onDisconnect().update({ isOnline: false });
-
-        const roleRef = database.ref(`rooms/${roomId}/players/${playerId}/role`);
-        roleRef.on('value', (snapshot) => {
-            const roleData = snapshot.val();
-            
-            // =================================================================
-            // === NÂNG CẤP: Xử lý cả khi có vai trò và khi bị reset (null) ===
-            // =================================================================
-            if (roleData && typeof roleData === 'object' && roleData.name) {
-                // Trường hợp có vai trò -> Hiển thị thẻ bài
-                updateRoleUI(roleData);
+                // Cập nhật giao diện game với thông tin mới nhất
+                initializeGame(playerInfo.username, playerInfo.roomId, playerInfo.playerId, playerInfo.role);
             } else {
-                // Trường hợp vai trò là null (bị quản trò reset) -> Quay lại màn hình chờ
-                resetRoleUI();
+                // Nếu không tìm thấy phòng (do chưa tạo hoặc đã bị xóa) -> reset về màn hình đăng nhập
+                if (!loginSection.classList.contains('active')) {
+                    gameSection.classList.remove('active');
+                    gameSection.classList.add('hidden');
+                    loginSection.classList.add('active');
+                    loginSection.classList.remove('hidden');
+                }
+                loginError.textContent = 'Không tìm thấy phòng nào. Quản trò đã tạo game chưa?';
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Thử Tìm Lại';
             }
         });
+    }
+
+    // --- GAME LOGIC ---
+    function initializeGame(playerName, roomId, playerId, roleData) {
+        playerNameDisplay.textContent = playerName;
+        roomIdDisplay.textContent = roomId;
+        
+        // Cập nhật trạng thái online (không cần onDisconnect ở đây vì listener chính đã xử lý)
+        database.ref(`rooms/${roomId}/players/${playerId}`).update({ isOnline: true });
+        
+        // Xử lý vai trò ngay lập tức dựa trên dữ liệu từ trình lắng nghe chính
+        if (roleData && typeof roleData === 'object' && roleData.name) {
+            updateRoleUI(roleData);
+        } else {
+            resetRoleUI();
+        }
 
         roleRevealSection.addEventListener('click', () => {
             roleRevealSection.classList.toggle('is-flipped');
@@ -148,7 +153,6 @@ document.addEventListener('DOMContentLoaded', () => {
         roleRevealSection.classList.remove('hidden');
     }
 
-    // Hàm mới để reset giao diện về trạng thái chờ
     function resetRoleUI() {
         waitingSection.classList.remove('hidden');
         roleRevealSection.classList.add('hidden');

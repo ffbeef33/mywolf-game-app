@@ -8,48 +8,41 @@
     <link rel="stylesheet" href="assets/admin-style.css">
 </head>
 <body>
-
-    <!-- TỐI ƯU: Thêm một vùng chứa thông báo toàn cục -->
     <div id="notification-area" class="notification" aria-live="polite"></div>
-
     <div class="container">
         <header class="main-header">
             <h1><span aria-hidden="true">👑</span> Bảng Điều Khiển Quản Trò</h1>
-            <p>Phòng Game ID: <strong id="room-id-display">Chưa tạo</strong></p>
+            <p>Phòng Game Hiện Tại: <strong id="room-id-display">Chưa tạo</strong></p>
         </header>
 
-        <!-- TỐI ƯU: Sử dụng thẻ <main> cho nội dung chính -->
         <main>
-            <!-- TỐI ƯU: Sử dụng thẻ <section> thay cho <div> cho các vùng nội dung lớn -->
+            <!-- ============================================= -->
+            <!-- === KHU VỰC QUẢN LÝ PHÒNG MỚI === -->
+            <!-- ============================================= -->
+            <section class="card" id="room-management-section">
+                <h2>Quản Lý Các Phòng Đang Hoạt Động</h2>
+                <div id="room-list-container">
+                    <p>Đang tải danh sách phòng...</p>
+                </div>
+                <button id="refresh-rooms-btn" class="btn-secondary">Làm Mới Danh Sách</button>
+            </section>
+
             <section class="card" id="setup-section">
                 <h2>1. Thiết Lập Ván Chơi Mới</h2>
-
                 <div class="form-group" id="player-selection-section">
                     <h3>Chọn người chơi tham gia:</h3>
-                    <!-- TỐI ƯU: Thêm cấu trúc cho trạng thái loading (skeleton loader) -->
                     <div id="player-list-container">
-                        <div class="skeleton-loader">
-                            <div class="skeleton-line"></div>
-                            <div class="skeleton-line"></div>
-                            <div class="skeleton-line"></div>
-                        </div>
+                        <div class="skeleton-loader"><div class="skeleton-line"></div><div class="skeleton-line"></div></div>
                     </div>
                 </div>
-                
                 <div class="form-group" id="roles-selection-container">
                     <h3>Chọn các vai trò:</h3>
-                    <!-- TỐI ƯU: Thêm cấu trúc cho trạng thái loading -->
                     <div id="roles-by-faction">
-                        <div class="skeleton-loader">
-                            <div class="skeleton-line"></div>
-                            <div class="skeleton-line"></div>
-                        </div>
+                        <div class="skeleton-loader"><div class="skeleton-line"></div><div class="skeleton-line"></div></div>
                     </div>
                 </div>
-
                 <div class="form-group" id="role-counter-container">
                     <div id="role-count-display">
-                        <!-- TỐI ƯU: Thêm aria-hidden để screen reader không đọc các icon trang trí -->
                         <div><span aria-hidden="true">👥</span> Người chơi: <strong id="player-count">0</strong></div>
                         <div><span aria-hidden="true">🐺</span> Bầy Sói: <strong id="wolf-pack-count">0</strong></div>
                         <div><span aria-hidden="true">👨‍🌾</span> Phe Dân: <strong id="villager-faction-count">0</strong></div>
@@ -58,30 +51,22 @@
                         <div><span aria-hidden="true">🃏</span> Tổng Vai Trò: <strong id="role-count">0</strong></div>
                     </div>
                 </div>
-
-                <button id="create-room-btn" disabled>Tạo Phòng Chơi</button>
+                <button id="create-room-btn" disabled>Tạo Phòng Chơi Mới</button>
             </section>
 
             <section class="card hidden" id="active-room-section">
-                <h2>Quản Lý Phòng Hiện Tại</h2>
-                
+                <h2>Quản Lý Phòng Vừa Tạo</h2>
                 <div class="room-info-section">
                     <h3>Các vai trò trong game (<span id="roles-total">0</span>):</h3>
-                    <ul id="roles-in-game-list">
-                        <!-- Các vai trò sẽ được thêm vào đây bằng JS -->
-                    </ul>
+                    <ul id="roles-in-game-list"></ul>
                 </div>
-
                 <div class="room-info-section">
                     <h3>Danh sách người chơi (<span id="players-total">0</span>):</h3>
-                    <ul id="player-list">
-                        <!-- Danh sách người chơi sẽ được thêm vào đây bằng JS -->
-                    </ul>
+                    <ul id="player-list"></ul>
                 </div>
-                
                 <div class="action-buttons">
                     <button id="send-roles-btn">Gửi Vai Trò & Lưu Log</button>
-                    <button id="clear-gamelog-btn" class="btn-secondary">Xóa Log Sheet</button>
+                    <button id="clear-gamelog-btn" class="btn-secondary">Xóa Log & Reset Roles</button>
                     <button id="delete-room-btn" class="btn-danger">Xóa Phòng Này</button>
                 </div>
             </section>

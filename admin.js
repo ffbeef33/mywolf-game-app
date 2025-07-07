@@ -17,8 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
     
-    const API_ENDPOINT = "/api/sheets"; 
-
     // --- DOM Elements ---
     const setupSection = document.getElementById('setup-section');
     const activeRoomSection = document.getElementById('active-room-section');
@@ -41,11 +39,68 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearGamelogBtn = document.getElementById('clear-gamelog-btn');
     const deleteRoomBtn = document.getElementById('delete-room-btn');
 
+    // MỚI: DOM Elements cho quản lý phòng
+    const roomListContainer = document.getElementById('room-list-container');
+    const refreshRoomsBtn = document.getElementById('refresh-rooms-btn');
+
     let currentRoomId = null;
     let playerListener = null;
     let allRolesData = [];
 
-    // --- Functions ---
+    // =======================================================
+    // === MỚI: LOGIC QUẢN LÝ PHÒNG ===
+    // =======================================================
+    const loadAndDisplayRooms = async () => {
+        // Kiểm tra xem element có tồn tại trên trang không
+        if (!roomListContainer) return; 
+        roomListContainer.innerHTML = '<p>Đang tải danh sách phòng...</p>';
+        try {
+            const response = await fetch('/api/room');
+            if (!response.ok) throw new Error(`Không thể tải danh sách phòng (${response.status})`);
+            
+            const rooms = await response.json();
+            
+            if (rooms.length === 0) {
+                roomListContainer.innerHTML = '<p>Không có phòng nào đang hoạt động.</p>';
+                return;
+            }
+
+            let roomListHTML = '<ul class="room-management-list">';
+            rooms.forEach(room => {
+                const creationTime = new Date(room.createdAt).toLocaleString('vi-VN');
+                roomListHTML += `
+                    <li class="room-list-item">
+                        <span>
+                            <strong>ID:</strong> ${room.id} <br>
+                            <em>(Tạo lúc: ${creationTime}, ${room.playerCount} người chơi)</em>
+                        </span>
+                        <button class="btn-danger delete-room-btn" data-room-id="${room.id}">Xóa</button>
+                    </li>
+                `;
+            });
+            roomListHTML += '</ul>';
+            roomListContainer.innerHTML = roomListHTML;
+            
+        } catch (error) {
+            console.error("Lỗi tải phòng:", error);
+            roomListContainer.innerHTML = `<p style='color:red;'>Lỗi: ${error.message}</p>`;
+        }
+    };
+    
+    const handleDeleteRoom = (roomId) => {
+        if (!roomId || !confirm(`Bạn có chắc muốn xóa vĩnh viễn phòng '${roomId}'? Hành động này sẽ kick tất cả người chơi ra khỏi phòng.`)) return;
+        
+        database.ref(`rooms/${roomId}`).remove()
+            .then(() => {
+                alert(`Phòng '${roomId}' đã được xóa thành công.`);
+                loadAndDisplayRooms(); // Tải lại danh sách ngay sau khi xóa
+            })
+            .catch((error) => {
+                alert("Lỗi khi xóa phòng: " + error.message);
+            });
+    };
+
+    // --- CÁC HÀM CŨ (GIỮ NGUYÊN) ---
     const updateCounters = () => {
         const totalPlayers = document.querySelectorAll('input[name="selected-player"]:checked').length;
         let selectedRoleNames = [];
@@ -94,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const loadPlayersFromSheet = async () => {
         try {
-            const response = await fetch(`${API_ENDPOINT}?sheetName=Players`);
+            const response = await fetch(`/api/sheets?sheetName=Players`);
             if (!response.ok) throw new Error('Không thể tải danh sách người chơi.');
             const allPlayers = await response.json();
             
@@ -118,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const loadRolesFromSheet = async () => {
         try {
-            const response = await fetch(`${API_ENDPOINT}?sheetName=Roles`);
+            const response = await fetch(`/api/sheets?sheetName=Roles`);
             if (!response.ok) throw new Error('Không thể tải danh sách vai trò.');
             const rawData = await response.json();
             
@@ -209,6 +264,9 @@ document.addEventListener('DOMContentLoaded', () => {
             rolesToAssign: selectedRoles,
             players: playersObject,
             gameState: { status: 'setup', message: 'Quản trò đang phân vai...' }
+        }).then(() => {
+            alert(`Phòng ${currentRoomId} đã được tạo thành công!`);
+            loadAndDisplayRooms(); // Tải lại danh sách phòng sau khi tạo
         });
 
         setupSection.classList.add('hidden');
@@ -235,6 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updatePlayerListUI = (playersData) => {
         playerListUI.innerHTML = '';
+        if (!playersData) return;
         for (const playerId in playersData) {
             const player = playersData[playerId];
             const roleName = (player.role && player.role.name) ? `<strong>(${player.role.name})</strong>` : '';
@@ -276,12 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let assignedRoleData = allRolesData.find(r => r.name === assignedRoleName);
 
                 if (!assignedRoleData) {
-                    assignedRoleData = {
-                        name: "Dân Làng",
-                        faction: "Phe Dân",
-                        description: "Không có chức năng đặc biệt.",
-                        image: ""
-                    };
+                    assignedRoleData = { name: "Dân Làng", faction: "Phe Dân", description: "Không có chức năng đặc biệt.", image: "" };
                 }
                 
                 updates[`/players/${id}/role`] = assignedRoleData;
@@ -289,11 +343,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             updates['/gameState/status'] = 'roles-sent';
-            updates['/gameState/message'] = 'Quản trò đã gửi vai trò. Người chơi có thể xem vai trò của mình.';
-
+            updates['/gameState/message'] = 'Quản trò đã gửi vai trò.';
+            
             await roomRef.update(updates);
             
-            await fetch(API_ENDPOINT, {
+            await fetch(`/api/sheets`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'saveGameLog', payload: logPayload })
@@ -304,45 +358,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error("Lỗi nghiêm trọng khi gửi vai trò:", error);
-            alert("Lỗi nghiêm trọng: " + error.message + ". Vui lòng kiểm tra lại Google Sheet và thử lại.");
+            alert("Lỗi nghiêm trọng: " + error.message);
             sendRolesBtn.disabled = false;
             sendRolesBtn.textContent = 'Gửi Vai Trò & Lưu Log';
         }
     };
 
-    // =================================================================
-    // === NÂNG CẤP: Chức năng Xóa Log và Reset Trạng Thái Người Chơi ===
-    // =================================================================
     const clearGameLog = async () => {
         if (!currentRoomId || !confirm('Bạn có chắc muốn xóa log và reset vai trò của tất cả người chơi trong phòng này?')) return;
 
         try {
-            // Bước 1: Gọi API để xóa dữ liệu trên Google Sheet
-            await fetch(API_ENDPOINT, {
+            await fetch(`/api/sheets`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'clearGameLog' })
             });
 
-            // Bước 2: Lấy danh sách người chơi hiện tại trong phòng
             const playersRef = database.ref(`rooms/${currentRoomId}/players`);
             const snapshot = await playersRef.once('value');
             const players = snapshot.val();
 
             if (players) {
                 const updates = {};
-                // Tạo một object chứa các lệnh cập nhật để reset vai trò của từng người chơi về null
                 for (const playerId in players) {
                     updates[`/${playerId}/role`] = null;
                 }
-                // Thực hiện cập nhật hàng loạt trên Firebase
                 await playersRef.update(updates);
             }
             
-            // Bước 3: Cập nhật lại trạng thái game và giao diện quản trò
             await database.ref(`rooms/${currentRoomId}/gameState`).update({
                 status: 'setup',
-                message: 'Quản trò đã reset game. Đang chờ phân vai lại...'
+                message: 'Quản trò đã reset game.'
             });
             
             sendRolesBtn.disabled = false;
@@ -386,15 +432,24 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCounters();
     };
 
-    // --- Event Listeners ---
+    // --- EVENT LISTENERS ---
     createRoomBtn.addEventListener('click', createRoom);
     sendRolesBtn.addEventListener('click', sendRoles);
     clearGamelogBtn.addEventListener('click', clearGameLog);
     deleteRoomBtn.addEventListener('click', deleteRoom);
-    
     playerListContainer.addEventListener('change', updateCounters);
     rolesByFactionContainer.addEventListener('change', updateCounters);
     
+    // MỚI: Event listener cho quản lý phòng
+    if(refreshRoomsBtn) refreshRoomsBtn.addEventListener('click', loadAndDisplayRooms);
+    if(roomListContainer) roomListContainer.addEventListener('click', (event) => {
+        if (event.target.classList.contains('delete-room-btn')) {
+            handleDeleteRoom(event.target.dataset.roomId);
+        }
+    });
+    
+    // --- TẢI DỮ LIỆU BAN ĐẦU ---
     loadPlayersFromSheet();
     loadRolesFromSheet();
+    loadAndDisplayRooms(); // Tải danh sách phòng ngay khi mở trang
 });
