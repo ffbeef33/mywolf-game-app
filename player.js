@@ -158,7 +158,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateGameState(username, roomId, roomData) {
         roomIdDisplay.textContent = roomId;
-        displayRolesInGame(roomData.rolesToAssign || []);
+        // Sửa lỗi: Đảm bảo luôn lấy danh sách vai trò từ `rolesToAssign`
+        const rolesForDisplay = roomData.rolesToAssign || [];
+        displayRolesInGame(rolesForDisplay);
         
         const myPlayer = Object.values(roomData.players).find(p => p.name === username);
         if (!myPlayer) {
@@ -183,7 +185,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // *** HÀM ĐÃ ĐƯỢC CẬP NHẬT ĐỂ HIỂN THỊ ĐẸP HƠN ***
     function displayRolesInGame(roleNames) {
         rolesInGameDisplay.innerHTML = '';
         if (roleNames.length === 0 || allRolesData.length === 0) {
@@ -203,7 +204,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const factionOrder = ['Phe Sói', 'Phe Dân', 'Phe Trung Lập', 'Chưa phân loại'];
 
-        // Hàm giúp chuyển đổi tên phe thành class CSS
         const getFactionClass = (faction) => {
             if (faction === 'Phe Sói') return 'faction-wolf';
             if (faction === 'Phe Dân') return 'faction-villager';
@@ -214,7 +214,6 @@ document.addEventListener('DOMContentLoaded', () => {
         factionOrder.forEach(faction => {
             if (rolesByFaction[faction]) {
                 const factionBox = document.createElement('div');
-                // Thêm class chung và class riêng cho từng phe
                 factionBox.className = `faction-box ${getFactionClass(faction)}`;
 
                 const factionTitle = document.createElement('h4');
@@ -223,10 +222,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 factionBox.appendChild(factionTitle);
 
                 const rolesList = document.createElement('div');
-                rolesList.className = 'roles-list'; // Đổi tên class để rõ nghĩa hơn
+                rolesList.className = 'roles-list';
                 
                 rolesByFaction[faction].sort().forEach(roleName => {
-                    const roleItem = document.createElement('p'); // Dùng thẻ <p> cho từng vai trò
+                    const roleItem = document.createElement('p');
                     roleItem.className = 'in-game-role-item';
                     roleItem.textContent = roleName;
                     rolesList.appendChild(roleItem);
