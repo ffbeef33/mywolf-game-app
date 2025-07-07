@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         loginError.textContent = '';
         loginBtn.disabled = true;
-        loginBtn.textContent = 'Đang xác thực...';
+        loginBtn.textContent = 'Đang tìm phòng...';
         try {
             const response = await fetch('/api/login', {
                 method: 'POST',
@@ -52,20 +52,25 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!userData.success) throw new Error(userData.message || 'Mật khẩu không hợp lệ.');
             
             sessionStorage.setItem('mywolf_username', userData.username);
-            findAndListenToMyRoom(userData.username); // Gọi hàm kiến trúc mới
+            await findAndListenToMyRoom(userData.username);
 
         } catch (error) {
-            loginError.textContent = error.message;
-            loginBtn.disabled = false;
-            loginBtn.textContent = 'Tìm và Vào Game';
+            // Nếu có lỗi ở bất kỳ bước nào, quay lại màn hình đăng nhập
+            goBackToLogin(error.message);
         }
     };
 
-    const checkSessionAndAutoLogin = () => {
+    const checkSessionAndAutoLogin = async () => {
         const username = sessionStorage.getItem('mywolf_username');
         if (username) {
-            findAndListenToMyRoom(username); // Gọi hàm kiến trúc mới
+            // Khi có session, tạm thời hiển thị màn hình chờ để người dùng biết hệ thống đang hoạt động
+            loginSection.classList.add('hidden');
+            gameSection.classList.remove('hidden');
+            playerNameDisplay.textContent = username;
+            showSection(waitingSection);
+            await findAndListenToMyRoom(username);
         } else {
+            // Nếu không, hiển thị form đăng nhập như bình thường
             loginSection.classList.remove('hidden');
         }
     };
@@ -73,21 +78,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- CORE GAME LOGIC & UI (RE-ARCHITECTED) ---
 
     const goBackToLogin = (message) => {
-        // 1. Dọn dẹp listener cũ nếu có
         if (roomListener && currentRoomId) {
             database.ref(`rooms/${currentRoomId}`).off('value', roomListener);
         }
-        // 2. Dọn dẹp timer
         if (pickTimerInterval) {
             clearInterval(pickTimerInterval);
         }
         
-        // 3. Reset các biến trạng thái
         roomListener = null;
         pickTimerInterval = null;
         currentRoomId = null;
         
-        // 4. Cập nhật giao diện
         gameSection.classList.add('hidden');
         loginSection.classList.remove('hidden');
         loginError.textContent = message;
@@ -97,14 +98,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     async function findAndListenToMyRoom(username) {
-        loginSection.classList.add('hidden');
-        gameSection.classList.remove('hidden');
-        playerNameDisplay.textContent = username;
-        showSection(waitingSection); // Hiển thị màn hình chờ trong lúc tìm kiếm
-
         try {
             const roomsRef = database.ref('rooms');
-            const snapshot = await roomsRef.get(); // Tìm kiếm 1 lần duy nhất
+            const snapshot = await roomsRef.get();
             const allRooms = snapshot.val();
             let foundRoomId = null;
 
@@ -119,6 +115,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (foundRoomId) {
+                // *** CHỈ CHUYỂN GIAO DIỆN KHI ĐÃ TÌM THẤY PHÒNG ***
+                loginSection.classList.add('hidden');
+                gameSection.classList.remove('hidden');
+                playerNameDisplay.textContent = username;
                 attachListenerToSpecificRoom(username, foundRoomId);
             } else {
                 goBackToLogin('Không tìm thấy phòng nào có bạn. Quản trò đã tạo game chưa?');
@@ -133,17 +133,13 @@ document.addEventListener('DOMContentLoaded', () => {
         currentRoomId = roomId;
         const roomRef = database.ref(`rooms/${roomId}`);
 
-        if (roomListener) roomRef.off('value', roomListener); // Đảm bảo an toàn
+        if (roomListener) roomRef.off('value', roomListener);
 
         roomListener = roomRef.on('value', (snapshot) => {
             const roomData = snapshot.val();
-            
-            // Đây là điểm mấu chốt của việc sửa lỗi
             if (roomData) {
-                // Nếu phòng tồn tại, cập nhật trạng thái game
                 updateGameState(username, roomId, roomData);
             } else {
-                // Nếu roomData là null, phòng đã bị xóa.
                 goBackToLogin('Phòng đã bị quản trò xóa.');
             }
         }, (error) => {
@@ -157,8 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const myPlayer = Object.values(roomData.players).find(p => p.name === username);
 
         if (!myPlayer) {
-            // Trường hợp người chơi bị kick khỏi phòng
-            goBackToLogin('Bạn đã bị quản trò kick khỏi phòng.');
+            goBackToLogin('Bạn đã bị quản trò loại khỏi phòng.');
             return;
         }
 
