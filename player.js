@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    // --- DOM Elements (đã cập nhật) ---
+    // --- DOM Elements ---
     const loginSection = document.getElementById('login-section');
     const gameSection = document.getElementById('game-section');
     const passwordInput = document.getElementById('password-input');
@@ -20,14 +20,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginError = document.getElementById('login-error');
     const playerNameDisplay = document.getElementById('player-name-display');
     const roomIdDisplay = document.getElementById('room-id-display');
-    
-    // Các khu vực trong game
-    const gameView = document.getElementById('game-view');
     const waitingSection = document.getElementById('waiting-section');
     const playerPickSection = document.getElementById('player-pick-section');
     const roleRevealSection = document.getElementById('role-reveal-section');
-    
-    // Các thành phần của Player Pick
     const pickTimerDisplay = document.getElementById('pick-timer-display');
     const roleChoicesContainer = document.getElementById('role-choices-container');
     const randomChoiceBtn = document.getElementById('random-choice-btn');
@@ -75,7 +70,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- CORE GAME LOGIC ---
+    // --- CORE GAME LOGIC & UI ---
+
+    // *** HÀM MỚI: DỌN DẸP TRẠNG THÁI VÀ QUAY VỀ MÀN HÌNH ĐĂNG NHẬP ***
+    const goBackToLogin = (message) => {
+        if (roomListener) {
+            // Đảm bảo listener được gỡ bỏ đúng cách
+            database.ref('rooms').off('value', roomListener);
+            roomListener = null;
+        }
+        if (pickTimerInterval) {
+            clearInterval(pickTimerInterval);
+            pickTimerInterval = null;
+        }
+        
+        gameSection.classList.add('hidden');
+        loginSection.classList.remove('hidden');
+        loginError.textContent = message;
+        passwordInput.value = ''; // Xóa mật khẩu cũ
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Tìm và Vào Game';
+    };
+
     function listenForMyRoom(username) {
         loginSection.classList.add('hidden');
         gameSection.classList.remove('hidden');
@@ -104,12 +120,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (playerRoom) {
                 updateGameState(username, foundRoomId, playerRoom);
             } else {
-                // Bị kick hoặc phòng bị xóa
-                gameSection.classList.add('hidden');
-                loginSection.classList.remove('hidden');
-                loginError.textContent = 'Không tìm thấy phòng của bạn. Vui lòng thử lại.';
-                if (roomListener) roomListener.off();
-                if (pickTimerInterval) clearInterval(pickTimerInterval);
+                // Bị kick hoặc phòng bị xóa -> Gọi hàm dọn dẹp tập trung
+                goBackToLogin('Bạn không còn ở trong phòng nào. Vui lòng thử lại.');
             }
         });
     }
@@ -148,9 +160,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- PLAYER PICK FEATURE ---
     function handlePlayerPickState(username, roomId, state) {
-        // Cập nhật đồng hồ đếm ngược
-        if (pickTimerInterval) clearInterval(pickTimerInterval);
-        pickTimerInterval = setInterval(() => {
+        if (pickTimerInterval) clearInterval(pickTimerInterval); // Dọn dẹp timer cũ
+        
+        const updateTimer = () => {
             const remaining = Math.round((state.endTime - Date.now()) / 1000);
             if (remaining >= 0) {
                 pickTimerDisplay.textContent = `${remaining}s`;
@@ -158,26 +170,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 pickTimerDisplay.textContent = "Hết giờ!";
                 clearInterval(pickTimerInterval);
             }
-        }, 1000);
+        };
+        updateTimer(); // Chạy ngay lần đầu
+        pickTimerInterval = setInterval(updateTimer, 1000);
 
         const myChoice = state.playerChoices[username];
         const hasChosen = myChoice && myChoice !== 'waiting';
 
-        // Hiển thị các nút lựa chọn
         roleChoicesContainer.innerHTML = '';
         if (!hasChosen) {
             state.availableRoles.forEach(roleName => {
                 const btn = document.createElement('button');
                 btn.className = 'choice-btn';
                 btn.textContent = roleName;
-                btn.dataset.role = roleName;
                 btn.addEventListener('click', () => selectRole(username, roomId, roleName));
                 roleChoicesContainer.appendChild(btn);
             });
             randomChoiceBtn.disabled = false;
-            choiceStatus.textContent = '';
+            choiceStatus.textContent = 'Hãy đưa ra lựa chọn của bạn...';
         } else {
-            // Nếu đã chọn, vô hiệu hóa các nút và hiển thị lựa chọn
             roleChoicesContainer.innerHTML = `<p>Lựa chọn của bạn:</p><h3>${myChoice === 'random' ? 'Nhận Ngẫu Nhiên' : myChoice}</h3>`;
             randomChoiceBtn.disabled = true;
             choiceStatus.textContent = 'Đang chờ những người chơi khác...';
@@ -217,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
     randomChoiceBtn.addEventListener('click', () => {
         if (currentRoomId) {
             const username = sessionStorage.getItem('mywolf_username');
-            selectRole(username, currentRoomId, 'random');
+            if (username) selectRole(username, currentRoomId, 'random');
         }
     });
 
