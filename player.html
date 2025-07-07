@@ -9,9 +9,7 @@
 </head>
 <body>
     <div class="container">
-        <!-- ============================================= -->
-        <!-- KHU VỰC ĐĂNG NHẬP (HIỂN THỊ BAN ĐẦU) -->
-        <!-- ============================================= -->
+        <!-- KHU VỰC ĐĂNG NHẬP -->
         <section id="login-section" class="card">
             <header class="card-header">
                 <h1><span aria-hidden="true">🐺</span> Vào Game</h1>
@@ -24,9 +22,7 @@
             <p id="login-error" class="error-message"></p>
         </section>
 
-        <!-- ============================================= -->
-        <!-- KHU VỰC TRONG GAME (ẨN ĐI BAN ĐẦU) -->
-        <!-- ============================================= -->
+        <!-- KHU VỰC TRONG GAME -->
         <section id="game-section" class="hidden">
             <header class="player-header">
                 <h1><span id="player-name-display">...</span></h1>
@@ -34,44 +30,44 @@
             </header>
 
             <main id="game-view">
-                <!-- 1. Trạng thái chờ quản trò (ĐÃ CẬP NHẬT) -->
-                <div id="waiting-section" class="game-card waiting-card">
-                    <div class="spinner"></div>
-                    <h2>Đang chờ Quản Trò...</h2>
-                    <p>Vai trò của bạn sẽ sớm được tiết lộ.</p>
-                    
-                    <!-- *** KHU VỰC MỚI: HIỂN THỊ CÁC VAI TRÒ TRONG GAME *** -->
-                    <div id="roles-in-game-display" class="hidden">
-                        <h3>Các Vai Trò Trong Ván Này:</h3>
-                        <div id="roles-in-game-list" class="roles-grid">
-                            <!-- JS sẽ chèn các thẻ vai trò vào đây -->
+                <!-- CÁC THẺ TRẠNG THÁI (CHỜ, CHỌN, XEM VAI) -->
+                <div id="game-state-cards">
+                    <!-- 1. Trạng thái chờ quản trò -->
+                    <div id="waiting-section" class="game-card waiting-card">
+                        <div class="spinner"></div>
+                        <h2>Đang chờ Quản Trò...</h2>
+                        <p>Vai trò của bạn sẽ sớm được tiết lộ.</p>
+                    </div>
+
+                    <!-- 2. Khu vực chọn vai trò (Player Pick) -->
+                    <div id="player-pick-section" class="game-card player-pick-card hidden">
+                        <h2>Chọn Vai Trò Của Bạn</h2>
+                        <p class="timer">Thời gian còn lại: <strong id="pick-timer-display">--</strong></p>
+                        <div id="role-choices-container" class="choices-grid"></div>
+                        <button id="random-choice-btn" class="btn-secondary">Nhận Ngẫu Nhiên</button>
+                        <p id="choice-status" class="choice-status-message"></p>
+                    </div>
+
+                    <!-- 3. Thẻ bài vai trò -->
+                    <div id="role-reveal-section" class="game-card role-card hidden">
+                        <div class="card-inner">
+                            <div class="card-front">
+                                <div class="card-logo">?</div>
+                                <p>Chạm để khám phá vai trò</p>
+                            </div>
+                            <div class="card-back">
+                                <h2 id="role-name">Tên Vai Trò</h2>
+                                <img id="role-image" src="" alt="Hình ảnh vai trò" class="role-image">
+                                <p id="role-faction" class="role-faction"></p>
+                                <p id="role-description" class="role-description"></p>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 2. KHU VỰC CHỌN VAI TRÒ (PLAYER PICK) -->
-                <div id="player-pick-section" class="game-card player-pick-card hidden">
-                    <h2>Chọn Vai Trò Của Bạn</h2>
-                    <p class="timer">Thời gian còn lại: <strong id="pick-timer-display">--</strong></p>
-                    <div id="role-choices-container" class="choices-grid"></div>
-                    <button id="random-choice-btn" class="btn-secondary">Nhận Ngẫu Nhiên</button>
-                    <p id="choice-status" class="choice-status-message"></p>
-                </div>
-
-                <!-- 3. Thẻ bài vai trò (sau khi đã có kết quả) -->
-                <div id="role-reveal-section" class="game-card role-card hidden">
-                    <div class="card-inner">
-                        <div class="card-front">
-                            <div class="card-logo">?</div>
-                            <p>Chạm để khám phá vai trò</p>
-                        </div>
-                        <div class="card-back">
-                            <h2 id="role-name">Tên Vai Trò</h2>
-                            <img id="role-image" src="" alt="Hình ảnh vai trò" class="role-image">
-                            <p id="role-faction" class="role-faction"></p>
-                            <p id="role-description" class="role-description"></p>
-                        </div>
-                    </div>
+                <!-- *** KHU VỰC MỚI: HIỂN THỊ VAI TRÒ XUYÊN SUỐT *** -->
+                <div id="roles-in-game-display" class="roles-display-container hidden">
+                    <!-- JS sẽ chèn các box phe và thẻ vai trò vào đây -->
                 </div>
             </main>
         </section>

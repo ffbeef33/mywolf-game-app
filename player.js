@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    // --- DOM Elements (đã cập nhật) ---
+    // --- DOM Elements ---
     const loginSection = document.getElementById('login-section');
     const gameSection = document.getElementById('game-section');
     const passwordInput = document.getElementById('password-input');
@@ -21,21 +21,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const playerNameDisplay = document.getElementById('player-name-display');
     const roomIdDisplay = document.getElementById('room-id-display');
     const waitingSection = document.getElementById('waiting-section');
-    const waitingTitle = waitingSection.querySelector('h2');
-    const waitingMessage = waitingSection.querySelector('p');
     const playerPickSection = document.getElementById('player-pick-section');
     const roleRevealSection = document.getElementById('role-reveal-section');
     const pickTimerDisplay = document.getElementById('pick-timer-display');
     const roleChoicesContainer = document.getElementById('role-choices-container');
     const randomChoiceBtn = document.getElementById('random-choice-btn');
     const choiceStatus = document.getElementById('choice-status');
-    const rolesInGameDisplay = document.getElementById('roles-in-game-display'); // Khu vực mới
-    const rolesInGameList = document.getElementById('roles-in-game-list'); // List mới
+    const rolesInGameDisplay = document.getElementById('roles-in-game-display');
 
     let roomListener = null;
     let pickTimerInterval = null;
     let searchInterval = null;
     let currentRoomId = null;
+    let allRolesData = []; // Biến mới để lưu toàn bộ dữ liệu vai trò
+
+    // --- DATA FETCHING ---
+    const fetchAllRolesData = async () => {
+        try {
+            const response = await fetch(`/api/sheets?sheetName=Roles`);
+            if (!response.ok) throw new Error('Không thể tải dữ liệu vai trò.');
+            const rawData = await response.json();
+            allRolesData = rawData.map(role => ({
+                name: role.RoleName || 'Lỗi',
+                faction: role.Faction || 'Chưa phân loại'
+            }));
+        } catch (error) {
+            console.error("Lỗi nghiêm trọng khi tải dữ liệu vai trò:", error);
+            // Có thể hiển thị lỗi cho người dùng nếu cần
+        }
+    };
 
     // --- LOGIN & SESSION ---
     const handleLogin = async () => {
@@ -75,18 +89,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- CORE GAME LOGIC & UI ---
-
     const cleanup = () => {
-        if (roomListener && currentRoomId) {
-            database.ref(`rooms/${currentRoomId}`).off('value', roomListener);
-        }
+        if (roomListener && currentRoomId) database.ref(`rooms/${currentRoomId}`).off('value', roomListener);
         if (pickTimerInterval) clearInterval(pickTimerInterval);
         if (searchInterval) clearInterval(searchInterval);
-        
-        roomListener = null;
-        pickTimerInterval = null;
-        searchInterval = null;
-        currentRoomId = null;
+        roomListener = pickTimerInterval = searchInterval = currentRoomId = null;
     };
 
     const goBackToLogin = (message) => {
@@ -101,14 +108,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const startPeriodicRoomSearch = (username) => {
         cleanup();
-        
         loginSection.classList.add('hidden');
         gameSection.classList.remove('hidden');
         playerNameDisplay.textContent = username;
         showSection(waitingSection);
-        waitingTitle.textContent = "Đang Tìm Phòng...";
-        waitingMessage.textContent = "Hệ thống đang tìm kiếm phòng chơi của bạn.";
-        rolesInGameDisplay.classList.add('hidden'); // Ẩn danh sách vai trò khi đang tìm
+        rolesInGameDisplay.classList.add('hidden');
 
         const scanForRoom = async () => {
             try {
@@ -116,31 +120,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 const snapshot = await roomsRef.get();
                 const allRooms = snapshot.val();
                 let foundRoomId = null;
-
                 if (allRooms) {
                     for (const roomId in allRooms) {
-                        const room = allRooms[roomId];
-                        if (room.players && Object.values(room.players).some(p => p.name === username)) {
+                        if (allRooms[roomId].players && Object.values(allRooms[roomId].players).some(p => p.name === username)) {
                             foundRoomId = roomId;
                             break;
                         }
                     }
                 }
-
                 if (foundRoomId) {
                     clearInterval(searchInterval);
                     searchInterval = null;
                     attachListenerToSpecificRoom(username, foundRoomId);
-                } else {
-                    waitingTitle.textContent = "Chưa Có Phòng";
-                    waitingMessage.textContent = "Đang chờ Quản Trò tạo phòng chơi...";
                 }
             } catch (error) {
                 console.error("Lỗi khi quét phòng:", error);
-                waitingMessage.textContent = "Lỗi kết nối, đang thử lại...";
             }
         };
-
         scanForRoom();
         searchInterval = setInterval(scanForRoom, 5000);
     };
@@ -148,7 +144,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function attachListenerToSpecificRoom(username, roomId) {
         currentRoomId = roomId;
         const roomRef = database.ref(`rooms/${roomId}`);
-
         roomListener = roomRef.on('value', (snapshot) => {
             const roomData = snapshot.val();
             if (roomData) {
@@ -164,8 +159,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateGameState(username, roomId, roomData) {
         roomIdDisplay.textContent = roomId;
+        // *** LUÔN HIỂN THỊ DANH SÁCH VAI TRÒ ***
+        displayRolesInGame(roomData.rolesToAssign || []);
+        
         const myPlayer = Object.values(roomData.players).find(p => p.name === username);
-
         if (!myPlayer) {
             startPeriodicRoomSearch(username);
             return;
@@ -179,10 +176,6 @@ document.addEventListener('DOMContentLoaded', () => {
             handlePlayerPickState(username, roomId, roomData.playerPickState);
         } else {
             showSection(waitingSection);
-            waitingTitle.textContent = "Đang chờ Quản Trò...";
-            waitingMessage.textContent = "Vai trò của bạn sẽ sớm được tiết lộ.";
-            // *** HIỂN THỊ DANH SÁCH VAI TRÒ ***
-            displayRolesInGame(roomData.rolesToAssign || []);
         }
     }
     
@@ -190,28 +183,54 @@ document.addEventListener('DOMContentLoaded', () => {
         [waitingSection, playerPickSection, roleRevealSection].forEach(section => {
             section.classList.toggle('hidden', section !== sectionToShow);
         });
-        // Ẩn danh sách vai trò nếu không ở màn hình chờ
-        if (sectionToShow !== waitingSection) {
-            rolesInGameDisplay.classList.add('hidden');
-        }
     }
     
-    // *** HÀM MỚI: TẠO VÀ HIỂN THỊ DANH SÁCH VAI TRÒ ***
-    function displayRolesInGame(roles) {
-        rolesInGameList.innerHTML = ''; // Xóa danh sách cũ
-        if (roles.length > 0) {
-            // Xáo trộn danh sách để không tiết lộ thứ tự
-            const shuffledRoles = [...roles].sort(() => Math.random() - 0.5);
-            shuffledRoles.forEach(roleName => {
-                const roleCard = document.createElement('div');
-                roleCard.className = 'in-game-role-card';
-                roleCard.textContent = roleName;
-                rolesInGameList.appendChild(roleCard);
-            });
-            rolesInGameDisplay.classList.remove('hidden');
-        } else {
+    // *** HÀM MỚI: PHÂN LOẠI VÀ HIỂN THỊ VAI TRÒ ***
+    function displayRolesInGame(roleNames) {
+        rolesInGameDisplay.innerHTML = '';
+        if (roleNames.length === 0 || allRolesData.length === 0) {
             rolesInGameDisplay.classList.add('hidden');
+            return;
         }
+
+        const rolesByFaction = roleNames.reduce((acc, name) => {
+            const roleData = allRolesData.find(r => r.name === name);
+            const faction = roleData ? roleData.faction : 'Chưa phân loại';
+            if (!acc[faction]) {
+                acc[faction] = [];
+            }
+            acc[faction].push(name);
+            return acc;
+        }, {});
+
+        // Định nghĩa thứ tự hiển thị phe
+        const factionOrder = ['Phe Sói', 'Phe Dân', 'Phe Trung Lập', 'Chưa phân loại'];
+
+        factionOrder.forEach(faction => {
+            if (rolesByFaction[faction]) {
+                const factionBox = document.createElement('div');
+                factionBox.className = 'faction-box';
+
+                const factionTitle = document.createElement('h4');
+                factionTitle.textContent = faction;
+                factionBox.appendChild(factionTitle);
+
+                const rolesList = document.createElement('div');
+                rolesList.className = 'roles-grid';
+                
+                rolesByFaction[faction].sort().forEach(roleName => {
+                    const roleCard = document.createElement('div');
+                    roleCard.className = 'in-game-role-card';
+                    roleCard.textContent = roleName;
+                    rolesList.appendChild(roleCard);
+                });
+                
+                factionBox.appendChild(rolesList);
+                rolesInGameDisplay.appendChild(factionBox);
+            }
+        });
+
+        rolesInGameDisplay.classList.remove('hidden');
     }
 
     function handlePlayerPickState(username, roomId, state) {
@@ -281,5 +300,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- INITIAL LOAD ---
-    checkSessionAndAutoLogin();
+    const initialize = async () => {
+        await fetchAllRolesData(); // Tải dữ liệu vai trò trước
+        checkSessionAndAutoLogin(); // Sau đó mới kiểm tra session
+    };
+
+    initialize();
 });
