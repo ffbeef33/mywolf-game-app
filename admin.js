@@ -1,6 +1,6 @@
 // =================================================================
-// === admin.js - PHIÊN BẢN PLAYER PICK (HOÀN THIỆN) ===
-console.log("ĐANG CHẠY admin.js PHIÊN BẢN PLAYER PICK HOÀN THIỆN!");
+// === admin.js - PHIÊN BẢN SỬA LỖI PLAYER PICK, GIỮ NGUYÊN LOGIC ===
+console.log("ĐANG CHẠY admin.js PHIÊN BẢN SỬA LỖI PLAYER PICK!");
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -166,14 +166,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error("Dữ liệu phòng không hợp lệ để bắt đầu.");
             }
 
+            // *** ĐÃ SỬA LỖI TẠI ĐÂY ***
+            // Lọc chính xác các vai trò thuộc "Phe Dân" và "Phe Trung Lập" để người chơi chọn.
             const availableRolesForPicking = roomData.rolesToAssign.map(roleName => {
                 return allRolesData.find(r => r.name === roleName);
-            }).filter(roleData => 
-                roleData && (roleData.faction === 'Phe Dân' || roleData.faction === 'Phe Trung Lập')
-            ).map(roleData => roleData.name);
+            }).filter(roleData => {
+                // Đảm bảo lọc đúng tên phe, loại bỏ khoảng trắng thừa
+                return roleData && 
+                       (roleData.faction.trim() === 'Phe Dân' || roleData.faction.trim() === 'Phe Trung Lập');
+            }).map(roleData => roleData.name);
             
             if (availableRolesForPicking.length === 0) {
-                alert("Lỗi: Không có vai trò nào thuộc 'Phe Dân' hoặc 'Phe Trung Lập' trong danh sách để người chơi lựa chọn.");
+                alert("Lỗi: Không có vai trò nào thuộc 'Phe Dân' hoặc 'Phe Trung Lập' trong danh sách để người chơi lựa chọn. Vui lòng kiểm tra lại các vai trò đã chọn.");
                 return;
             }
 
