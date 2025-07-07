@@ -1,6 +1,6 @@
 // =================================================================
-// === admin.js - PHIÊN BẢN GIAO DIỆN NÂNG CAO ===
-console.log("ĐANG CHẠY admin.js PHIÊN BẢN GIAO DIỆN NÂNG CAO!");
+// === admin.js - PHIÊN BẢN QUẢN LÝ PHÒNG NÂNG CAO ===
+console.log("ĐANG CHẠY admin.js PHIÊN BẢN QUẢN LÝ PHÒNG NÂNG CAO!");
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -38,20 +38,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const sendRolesBtn = document.getElementById('send-roles-btn');
     const clearGamelogBtn = document.getElementById('clear-gamelog-btn');
     const deleteRoomBtn = document.getElementById('delete-room-btn');
-
-    // MỚI: DOM Elements cho quản lý phòng
     const roomListContainer = document.getElementById('room-list-container');
     const refreshRoomsBtn = document.getElementById('refresh-rooms-btn');
+    const backToSetupBtn = document.getElementById('back-to-setup-btn'); // Nút mới
 
     let currentRoomId = null;
     let playerListener = null;
     let allRolesData = [];
 
     // =======================================================
-    // === MỚI: LOGIC QUẢN LÝ PHÒNG ===
+    // === LOGIC QUẢN LÝ PHÒNG (ĐÃ NÂNG CẤP) ===
     // =======================================================
     const loadAndDisplayRooms = async () => {
-        // Kiểm tra xem element có tồn tại trên trang không
         if (!roomListContainer) return; 
         roomListContainer.innerHTML = '<p>Đang tải danh sách phòng...</p>';
         try {
@@ -68,13 +66,17 @@ document.addEventListener('DOMContentLoaded', () => {
             let roomListHTML = '<ul class="room-management-list">';
             rooms.forEach(room => {
                 const creationTime = new Date(room.createdAt).toLocaleString('vi-VN');
+                // *** THAY ĐỔI: Thêm nút "Quản Lý" ***
                 roomListHTML += `
                     <li class="room-list-item">
-                        <span>
+                        <div class="room-info">
                             <strong>ID:</strong> ${room.id} <br>
                             <em>(Tạo lúc: ${creationTime}, ${room.playerCount} người chơi)</em>
-                        </span>
-                        <button class="btn-danger delete-room-btn" data-room-id="${room.id}">Xóa</button>
+                        </div>
+                        <div class="room-actions">
+                            <button class="btn-primary manage-room-btn" data-room-id="${room.id}">Quản Lý</button>
+                            <button class="btn-danger delete-room-btn" data-room-id="${room.id}">Xóa</button>
+                        </div>
                     </li>
                 `;
             });
@@ -87,20 +89,66 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    const handleDeleteRoom = (roomId) => {
+    // *** HÀM MỚI: Tải một phòng đã có để quản lý ***
+    const loadRoomForManagement = async (roomId) => {
+        try {
+            const roomRef = database.ref(`rooms/${roomId}`);
+            const snapshot = await roomRef.once('value');
+            const roomData = snapshot.val();
+
+            if (!roomData) {
+                alert("Không tìm thấy dữ liệu cho phòng này. Có thể nó đã bị xóa.");
+                loadAndDisplayRooms();
+                return;
+            }
+            
+            currentRoomId = roomId;
+            
+            // Cập nhật giao diện với dữ liệu từ phòng đã tải
+            roomIdDisplay.textContent = currentRoomId;
+            const rolesInGame = roomData.rolesToAssign || [];
+            rolesTotalDisplay.textContent = rolesInGame.length;
+            rolesInGameList.innerHTML = rolesInGame.map(role => `<li>${role}</li>`).join('');
+
+            const playersInGame = roomData.players || {};
+            playersTotalDisplay.textContent = Object.keys(playersInGame).length;
+            updatePlayerListUI(playersInGame);
+
+            // Kiểm tra trạng thái game để bật/tắt nút gửi vai trò
+            sendRolesBtn.disabled = roomData.gameState?.status === 'roles-sent';
+            sendRolesBtn.textContent = sendRolesBtn.disabled ? 'Đã Gửi' : 'Gửi Vai Trò & Lưu Log';
+
+            // Chuyển đổi giao diện
+            setupSection.classList.add('hidden');
+            activeRoomSection.classList.remove('hidden');
+
+            // Lắng nghe cập nhật của phòng này
+            listenForPlayerUpdates(currentRoomId);
+
+        } catch (error) {
+            alert("Lỗi khi tải dữ liệu phòng: " + error.message);
+            console.error(error);
+        }
+    };
+    
+    const handleDeleteRoomFromList = (roomId) => {
         if (!roomId || !confirm(`Bạn có chắc muốn xóa vĩnh viễn phòng '${roomId}'? Hành động này sẽ kick tất cả người chơi ra khỏi phòng.`)) return;
         
         database.ref(`rooms/${roomId}`).remove()
             .then(() => {
                 alert(`Phòng '${roomId}' đã được xóa thành công.`);
-                loadAndDisplayRooms(); // Tải lại danh sách ngay sau khi xóa
+                loadAndDisplayRooms(); 
+                // Nếu phòng đang quản lý bị xóa, reset giao diện
+                if (currentRoomId === roomId) {
+                    resetAdminUI();
+                }
             })
             .catch((error) => {
                 alert("Lỗi khi xóa phòng: " + error.message);
             });
     };
-
-    // --- CÁC HÀM CŨ (GIỮ NGUYÊN) ---
+    
+    // --- Các hàm cũ hơn (giữ nguyên logic, chỉ gọi đúng chỗ) ---
     const updateCounters = () => {
         const totalPlayers = document.querySelectorAll('input[name="selected-player"]:checked').length;
         let selectedRoleNames = [];
@@ -232,8 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const createRoom = () => {
-        currentRoomId = `room-${Math.random().toString(36).substr(2, 6)}`;
-        roomIdDisplay.textContent = currentRoomId;
+        const newRoomId = `room-${Math.random().toString(36).substr(2, 6)}`;
         
         const selectedPlayerNodes = document.querySelectorAll('input[name="selected-player"]:checked');
         const selectedPlayers = Array.from(selectedPlayerNodes).map(node => node.value);
@@ -258,36 +305,30 @@ document.addEventListener('DOMContentLoaded', () => {
             playersObject[playerId] = { name: playerName, isAlive: true, role: null };
         });
         
-        database.ref(`rooms/${currentRoomId}`).set({
+        database.ref(`rooms/${newRoomId}`).set({
             createdAt: firebase.database.ServerValue.TIMESTAMP,
             totalPlayers: selectedPlayers.length,
             rolesToAssign: selectedRoles,
             players: playersObject,
             gameState: { status: 'setup', message: 'Quản trò đang phân vai...' }
         }).then(() => {
-            alert(`Phòng ${currentRoomId} đã được tạo thành công!`);
-            loadAndDisplayRooms(); // Tải lại danh sách phòng sau khi tạo
+            alert(`Phòng ${newRoomId} đã được tạo thành công!`);
+            loadAndDisplayRooms(); 
+            loadRoomForManagement(newRoomId); // Tự động vào quản lý phòng vừa tạo
         });
-
-        setupSection.classList.add('hidden');
-        activeRoomSection.classList.remove('hidden');
-        
-        rolesTotalDisplay.textContent = selectedRoles.length;
-        rolesInGameList.innerHTML = '';
-        selectedRoles.forEach(role => {
-            rolesInGameList.innerHTML += `<li>${role}</li>`;
-        });
-
-        playersTotalDisplay.textContent = selectedPlayers.length;
-        updatePlayerListUI(playersObject);
-        listenForPlayerUpdates(currentRoomId);
     };
 
     const listenForPlayerUpdates = (roomId) => {
         const playersRef = database.ref(`rooms/${roomId}/players`);
-        if (playerListener) playersRef.off('value', playerListener);
+        if (playerListener) {
+            // Ngắt listener cũ trước khi gắn listener mới
+            playerListener.off();
+        }
         playerListener = playersRef.on('value', (snapshot) => {
-            updatePlayerListUI(snapshot.val() || {});
+            // Chỉ cập nhật nếu đang ở đúng phòng
+            if(roomId === currentRoomId) {
+                updatePlayerListUI(snapshot.val() || {});
+            }
         });
     };
 
@@ -317,9 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const roomSnapshot = await roomRef.once('value');
             const roomData = roomSnapshot.val();
 
-            if (!roomData || !roomData.players || !roomData.rolesToAssign) {
-                throw new Error("Lỗi: Không tìm thấy dữ liệu phòng.");
-            }
+            if (!roomData || !roomData.players || !roomData.rolesToAssign) throw new Error("Lỗi: Không tìm thấy dữ liệu phòng.");
 
             let rolesToAssign = [...roomData.rolesToAssign];
             let playerIds = Object.keys(roomData.players);
@@ -401,12 +440,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    const deleteRoom = () => {
+    const deleteActiveRoom = () => {
         if (!currentRoomId || !confirm(`Bạn có chắc muốn xóa vĩnh viễn phòng '${currentRoomId}'?`)) return;
-        if (playerListener) {
-            database.ref(`rooms/${currentRoomId}/players`).off('value', playerListener);
-            playerListener = null;
-        }
+        
         database.ref(`rooms/${currentRoomId}`).remove()
             .then(() => {
                 alert(`Phòng '${currentRoomId}' đã được xóa.`);
@@ -416,6 +452,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const resetAdminUI = () => {
+        if (playerListener) {
+            playerListener.off();
+            playerListener = null;
+        }
+        
         document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
         document.querySelectorAll('input[type="number"]').forEach(num => num.value = 0);
         
@@ -430,26 +471,32 @@ document.addEventListener('DOMContentLoaded', () => {
         sendRolesBtn.disabled = false;
         sendRolesBtn.textContent = 'Gửi Vai Trò & Lưu Log';
         updateCounters();
+        loadAndDisplayRooms(); // Tải lại danh sách phòng sau khi reset
     };
 
     // --- EVENT LISTENERS ---
     createRoomBtn.addEventListener('click', createRoom);
     sendRolesBtn.addEventListener('click', sendRoles);
     clearGamelogBtn.addEventListener('click', clearGameLog);
-    deleteRoomBtn.addEventListener('click', deleteRoom);
+    deleteRoomBtn.addEventListener('click', deleteActiveRoom);
     playerListContainer.addEventListener('change', updateCounters);
     rolesByFactionContainer.addEventListener('change', updateCounters);
-    
-    // MỚI: Event listener cho quản lý phòng
-    if(refreshRoomsBtn) refreshRoomsBtn.addEventListener('click', loadAndDisplayRooms);
-    if(roomListContainer) roomListContainer.addEventListener('click', (event) => {
-        if (event.target.classList.contains('delete-room-btn')) {
-            handleDeleteRoom(event.target.dataset.roomId);
+    refreshRoomsBtn.addEventListener('click', loadAndDisplayRooms);
+    backToSetupBtn.addEventListener('click', resetAdminUI); // Gán sự kiện cho nút mới
+
+    // *** THAY ĐỔI: Sử dụng event delegation cho cả nút Quản lý và Xóa ***
+    roomListContainer.addEventListener('click', (event) => {
+        const target = event.target;
+        if (target.classList.contains('manage-room-btn')) {
+            loadRoomForManagement(target.dataset.roomId);
+        }
+        if (target.classList.contains('delete-room-btn')) {
+            handleDeleteRoomFromList(target.dataset.roomId);
         }
     });
     
     // --- TẢI DỮ LIỆU BAN ĐẦU ---
     loadPlayersFromSheet();
     loadRolesFromSheet();
-    loadAndDisplayRooms(); // Tải danh sách phòng ngay khi mở trang
+    loadAndDisplayRooms();
 });
