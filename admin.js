@@ -1,6 +1,6 @@
 // =================================================================
-// === admin.js - PHIÊN BẢN SỬA LỖI PLAYER PICK, GIỮ NGUYÊN LOGIC ===
-console.log("ĐANG CHẠY admin.js PHIÊN BẢN SỬA LỖI PLAYER PICK!");
+// === admin.js - PHIÊN BẢN SỬA LỖI GỐC RỄ TẠI CREATE ROOM ===
+console.log("ĐANG CHẠY admin.js PHIÊN BẢN SỬA LỖI GỐC RỄ!");
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -73,49 +73,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error("Không tìm thấy dữ liệu Player Pick để xử lý.");
             }
 
-            // 1. CHỐT KẾT QUẢ: Ai chưa chọn -> random
             let playerChoices = roomData.playerPickState.playerChoices;
             const choiceUpdates = {};
             Object.keys(playerChoices).forEach(playerName => {
                 if (playerChoices[playerName] === 'waiting') {
-                    playerChoices[playerName] = 'random'; // Cập nhật bản local để xử lý
-                    choiceUpdates[`/playerPickState/playerChoices/${playerName}`] = 'random'; // Chuẩn bị update lên Firebase
+                    playerChoices[playerName] = 'random';
+                    choiceUpdates[`/playerPickState/playerChoices/${playerName}`] = 'random';
                 }
             });
-            // Cập nhật những người chơi không chọn lên Firebase
             if (Object.keys(choiceUpdates).length > 0) {
                  await roomRef.update(choiceUpdates);
             }
 
-            // 2. PHÂN PHỐI LẦN 1: Giao các vai trò được chọn duy nhất
             const choiceCounts = Object.values(playerChoices).reduce((acc, choice) => {
                 if (choice !== 'random') acc[choice] = (acc[choice] || 0) + 1;
                 return acc;
             }, {});
 
-            let assignedPlayers = {}; // { playerName: roleName }
+            let assignedPlayers = {};
             let remainingRoles = [...roomData.rolesToAssign];
             let remainingPlayers = Object.values(roomData.players).map(p => p.name);
 
             Object.keys(choiceCounts).forEach(roleName => {
-                if (choiceCounts[roleName] === 1) { // Chỉ những vai được 1 người chọn
+                if (choiceCounts[roleName] === 1) {
                     const luckyPlayer = Object.keys(playerChoices).find(p => playerChoices[p] === roleName);
                     assignedPlayers[luckyPlayer] = roleName;
-                    
-                    // Loại người chơi và vai trò này ra khỏi danh sách random
                     remainingPlayers = remainingPlayers.filter(p => p !== luckyPlayer);
                     const roleIndex = remainingRoles.indexOf(roleName);
                     if (roleIndex > -1) remainingRoles.splice(roleIndex, 1);
                 }
             });
 
-            // 3. PHÂN PHỐI LẦN 2: Random cho những người còn lại
-            remainingRoles.sort(() => Math.random() - 0.5); // Xáo trộn vai trò còn lại
+            remainingRoles.sort(() => Math.random() - 0.5);
             remainingPlayers.forEach((playerName, index) => {
                 assignedPlayers[playerName] = remainingRoles[index];
             });
 
-            // 4. CẬP NHẬT KẾT QUẢ CUỐI CÙNG LÊN FIREBASE
             const finalUpdates = {};
             const logPayload = [];
             const playerMap = roomData.players;
@@ -135,7 +128,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             await roomRef.update(finalUpdates);
             
-            // 5. LƯU LOG
             await fetch(`/api/sheets`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -143,7 +135,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             alert('Phân phối vai trò hoàn tất!');
-            // Giao diện sẽ tự động cập nhật về màn hình quản lý phòng thông thường nhờ listener
 
         } catch (error) {
             console.error("Lỗi nghiêm trọng khi xử lý Player Pick:", error);
@@ -166,18 +157,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error("Dữ liệu phòng không hợp lệ để bắt đầu.");
             }
 
-            // *** ĐÃ SỬA LỖI TẠI ĐÂY ***
-            // Lọc chính xác các vai trò thuộc "Phe Dân" và "Phe Trung Lập" để người chơi chọn.
+            // Logic này giữ nguyên theo yêu cầu của bạn: chỉ pick Phe Dân và Phe Trung Lập
             const availableRolesForPicking = roomData.rolesToAssign.map(roleName => {
                 return allRolesData.find(r => r.name === roleName);
-            }).filter(roleData => {
-                // Đảm bảo lọc đúng tên phe, loại bỏ khoảng trắng thừa
-                return roleData && 
-                       (roleData.faction.trim() === 'Phe Dân' || roleData.faction.trim() === 'Phe Trung Lập');
-            }).map(roleData => roleData.name);
+            }).filter(roleData => 
+                roleData && (roleData.faction.trim() === 'Phe Dân' || roleData.faction.trim() === 'Phe Trung Lập')
+            ).map(roleData => roleData.name);
             
             if (availableRolesForPicking.length === 0) {
-                alert("Lỗi: Không có vai trò nào thuộc 'Phe Dân' hoặc 'Phe Trung Lập' trong danh sách để người chơi lựa chọn. Vui lòng kiểm tra lại các vai trò đã chọn.");
+                alert("Lỗi: Không có vai trò nào thuộc 'Phe Dân' hoặc 'Phe Trung Lập' trong danh sách để người chơi lựa chọn.");
                 return;
             }
 
@@ -198,7 +186,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             await roomRef.child('playerPickState').set(playerPickState);
             alert(`Đã bắt đầu chế độ Player Pick! Người chơi có ${timerSeconds} giây để chọn.`);
-            // Listener trong loadRoomForManagement sẽ tự động chuyển giao diện
         } catch (error) {
             console.error("Lỗi khi bắt đầu Player Pick:", error);
             alert("Lỗi: " + error.message);
@@ -265,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const loadRoomForManagement = async (roomId) => {
         const roomRef = database.ref(`rooms/${roomId}`);
-        if (roomListener) roomListener.off(); // Ngắt listener cũ để tránh gọi nhiều lần
+        if (roomListener) roomListener.off();
 
         roomListener = roomRef.on('value', (snapshot) => {
             const roomData = snapshot.val();
@@ -289,7 +276,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 setupSection.classList.add('hidden');
                 playerPickMonitoringSection.classList.add('hidden');
                 activeRoomSection.classList.remove('hidden');
-                
                 updateActiveRoomUI(roomData);
             }
         });
@@ -317,10 +303,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const remaining = Math.round((pickState.endTime - Date.now()) / 1000);
             if (remaining >= 0) {
                 monitorTimerDisplay.textContent = `${remaining}s`;
-                processPlayerPickBtn.disabled = true; // Không cho xử lý khi chưa hết giờ
+                processPlayerPickBtn.disabled = true;
             } else {
                 monitorTimerDisplay.textContent = "Hết giờ!";
-                processPlayerPickBtn.disabled = false; // Cho phép xử lý
+                processPlayerPickBtn.disabled = false;
                 clearInterval(pickTimerInterval);
             }
         };
@@ -396,7 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const roleData = allRolesData.find(r => r.name === roleName);
             if (roleData) {
                 if (roleName.toLowerCase().includes('sói')) counts.wolfPack++;
-                switch (roleData.faction) {
+                switch (roleData.faction.trim()) {
                     case 'Phe Dân': counts.villagerFaction++; break;
                     case 'Phe Sói': counts.wolfFaction++; break;
                     case 'Phe Trung Lập': counts.neutralFaction++; break;
@@ -489,35 +475,57 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // *** HÀM ĐÃ ĐƯỢC SỬA LỖI ***
     const createRoom = () => {
         const newRoomId = `room-${Math.random().toString(36).substr(2, 6)}`;
         const selectedPlayerNodes = document.querySelectorAll('input[name="selected-player"]:checked');
+        if (selectedPlayerNodes.length === 0) {
+            alert('Vui lòng chọn ít nhất một người chơi.');
+            return;
+        }
         const selectedPlayers = Array.from(selectedPlayerNodes).map(node => node.value);
+
+        // Lấy vai trò từ cả checkbox và ô số lượng
         let selectedRoles = [];
-        document.querySelectorAll('input[name="selected-role"]:checked').forEach(node => selectedRoles.push(node.value));
+        document.querySelectorAll('input[name="selected-role"]:checked').forEach(node => {
+            selectedRoles.push(node.value);
+        });
         document.querySelectorAll('input[name="quantity-role"]').forEach(input => {
             const count = parseInt(input.value) || 0;
-            for (let i = 0; i < count; i++) selectedRoles.push(input.dataset.roleName);
+            const roleName = input.dataset.roleName;
+            for (let i = 0; i < count; i++) {
+                selectedRoles.push(roleName);
+            }
         });
+
+        if (selectedRoles.length === 0) {
+            alert('Vui lòng chọn ít nhất một vai trò.');
+            return;
+        }
         if (selectedRoles.length !== selectedPlayers.length) {
             alert('Số lượng vai trò không khớp với số lượng người chơi!');
             return;
         }
+
         const playersObject = {};
         selectedPlayers.forEach(playerName => {
             const playerId = `player_${playerName.replace(/\s+/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
             playersObject[playerId] = { name: playerName, isAlive: true, role: null };
         });
+
         database.ref(`rooms/${newRoomId}`).set({
             createdAt: firebase.database.ServerValue.TIMESTAMP,
             totalPlayers: selectedPlayers.length,
-            rolesToAssign: selectedRoles,
+            rolesToAssign: selectedRoles, // Đây là mảng vai trò đầy đủ
             players: playersObject,
             gameState: { status: 'setup', message: 'Quản trò đang phân vai...' }
         }).then(() => {
             alert(`Phòng ${newRoomId} đã được tạo thành công!`);
             loadAndDisplayRooms();
             loadRoomForManagement(newRoomId);
+        }).catch(error => {
+            console.error("Lỗi khi tạo phòng:", error);
+            alert("Đã có lỗi xảy ra khi tạo phòng. Vui lòng xem console log.");
         });
     };
     
@@ -553,7 +561,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const roomUpdates = {
                 '/gameState/status': 'setup',
                 '/gameState/message': 'Quản trò đã reset game.',
-                '/playerPickState': null // Xóa luôn trạng thái player pick
+                '/playerPickState': null
             };
             await database.ref(`rooms/${currentRoomId}`).update(roomUpdates);
             
@@ -607,7 +615,7 @@ document.addEventListener('DOMContentLoaded', () => {
     clearGamelogBtn.addEventListener('click', clearGameLog);
     deleteRoomBtn.addEventListener('click', deleteActiveRoom);
     playerListContainer.addEventListener('change', updateCounters);
-    rolesByFactionContainer.addEventListener('change', updateCounters);
+    rolesByFactionContainer.addEventListener('input', updateCounters); // Sửa thành 'input' để bắt cả thay đổi số lượng
     refreshRoomsBtn.addEventListener('click', loadAndDisplayRooms);
     backToSetupBtn.addEventListener('click', resetAdminUI);
 
