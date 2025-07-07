@@ -45,10 +45,6 @@ section.card {
     border-radius: var(--border-radius);
     border: 1px solid var(--border-color);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
-    display: none; /* Hide all sections by default */
-}
-section.card.active {
-    display: block; /* Show only the active section */
 }
 .hidden { /* Utility class for JS toggling */
     display: none !important;
@@ -59,7 +55,7 @@ section.card.active {
     font-family: var(--font-display);
     font-size: 3rem;
     color: var(--text-color);
-    margin: 0 0 25px 0; /* Tăng khoảng cách dưới */
+    margin: 0 0 25px 0;
 }
 .form-group {
     margin-bottom: 20px;
@@ -90,7 +86,7 @@ button {
     font-weight: 700;
     cursor: pointer;
     transition: background-color 0.3s ease, transform 0.2s ease;
-    margin-top: 10px; /* Thêm khoảng cách trên cho nút */
+    margin-top: 10px;
 }
 button:hover:not(:disabled) {
     background-color: var(--button-hover-bg);
@@ -128,6 +124,9 @@ button:disabled {
 }
 
 /* --- WAITING STATE --- */
+.waiting-card {
+    padding: 20px; /* Thêm padding cho đẹp hơn */
+}
 .waiting-card .spinner {
     width: 50px;
     height: 50px;
@@ -144,7 +143,7 @@ button:disabled {
 .role-card {
     perspective: 1000px;
     cursor: pointer;
-    background-color: transparent; /* Remove card background */
+    background-color: transparent;
 }
 .card-inner {
     position: relative;
@@ -209,4 +208,76 @@ button:disabled {
 .role-description {
     font-size: 0.9rem;
     color: var(--light-text);
+}
+
+/* ============================================= */
+/* CSS MỚI - HIỂN THỊ DANH SÁCH VAI TRÒ          */
+/* ============================================= */
+
+.roles-display-container {
+    width: 100%;
+    margin-top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px; /* Khoảng cách giữa các box phe */
+}
+
+.faction-box {
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 16px;
+    background-color: rgba(15, 52, 96, 0.5); /* Màu nền hơi trong suốt */
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.faction-title {
+    margin: 0 0 12px 0;
+    font-family: var(--font-display);
+    font-size: 1.5rem; /* Tăng kích thước cho dễ đọc */
+    font-weight: 700;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(237, 242, 244, 0.2);
+    letter-spacing: 1px;
+}
+
+.roles-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.in-game-role-item {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--light-text);
+}
+
+/* --- Phân loại màu sắc cho từng phe --- */
+
+/* MÀU PHE DÂN (Xanh) */
+.faction-box.faction-villager {
+    background-color: rgba(39, 174, 96, 0.15);
+    border-color: rgba(39, 174, 96, 0.8);
+}
+.faction-box.faction-villager .faction-title {
+    color: var(--villager-color);
+}
+
+/* MÀU PHE SÓI (Đỏ) */
+.faction-box.faction-wolf {
+    background-color: rgba(192, 57, 43, 0.15);
+    border-color: rgba(192, 57, 43, 0.8);
+}
+.faction-box.faction-wolf .faction-title {
+    color: var(--wolf-color);
+}
+
+/* MÀU PHE TRUNG LẬP (Vàng) */
+.faction-box.faction-neutral {
+    background-color: rgba(243, 156, 18, 0.15);
+    border-color: rgba(243, 156, 18, 0.8);
+}
+.faction-box.faction-neutral .faction-title {
+    color: var(--neutral-color);
 }

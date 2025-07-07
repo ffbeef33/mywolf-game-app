@@ -203,10 +203,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const factionOrder = ['Phe Sói', 'Phe Dân', 'Phe Trung Lập', 'Chưa phân loại'];
 
+        // Hàm giúp chuyển đổi tên phe thành class CSS
+        const getFactionClass = (faction) => {
+            if (faction === 'Phe Sói') return 'faction-wolf';
+            if (faction === 'Phe Dân') return 'faction-villager';
+            if (faction === 'Phe Trung Lập') return 'faction-neutral';
+            return 'faction-unknown';
+        };
+
         factionOrder.forEach(faction => {
             if (rolesByFaction[faction]) {
                 const factionBox = document.createElement('div');
-                factionBox.className = 'faction-box';
+                // Thêm class chung và class riêng cho từng phe
+                factionBox.className = `faction-box ${getFactionClass(faction)}`;
 
                 const factionTitle = document.createElement('h4');
                 factionTitle.className = 'faction-title';
@@ -214,13 +223,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 factionBox.appendChild(factionTitle);
 
                 const rolesList = document.createElement('div');
-                rolesList.className = 'roles-grid';
+                rolesList.className = 'roles-list'; // Đổi tên class để rõ nghĩa hơn
                 
                 rolesByFaction[faction].sort().forEach(roleName => {
-                    const roleCard = document.createElement('div');
-                    roleCard.className = 'in-game-role-card';
-                    roleCard.textContent = roleName;
-                    rolesList.appendChild(roleCard);
+                    const roleItem = document.createElement('p'); // Dùng thẻ <p> cho từng vai trò
+                    roleItem.className = 'in-game-role-item';
+                    roleItem.textContent = roleName;
+                    rolesList.appendChild(roleItem);
                 });
                 
                 factionBox.appendChild(rolesList);
@@ -279,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
         roleFactionEl.className = 'role-faction';
         if (role.faction === 'Phe Sói') roleFactionEl.classList.add('wolf');
         else if (role.faction === 'Phe Dân') roleFactionEl.classList.add('villager');
-        else roleFactionEl.classList.add('neutral');
+        else if (role.faction === 'Phe Trung Lập') roleFactionEl.classList.add('neutral');
     }
 
     // --- EVENT LISTENERS ---
