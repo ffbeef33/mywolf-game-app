@@ -116,21 +116,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // ==================================================
-    // === SỬA LỖI UNDEFINED TẠI ĐÂY ===
-    // ==================================================
     const loadRolesFromSheet = async () => {
         try {
             const response = await fetch(`${API_ENDPOINT}?sheetName=Roles`);
             if (!response.ok) throw new Error('Không thể tải danh sách vai trò.');
             const rawData = await response.json();
             
-            // Thêm giá trị dự phòng (fallback) để đảm bảo không có `undefined`
             allRolesData = rawData.map(role => ({
                 name: role.RoleName || 'Tên vai trò lỗi',
                 faction: role.Faction || 'Chưa phân loại',
                 description: role.Description || 'Không có mô tả cho vai trò này.',
-                image: role.ImageURL || '' // Chuỗi rỗng là giá trị an toàn
+                image: role.ImageURL || ''
             }));
             
             allRolesData.sort((a, b) => {
@@ -314,23 +310,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // =================================================================
+    // === NÂNG CẤP: Chức năng Xóa Log và Reset Trạng Thái Người Chơi ===
+    // =================================================================
     const clearGameLog = async () => {
-        if (!confirm('Bạn có chắc muốn xóa log game?')) return;
+        if (!currentRoomId || !confirm('Bạn có chắc muốn xóa log và reset vai trò của tất cả người chơi trong phòng này?')) return;
+
         try {
+            // Bước 1: Gọi API để xóa dữ liệu trên Google Sheet
             await fetch(API_ENDPOINT, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'clearGameLog' })
             });
-            alert('Đã gửi yêu cầu xóa log.');
+
+            // Bước 2: Lấy danh sách người chơi hiện tại trong phòng
+            const playersRef = database.ref(`rooms/${currentRoomId}/players`);
+            const snapshot = await playersRef.once('value');
+            const players = snapshot.val();
+
+            if (players) {
+                const updates = {};
+                // Tạo một object chứa các lệnh cập nhật để reset vai trò của từng người chơi về null
+                for (const playerId in players) {
+                    updates[`/${playerId}/role`] = null;
+                }
+                // Thực hiện cập nhật hàng loạt trên Firebase
+                await playersRef.update(updates);
+            }
+            
+            // Bước 3: Cập nhật lại trạng thái game và giao diện quản trò
+            await database.ref(`rooms/${currentRoomId}/gameState`).update({
+                status: 'setup',
+                message: 'Quản trò đã reset game. Đang chờ phân vai lại...'
+            });
+            
+            sendRolesBtn.disabled = false;
+            sendRolesBtn.textContent = 'Gửi Vai Trò & Lưu Log';
+            alert('Đã xóa log trên Google Sheet và reset vai trò người chơi thành công!');
+
         } catch (error) {
-            console.error('Lỗi khi xóa log:', error);
-            alert('Có lỗi xảy ra khi xóa log.');
+            console.error('Lỗi khi xóa log và reset game:', error);
+            alert('Có lỗi xảy ra: ' + error.message);
         }
     };
     
     const deleteRoom = () => {
-        if (!currentRoomId || !confirm(`Bạn có chắc muốn xóa phòng '${currentRoomId}'?`)) return;
+        if (!currentRoomId || !confirm(`Bạn có chắc muốn xóa vĩnh viễn phòng '${currentRoomId}'?`)) return;
         if (playerListener) {
             database.ref(`rooms/${currentRoomId}/players`).off('value', playerListener);
             playerListener = null;

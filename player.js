@@ -48,7 +48,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const username = userData.username;
             
-            // Sử dụng logic tìm phòng mới, đáng tin cậy và dứt điểm
             await findAndJoinRoom(username);
 
         } catch (error) {
@@ -58,13 +57,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // =================================================================
-    // === SỬA LỖI DỨT ĐIỂM: Logic tìm phòng mới, đáng tin cậy hơn ===
-    // =================================================================
     const findAndJoinRoom = (username) => {
         const roomsRef = database.ref('rooms');
         return new Promise((resolve, reject) => {
-            // Dùng .once() để quét các phòng một lần duy nhất, tránh race condition.
             roomsRef.once('value', (snapshot) => {
                 if (!snapshot.exists()) {
                     return reject(new Error('Không có phòng chơi nào đang hoạt động.'));
@@ -73,13 +68,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 let playerInfo = null;
                 const allRooms = snapshot.val();
 
-                // Lặp qua tất cả các phòng để tìm người chơi
                 for (const roomId in allRooms) {
                     const room = allRooms[roomId];
                     if (room.players) {
                         const playerId = Object.keys(room.players).find(key => room.players[key].name === username);
                         if (playerId) {
-                            // Khi tìm thấy, lưu lại thông tin và thoát khỏi vòng lặp
                             playerInfo = { roomId, playerId, username };
                             break; 
                         }
@@ -87,7 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (playerInfo) {
-                    // Nếu tìm thấy, chuyển đổi giao diện và bắt đầu lắng nghe vai trò
                     loginSection.classList.remove('active');
                     loginSection.classList.add('hidden');
                     
@@ -95,13 +87,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     gameSection.classList.add('active');
                     
                     initializeGame(playerInfo.username, playerInfo.roomId, playerInfo.playerId);
-                    resolve(); // Hoàn thành Promise
+                    resolve();
                 } else {
-                    // Nếu không tìm thấy sau khi đã quét hết, báo lỗi.
                     reject(new Error('Hiện tại không có game nào có tên bạn trong danh sách chờ.'));
                 }
             }, (error) => {
-                // Xử lý lỗi nếu không thể đọc dữ liệu từ Firebase
                 console.error("Lỗi đọc dữ liệu Firebase:", error);
                 reject(new Error('Không thể kết nối đến máy chủ game.'));
             });
@@ -114,21 +104,25 @@ document.addEventListener('DOMContentLoaded', () => {
         roomIdDisplay.textContent = roomId;
 
         const playerRef = database.ref(`rooms/${roomId}/players/${playerId}`);
-        // Cập nhật trạng thái online và xử lý khi mất kết nối
         playerRef.update({ isOnline: true });
         playerRef.onDisconnect().update({ isOnline: false });
 
-        // Gắn trình lắng nghe trực tiếp và bền bỉ vào `role` của chính người chơi này
         const roleRef = database.ref(`rooms/${roomId}/players/${playerId}/role`);
         roleRef.on('value', (snapshot) => {
             const roleData = snapshot.val();
-            // Điều kiện kiểm tra vẫn giữ nguyên, rất quan trọng
+            
+            // =================================================================
+            // === NÂNG CẤP: Xử lý cả khi có vai trò và khi bị reset (null) ===
+            // =================================================================
             if (roleData && typeof roleData === 'object' && roleData.name) {
+                // Trường hợp có vai trò -> Hiển thị thẻ bài
                 updateRoleUI(roleData);
+            } else {
+                // Trường hợp vai trò là null (bị quản trò reset) -> Quay lại màn hình chờ
+                resetRoleUI();
             }
         });
 
-        // Logic lật thẻ bài
         roleRevealSection.addEventListener('click', () => {
             roleRevealSection.classList.toggle('is-flipped');
         });
@@ -150,9 +144,18 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (role.faction === 'Phe Dân') roleFactionEl.classList.add('villager');
         else roleFactionEl.classList.add('neutral');
 
-        // Ẩn màn hình chờ và hiện thẻ bài
         waitingSection.classList.add('hidden');
         roleRevealSection.classList.remove('hidden');
+    }
+
+    // Hàm mới để reset giao diện về trạng thái chờ
+    function resetRoleUI() {
+        waitingSection.classList.remove('hidden');
+        roleRevealSection.classList.add('hidden');
+        // Đảm bảo thẻ bài không bị lật sẵn cho lần nhận vai trò tiếp theo
+        if (roleRevealSection.classList.contains('is-flipped')) {
+            roleRevealSection.classList.remove('is-flipped');
+        }
     }
 
     // --- EVENT LISTENERS ---
