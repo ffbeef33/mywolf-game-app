@@ -157,11 +157,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const availableRolesForPicking = roomData.rolesToAssign.map(roleName => {
                 return allRolesData.find(r => r.name === roleName);
             }).filter(roleData => 
-                roleData && (roleData.faction.trim() === 'Phe Dân' || roleData.faction.trim() === 'Phe Trung Lập')
+                roleData && (roleData.faction.trim() === 'Phe Dân' || roleData.faction.trim() === 'Phe trung lập')
             ).map(roleData => roleData.name);
             
             if (availableRolesForPicking.length === 0) {
-                alert("Lỗi: Không có vai trò nào thuộc 'Phe Dân' hoặc 'Phe Trung Lập' trong danh sách để người chơi lựa chọn.");
+                alert("Lỗi: Không có vai trò nào thuộc 'Phe Dân' hoặc 'Phe trung lập' trong danh sách để người chơi lựa chọn.");
                 return;
             }
 
@@ -379,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 switch (roleData.faction.trim()) {
                     case 'Phe Dân': counts.villagerFaction++; break;
                     case 'Phe Sói': counts.wolfFaction++; break;
-                    case 'Phe Trung Lập': counts.neutralFaction++; break;
+                    case 'Phe trung lập': counts.neutralFaction++; break;
                 }
             }
         });
@@ -477,7 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // *** LOGIC SỬA LỖI: Lấy vai trò từ CẢ checkbox VÀ ô nhập số ***
         let selectedRoles = [];
-        // Lấy từ checkbox (Phe Sói, Phe Trung Lập, etc.)
+        // Lấy từ checkbox (Phe Sói, Phe trung lập, etc.)
         document.querySelectorAll('input[name="selected-role"]:checked').forEach(node => {
             selectedRoles.push(node.value);
         });
