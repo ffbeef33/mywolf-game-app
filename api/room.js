@@ -1,8 +1,20 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 
-// --- Cấu hình Firebase Admin SDK theo cách an toàn và ổn định hơn ---
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+// --- Cấu hình Firebase Admin SDK theo cách an toàn và ổn định nhất cho Vercel ---
+
+// SỬA LỖI: Đọc và phân giải biến môi trường một cách an toàn
+let serviceAccount;
+try {
+    // Thử parse trực tiếp, nếu không được thì replace các ký tự escape
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+} catch (e) {
+    // Xử lý chuỗi JSON đã bị "escaped" bởi Vercel
+    const escapedJson = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    const unescapedJson = escapedJson.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+    serviceAccount = JSON.parse(unescapedJson);
+}
+
 const databaseURL = process.env.FIREBASE_DATABASE_URL;
 
 // Chỉ khởi tạo app nếu chưa có để tránh lỗi trên môi trường serverless
@@ -38,13 +50,11 @@ export default async function handler(request, response) {
         const roomData = allRooms[roomId];
         return {
           id: roomId,
-          // SỬA LỖI: Gán giá trị 0 nếu createdAt không tồn tại để sắp xếp an toàn
-          createdAt: roomData.createdAt || 0,
+          createdAt: roomData.createdAt || 0, // Gán 0 nếu không có để sắp xếp an toàn
           playerCount: roomData.players ? Object.keys(roomData.players).length : 0,
         };
       })
-      // Sắp xếp các phòng từ mới nhất đến cũ nhất
-      .sort((a, b) => b.createdAt - a.createdAt);
+      .sort((a, b) => b.createdAt - a.createdAt); // Sắp xếp phòng mới nhất lên đầu
 
     return response.status(200).json(activeRooms);
 
