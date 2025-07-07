@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let roomListener = null;
 
-    // --- LOGIN LOGIC ---
+    // --- LOGIN LOGIC (dùng làm phương án dự phòng) ---
     const handleLogin = async () => {
         const password = passwordInput.value.trim();
         if (!password) {
@@ -43,7 +43,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const userData = await response.json();
             if (!userData.success) throw new Error(userData.message || 'Mật khẩu không hợp lệ.');
+            
+            // Lưu lại session phòng trường hợp người dùng F5 trang
+            sessionStorage.setItem('mywolf_username', userData.username);
             listenForMyRoom(userData.username);
+
         } catch (error) {
             loginError.textContent = error.message;
             loginBtn.disabled = false;
@@ -53,10 +57,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- LOGIC LẮNG NGHE PHÒNG BỀN BỈ ---
     function listenForMyRoom(username) {
+        // *** THAY ĐỔI: Chuyển giao diện ngay lập tức sang màn hình chờ ***
+        loginSection.classList.remove('active');
+        loginSection.classList.add('hidden');
+        gameSection.classList.add('active');
+        gameSection.classList.remove('hidden');
+        playerNameDisplay.textContent = username; // Cập nhật tên ngay
+
         const roomsRef = database.ref('rooms');
         if (roomListener) roomsRef.off('value', roomListener);
-
-        loginError.textContent = 'Đang tìm phòng của bạn...';
 
         roomListener = roomsRef.on('value', (snapshot) => {
             const allRooms = snapshot.val();
@@ -76,29 +85,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (playerInfo) {
-                if (!gameSection.classList.contains('active')) {
-                    loginSection.classList.remove('active');
-                    loginSection.classList.add('hidden');
-                    gameSection.classList.add('active');
-                    gameSection.classList.remove('hidden');
-                }
+                // Đã ở màn hình game, chỉ cần cập nhật giao diện
                 updateGameUI(playerInfo.username, playerInfo.roomId, playerInfo.role);
             } else {
-                if (!loginSection.classList.contains('active')) {
+                // Nếu không tìm thấy phòng (ví dụ quản trò xóa), quay lại màn hình đăng nhập
+                if (gameSection.classList.contains('active')) {
                     gameSection.classList.remove('active');
                     gameSection.classList.add('hidden');
                     loginSection.classList.add('active');
                     loginSection.classList.remove('hidden');
+                    loginError.textContent = 'Không tìm thấy phòng. Quản trò đã tạo game chưa?';
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Thử Tìm Lại';
                 }
-                loginError.textContent = 'Không tìm thấy phòng. Quản trò đã tạo game chưa?';
-                loginBtn.disabled = false;
-                loginBtn.textContent = 'Thử Tìm Lại';
             }
         });
     }
 
-    // --- CÁC HÀM CẬP NHẬT GIAO DIỆN ---
-    // Hàm này chỉ cập nhật nội dung, không gắn listener
+    // --- CÁC HÀM CẬP NHẬT GIAO DIỆN (giữ nguyên) ---
     function updateGameUI(playerName, roomId, roleData) {
         playerNameDisplay.textContent = playerName;
         roomIdDisplay.textContent = roomId;
@@ -108,17 +112,14 @@ document.addEventListener('DOMContentLoaded', () => {
             waitingSection.classList.add('hidden');
             roleRevealSection.classList.remove('hidden');
         } else {
-            // Reset về màn hình chờ
             waitingSection.classList.remove('hidden');
             roleRevealSection.classList.add('hidden');
-            // Đảm bảo thẻ bài úp lại
             if (roleRevealSection.classList.contains('is-flipped')) {
                 roleRevealSection.classList.remove('is-flipped');
             }
         }
     }
 
-    // Hàm này chỉ cập nhật thông tin trên thẻ bài
     function updateRoleCard(role) {
         document.getElementById('role-name').textContent = role.name || 'Chưa có tên';
         document.getElementById('role-faction').textContent = `Phe ${role.faction || 'Chưa rõ'}`;
@@ -141,9 +142,23 @@ document.addEventListener('DOMContentLoaded', () => {
             loginBtn.click();
         }
     });
-
-    // SỬA LỖI: Gán sự kiện click cho thẻ bài chỉ một lần duy nhất ở đây
     roleRevealSection.addEventListener('click', () => {
         roleRevealSection.classList.toggle('is-flipped');
     });
+
+    // *** THAY ĐỔI QUAN TRỌNG: TỰ ĐỘNG ĐĂNG NHẬP NẾU CÓ SESSION ***
+    const checkSessionAndAutoLogin = () => {
+        const username = sessionStorage.getItem('mywolf_username');
+        if (username) {
+            // Nếu tìm thấy người dùng trong session, bỏ qua đăng nhập và tìm phòng ngay
+            listenForMyRoom(username);
+        } else {
+            // Nếu không có, hiển thị form đăng nhập như bình thường
+            loginSection.classList.add('active');
+            loginSection.classList.remove('hidden');
+        }
+    };
+
+    // Chạy hàm kiểm tra ngay khi trang được tải
+    checkSessionAndAutoLogin();
 });

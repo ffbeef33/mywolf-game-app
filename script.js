@@ -19,11 +19,15 @@ document.addEventListener('DOMContentLoaded', function() {
       })
       .then(response => response.json())
       .then(data => {
-        if (data.success) {
+        if (data.success && data.username) {
+          // *** THAY ĐỔI QUAN TRỌNG ***
+          // Lưu tên người dùng vào session storage trước khi chuyển hướng
+          sessionStorage.setItem('mywolf_username', data.username);
+          
           // Chuyển hướng đến trang người chơi
           window.location.href = 'player.html';
         } else {
-          alert('Mật khẩu không chính xác!');
+          alert(data.message || 'Mật khẩu không chính xác!');
         }
       })
       .catch(error => {
@@ -35,7 +39,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Xử lý đăng nhập quản trò
+  // Xử lý đăng nhập quản trò (giữ nguyên)
   adminButton.addEventListener('click', function() {
     const password = adminPassword.value;
     if (password) {
@@ -65,7 +69,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Xử lý khi nhấn Enter trong ô input
+  // Xử lý khi nhấn Enter trong ô input (giữ nguyên)
   playerPassword.addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
       loginButton.click();
