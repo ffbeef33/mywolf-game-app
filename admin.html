@@ -16,14 +16,9 @@
         </header>
 
         <main>
-            <!-- ============================================= -->
-            <!-- === KHU VỰC QUẢN LÝ PHÒNG MỚI === -->
-            <!-- ============================================= -->
             <section class="card" id="room-management-section">
                 <h2>Quản Lý Các Phòng Đang Hoạt Động</h2>
-                <div id="room-list-container">
-                    <p>Đang tải danh sách phòng...</p>
-                </div>
+                <div id="room-list-container"><p>Đang tải danh sách phòng...</p></div>
                 <button id="refresh-rooms-btn" class="btn-secondary">Làm Mới Danh Sách</button>
             </section>
 
@@ -31,15 +26,11 @@
                 <h2>1. Thiết Lập Ván Chơi Mới</h2>
                 <div class="form-group" id="player-selection-section">
                     <h3>Chọn người chơi tham gia:</h3>
-                    <div id="player-list-container">
-                        <div class="skeleton-loader"><div class="skeleton-line"></div><div class="skeleton-line"></div></div>
-                    </div>
+                    <div id="player-list-container"><div class="skeleton-loader"><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
                 </div>
                 <div class="form-group" id="roles-selection-container">
                     <h3>Chọn các vai trò:</h3>
-                    <div id="roles-by-faction">
-                        <div class="skeleton-loader"><div class="skeleton-line"></div><div class="skeleton-line"></div></div>
-                    </div>
+                    <div id="roles-by-faction"><div class="skeleton-loader"><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
                 </div>
                 <div class="form-group" id="role-counter-container">
                     <div id="role-count-display">
@@ -54,6 +45,7 @@
                 <button id="create-room-btn" disabled>Tạo Phòng Chơi Mới</button>
             </section>
 
+            <!-- Giao diện quản lý phòng sau khi tạo -->
             <section class="card hidden" id="active-room-section">
                 <h2>Quản Lý Phòng</h2>
                 <div class="room-info-section">
@@ -65,11 +57,30 @@
                     <ul id="player-list"></ul>
                 </div>
                 <div class="action-buttons">
-                    <button id="send-roles-btn">Gửi Vai Trò & Lưu Log</button>
+                    <div class="player-pick-controls">
+                        <input type="number" id="player-pick-timer" value="60" min="10" title="Thời gian chọn (giây)">
+                        <button id="start-player-pick-btn">Bắt Đầu Player Pick</button>
+                    </div>
+                    <button id="start-normal-random-btn">Bắt Đầu Random Ngẫu Nhiên</button>
                     <button id="clear-gamelog-btn" class="btn-secondary">Xóa Log & Reset Roles</button>
                     <button id="delete-room-btn" class="btn-danger">Xóa Phòng Này</button>
-                    <!-- NÚT MỚI ĐƯỢC THÊM VÀO -->
                     <button id="back-to-setup-btn" class="btn-secondary">Quay Lại Thiết Lập</button> 
+                </div>
+            </section>
+            
+            <!-- KHU VỰC MỚI: THEO DÕI PLAYER PICK -->
+            <section class="card hidden" id="player-pick-monitoring-section">
+                <h2>Theo Dõi Lựa Chọn Của Người Chơi</h2>
+                <p class="timer">Thời gian còn lại: <strong id="monitor-timer-display">--</strong></p>
+                <div class="room-info-section">
+                    <h3>Trạng thái lựa chọn:</h3>
+                    <ul id="player-choices-list">
+                        <!-- JS sẽ chèn trạng thái người chơi vào đây -->
+                    </ul>
+                </div>
+                <div class="action-buttons">
+                    <button id="process-player-pick-btn" disabled>Xử Lý & Phân Phối Vai Trò</button>
+                    <p class="note">Chỉ nhấn nút này sau khi thời gian đếm ngược kết thúc.</p>
                 </div>
             </section>
         </main>

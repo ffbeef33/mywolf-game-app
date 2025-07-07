@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    // --- DOM Elements ---
+    // --- DOM Elements (đã cập nhật) ---
     const loginSection = document.getElementById('login-section');
     const gameSection = document.getElementById('game-section');
     const passwordInput = document.getElementById('password-input');
@@ -20,12 +20,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginError = document.getElementById('login-error');
     const playerNameDisplay = document.getElementById('player-name-display');
     const roomIdDisplay = document.getElementById('room-id-display');
+    
+    // Các khu vực trong game
+    const gameView = document.getElementById('game-view');
     const waitingSection = document.getElementById('waiting-section');
+    const playerPickSection = document.getElementById('player-pick-section');
     const roleRevealSection = document.getElementById('role-reveal-section');
+    
+    // Các thành phần của Player Pick
+    const pickTimerDisplay = document.getElementById('pick-timer-display');
+    const roleChoicesContainer = document.getElementById('role-choices-container');
+    const randomChoiceBtn = document.getElementById('random-choice-btn');
+    const choiceStatus = document.getElementById('choice-status');
 
     let roomListener = null;
+    let pickTimerInterval = null;
+    let currentRoomId = null;
 
-    // --- LOGIN LOGIC (dùng làm phương án dự phòng) ---
+    // --- LOGIN & SESSION ---
     const handleLogin = async () => {
         const password = passwordInput.value.trim();
         if (!password) {
@@ -44,7 +56,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const userData = await response.json();
             if (!userData.success) throw new Error(userData.message || 'Mật khẩu không hợp lệ.');
             
-            // Lưu lại session phòng trường hợp người dùng F5 trang
             sessionStorage.setItem('mywolf_username', userData.username);
             listenForMyRoom(userData.username);
 
@@ -55,71 +66,132 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- LOGIC LẮNG NGHE PHÒNG BỀN BỈ ---
+    const checkSessionAndAutoLogin = () => {
+        const username = sessionStorage.getItem('mywolf_username');
+        if (username) {
+            listenForMyRoom(username);
+        } else {
+            loginSection.classList.remove('hidden');
+        }
+    };
+
+    // --- CORE GAME LOGIC ---
     function listenForMyRoom(username) {
-        // *** THAY ĐỔI: Chuyển giao diện ngay lập tức sang màn hình chờ ***
-        loginSection.classList.remove('active');
         loginSection.classList.add('hidden');
-        gameSection.classList.add('active');
         gameSection.classList.remove('hidden');
-        playerNameDisplay.textContent = username; // Cập nhật tên ngay
+        playerNameDisplay.textContent = username;
 
         const roomsRef = database.ref('rooms');
         if (roomListener) roomsRef.off('value', roomListener);
 
         roomListener = roomsRef.on('value', (snapshot) => {
             const allRooms = snapshot.val();
-            let playerInfo = null;
+            let playerRoom = null;
+            let foundRoomId = null;
 
             if (allRooms) {
                 for (const roomId in allRooms) {
                     const room = allRooms[roomId];
-                    if (room.players) {
-                        const playerId = Object.keys(room.players).find(key => room.players[key].name === username);
-                        if (playerId) {
-                            playerInfo = { roomId, playerId, username, role: room.players[playerId].role };
-                            break;
-                        }
+                    if (room.players && Object.values(room.players).some(p => p.name === username)) {
+                        playerRoom = room;
+                        foundRoomId = roomId;
+                        currentRoomId = roomId;
+                        break;
                     }
                 }
             }
 
-            if (playerInfo) {
-                // Đã ở màn hình game, chỉ cần cập nhật giao diện
-                updateGameUI(playerInfo.username, playerInfo.roomId, playerInfo.role);
+            if (playerRoom) {
+                updateGameState(username, foundRoomId, playerRoom);
             } else {
-                // Nếu không tìm thấy phòng (ví dụ quản trò xóa), quay lại màn hình đăng nhập
-                if (gameSection.classList.contains('active')) {
-                    gameSection.classList.remove('active');
-                    gameSection.classList.add('hidden');
-                    loginSection.classList.add('active');
-                    loginSection.classList.remove('hidden');
-                    loginError.textContent = 'Không tìm thấy phòng. Quản trò đã tạo game chưa?';
-                    loginBtn.disabled = false;
-                    loginBtn.textContent = 'Thử Tìm Lại';
-                }
+                // Bị kick hoặc phòng bị xóa
+                gameSection.classList.add('hidden');
+                loginSection.classList.remove('hidden');
+                loginError.textContent = 'Không tìm thấy phòng của bạn. Vui lòng thử lại.';
+                if (roomListener) roomListener.off();
+                if (pickTimerInterval) clearInterval(pickTimerInterval);
             }
         });
     }
 
-    // --- CÁC HÀM CẬP NHẬT GIAO DIỆN (giữ nguyên) ---
-    function updateGameUI(playerName, roomId, roleData) {
-        playerNameDisplay.textContent = playerName;
+    function updateGameState(username, roomId, roomData) {
         roomIdDisplay.textContent = roomId;
+        const myPlayer = Object.values(roomData.players).find(p => p.name === username);
+
+        // Ưu tiên 1: Nếu đã có vai trò cuối cùng -> Hiển thị thẻ bài
+        if (myPlayer && myPlayer.role) {
+            showSection(roleRevealSection);
+            updateRoleCard(myPlayer.role);
+            return;
+        }
+
+        // Ưu tiên 2: Nếu đang trong giai đoạn Player Pick -> Hiển thị giao diện chọn
+        if (roomData.playerPickState && roomData.playerPickState.status === 'picking') {
+            showSection(playerPickSection);
+            handlePlayerPickState(username, roomId, roomData.playerPickState);
+            return;
+        }
         
-        if (roleData && typeof roleData === 'object' && roleData.name) {
-            updateRoleCard(roleData);
-            waitingSection.classList.add('hidden');
-            roleRevealSection.classList.remove('hidden');
-        } else {
-            waitingSection.classList.remove('hidden');
-            roleRevealSection.classList.add('hidden');
-            if (roleRevealSection.classList.contains('is-flipped')) {
-                roleRevealSection.classList.remove('is-flipped');
+        // Mặc định: Hiển thị màn hình chờ
+        showSection(waitingSection);
+    }
+    
+    function showSection(sectionToShow) {
+        [waitingSection, playerPickSection, roleRevealSection].forEach(section => {
+            if (section === sectionToShow) {
+                section.classList.remove('hidden');
+            } else {
+                section.classList.add('hidden');
             }
+        });
+    }
+
+    // --- PLAYER PICK FEATURE ---
+    function handlePlayerPickState(username, roomId, state) {
+        // Cập nhật đồng hồ đếm ngược
+        if (pickTimerInterval) clearInterval(pickTimerInterval);
+        pickTimerInterval = setInterval(() => {
+            const remaining = Math.round((state.endTime - Date.now()) / 1000);
+            if (remaining >= 0) {
+                pickTimerDisplay.textContent = `${remaining}s`;
+            } else {
+                pickTimerDisplay.textContent = "Hết giờ!";
+                clearInterval(pickTimerInterval);
+            }
+        }, 1000);
+
+        const myChoice = state.playerChoices[username];
+        const hasChosen = myChoice && myChoice !== 'waiting';
+
+        // Hiển thị các nút lựa chọn
+        roleChoicesContainer.innerHTML = '';
+        if (!hasChosen) {
+            state.availableRoles.forEach(roleName => {
+                const btn = document.createElement('button');
+                btn.className = 'choice-btn';
+                btn.textContent = roleName;
+                btn.dataset.role = roleName;
+                btn.addEventListener('click', () => selectRole(username, roomId, roleName));
+                roleChoicesContainer.appendChild(btn);
+            });
+            randomChoiceBtn.disabled = false;
+            choiceStatus.textContent = '';
+        } else {
+            // Nếu đã chọn, vô hiệu hóa các nút và hiển thị lựa chọn
+            roleChoicesContainer.innerHTML = `<p>Lựa chọn của bạn:</p><h3>${myChoice === 'random' ? 'Nhận Ngẫu Nhiên' : myChoice}</h3>`;
+            randomChoiceBtn.disabled = true;
+            choiceStatus.textContent = 'Đang chờ những người chơi khác...';
         }
     }
 
+    function selectRole(username, roomId, choice) {
+        const choiceRef = database.ref(`rooms/${roomId}/playerPickState/playerChoices/${username}`);
+        choiceRef.set(choice)
+            .then(() => console.log(`Player ${username} chose ${choice}`))
+            .catch(err => console.error("Lỗi khi gửi lựa chọn:", err));
+    }
+    
+    // --- ROLE REVEAL FEATURE ---
     function updateRoleCard(role) {
         document.getElementById('role-name').textContent = role.name || 'Chưa có tên';
         document.getElementById('role-faction').textContent = `Phe ${role.faction || 'Chưa rõ'}`;
@@ -134,31 +206,21 @@ document.addEventListener('DOMContentLoaded', () => {
         else roleFactionEl.classList.add('neutral');
     }
 
-    // --- EVENT LISTENERS (Gán một lần duy nhất) ---
+    // --- EVENT LISTENERS ---
     loginBtn.addEventListener('click', handleLogin);
     passwordInput.addEventListener('keyup', (event) => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            loginBtn.click();
-        }
+        if (event.key === 'Enter') loginBtn.click();
     });
     roleRevealSection.addEventListener('click', () => {
         roleRevealSection.classList.toggle('is-flipped');
     });
-
-    // *** THAY ĐỔI QUAN TRỌNG: TỰ ĐỘNG ĐĂNG NHẬP NẾU CÓ SESSION ***
-    const checkSessionAndAutoLogin = () => {
-        const username = sessionStorage.getItem('mywolf_username');
-        if (username) {
-            // Nếu tìm thấy người dùng trong session, bỏ qua đăng nhập và tìm phòng ngay
-            listenForMyRoom(username);
-        } else {
-            // Nếu không có, hiển thị form đăng nhập như bình thường
-            loginSection.classList.add('active');
-            loginSection.classList.remove('hidden');
+    randomChoiceBtn.addEventListener('click', () => {
+        if (currentRoomId) {
+            const username = sessionStorage.getItem('mywolf_username');
+            selectRole(username, currentRoomId, 'random');
         }
-    };
+    });
 
-    // Chạy hàm kiểm tra ngay khi trang được tải
+    // --- INITIAL LOAD ---
     checkSessionAndAutoLogin();
 });
