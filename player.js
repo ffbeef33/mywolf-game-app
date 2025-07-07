@@ -21,6 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const playerNameDisplay = document.getElementById('player-name-display');
     const roomIdDisplay = document.getElementById('room-id-display');
     const waitingSection = document.getElementById('waiting-section');
+    const waitingTitle = waitingSection.querySelector('h2'); // Lấy thẻ h2 để thay đổi text
+    const waitingMessage = waitingSection.querySelector('p'); // Lấy thẻ p để thay đổi text
     const playerPickSection = document.getElementById('player-pick-section');
     const roleRevealSection = document.getElementById('role-reveal-section');
     const pickTimerDisplay = document.getElementById('pick-timer-display');
@@ -30,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let roomListener = null;
     let pickTimerInterval = null;
+    let searchInterval = null; // Interval để tìm kiếm phòng
     let currentRoomId = null;
 
     // --- LOGIN & SESSION ---
@@ -41,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         loginError.textContent = '';
         loginBtn.disabled = true;
-        loginBtn.textContent = 'Đang tìm phòng...';
+        loginBtn.textContent = 'Đang xác thực...';
         try {
             const response = await fetch('/api/login', {
                 method: 'POST',
@@ -52,43 +55,40 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!userData.success) throw new Error(userData.message || 'Mật khẩu không hợp lệ.');
             
             sessionStorage.setItem('mywolf_username', userData.username);
-            await findAndListenToMyRoom(userData.username);
+            startPeriodicRoomSearch(userData.username);
 
         } catch (error) {
-            // Nếu có lỗi ở bất kỳ bước nào, quay lại màn hình đăng nhập
             goBackToLogin(error.message);
         }
     };
 
-    const checkSessionAndAutoLogin = async () => {
+    const checkSessionAndAutoLogin = () => {
         const username = sessionStorage.getItem('mywolf_username');
         if (username) {
-            // Khi có session, tạm thời hiển thị màn hình chờ để người dùng biết hệ thống đang hoạt động
-            loginSection.classList.add('hidden');
-            gameSection.classList.remove('hidden');
-            playerNameDisplay.textContent = username;
-            showSection(waitingSection);
-            await findAndListenToMyRoom(username);
+            startPeriodicRoomSearch(username);
         } else {
-            // Nếu không, hiển thị form đăng nhập như bình thường
             loginSection.classList.remove('hidden');
+            gameSection.classList.add('hidden');
         }
     };
 
     // --- CORE GAME LOGIC & UI (RE-ARCHITECTED) ---
 
-    const goBackToLogin = (message) => {
+    const cleanup = () => {
         if (roomListener && currentRoomId) {
             database.ref(`rooms/${currentRoomId}`).off('value', roomListener);
         }
-        if (pickTimerInterval) {
-            clearInterval(pickTimerInterval);
-        }
+        if (pickTimerInterval) clearInterval(pickTimerInterval);
+        if (searchInterval) clearInterval(searchInterval);
         
         roomListener = null;
         pickTimerInterval = null;
+        searchInterval = null;
         currentRoomId = null;
-        
+    };
+
+    const goBackToLogin = (message) => {
+        cleanup();
         gameSection.classList.add('hidden');
         loginSection.classList.remove('hidden');
         loginError.textContent = message;
@@ -97,50 +97,65 @@ document.addEventListener('DOMContentLoaded', () => {
         loginBtn.textContent = 'Tìm và Vào Game';
     };
 
-    async function findAndListenToMyRoom(username) {
-        try {
-            const roomsRef = database.ref('rooms');
-            const snapshot = await roomsRef.get();
-            const allRooms = snapshot.val();
-            let foundRoomId = null;
+    const startPeriodicRoomSearch = (username) => {
+        cleanup(); // Dọn dẹp tất cả listener/interval cũ trước khi bắt đầu
+        
+        // Chuyển sang màn hình chờ ngay lập tức
+        loginSection.classList.add('hidden');
+        gameSection.classList.remove('hidden');
+        playerNameDisplay.textContent = username;
+        showSection(waitingSection);
+        waitingTitle.textContent = "Đang Tìm Phòng...";
+        waitingMessage.textContent = "Hệ thống đang tìm kiếm phòng chơi của bạn.";
 
-            if (allRooms) {
-                for (const roomId in allRooms) {
-                    const room = allRooms[roomId];
-                    if (room.players && Object.values(room.players).some(p => p.name === username)) {
-                        foundRoomId = roomId;
-                        break;
+        const scanForRoom = async () => {
+            try {
+                const roomsRef = database.ref('rooms');
+                const snapshot = await roomsRef.get();
+                const allRooms = snapshot.val();
+                let foundRoomId = null;
+
+                if (allRooms) {
+                    for (const roomId in allRooms) {
+                        const room = allRooms[roomId];
+                        if (room.players && Object.values(room.players).some(p => p.name === username)) {
+                            foundRoomId = roomId;
+                            break;
+                        }
                     }
                 }
-            }
 
-            if (foundRoomId) {
-                // *** CHỈ CHUYỂN GIAO DIỆN KHI ĐÃ TÌM THẤY PHÒNG ***
-                loginSection.classList.add('hidden');
-                gameSection.classList.remove('hidden');
-                playerNameDisplay.textContent = username;
-                attachListenerToSpecificRoom(username, foundRoomId);
-            } else {
-                goBackToLogin('Không tìm thấy phòng nào có bạn. Quản trò đã tạo game chưa?');
+                if (foundRoomId) {
+                    // TÌM THẤY PHÒNG -> Dừng tìm kiếm và kết nối
+                    clearInterval(searchInterval);
+                    searchInterval = null;
+                    attachListenerToSpecificRoom(username, foundRoomId);
+                } else {
+                    // KHÔNG TÌM THẤY -> Cập nhật thông báo và tiếp tục chờ
+                    waitingTitle.textContent = "Chưa Có Phòng";
+                    waitingMessage.textContent = "Đang chờ Quản Trò tạo phòng chơi...";
+                }
+            } catch (error) {
+                console.error("Lỗi khi quét phòng:", error);
+                waitingMessage.textContent = "Lỗi kết nối, đang thử lại...";
             }
-        } catch (error) {
-            console.error("Lỗi khi tìm phòng:", error);
-            goBackToLogin('Đã xảy ra lỗi khi kết nối tới máy chủ.');
-        }
-    }
+        };
+
+        scanForRoom(); // Chạy lần đầu ngay lập tức
+        searchInterval = setInterval(scanForRoom, 5000); // Lặp lại mỗi 5 giây
+    };
 
     function attachListenerToSpecificRoom(username, roomId) {
         currentRoomId = roomId;
         const roomRef = database.ref(`rooms/${roomId}`);
-
-        if (roomListener) roomRef.off('value', roomListener);
 
         roomListener = roomRef.on('value', (snapshot) => {
             const roomData = snapshot.val();
             if (roomData) {
                 updateGameState(username, roomId, roomData);
             } else {
-                goBackToLogin('Phòng đã bị quản trò xóa.');
+                // Phòng bị xóa, quay lại tìm kiếm phòng mới
+                startPeriodicRoomSearch(username);
             }
         }, (error) => {
             console.error("Firebase listener error:", error);
@@ -153,7 +168,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const myPlayer = Object.values(roomData.players).find(p => p.name === username);
 
         if (!myPlayer) {
-            goBackToLogin('Bạn đã bị quản trò loại khỏi phòng.');
+            // Bị kick khỏi phòng -> Quay lại tìm kiếm phòng mới
+            startPeriodicRoomSearch(username);
             return;
         }
 
@@ -165,6 +181,8 @@ document.addEventListener('DOMContentLoaded', () => {
             handlePlayerPickState(username, roomId, roomData.playerPickState);
         } else {
             showSection(waitingSection);
+            waitingTitle.textContent = "Đang chờ Quản Trò...";
+            waitingMessage.textContent = "Vai trò của bạn sẽ sớm được tiết lộ.";
         }
     }
     
