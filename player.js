@@ -100,6 +100,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Nếu không tìm thấy sau khi đã quét hết, báo lỗi.
                     reject(new Error('Hiện tại không có game nào có tên bạn trong danh sách chờ.'));
                 }
+            }, (error) => {
+                // Xử lý lỗi nếu không thể đọc dữ liệu từ Firebase
+                console.error("Lỗi đọc dữ liệu Firebase:", error);
+                reject(new Error('Không thể kết nối đến máy chủ game.'));
             });
         });
     };
