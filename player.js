@@ -1,6 +1,6 @@
 // =================================================================
-// === player.js - PHIÊN BẢN SỬA LỖI HIỂN THỊ CUỐI CÙNG ===
-console.log("ĐANG CHẠY player.js PHIÊN BẢN SỬA LỖI HIỂN THỊ!");
+// === player.js - PHIÊN BẢN TÍCH HỢP MÔ TẢ VAI TRÒ ===
+console.log("ĐANG CHẠY player.js PHIÊN BẢN TÍCH HỢP MÔ TẢ!");
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -41,14 +41,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let allRolesData = [];
 
     // --- DATA FETCHING ---
+    // *** HÀM ĐÃ ĐƯỢC CẬP NHẬT ***
     const fetchAllRolesData = async () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Roles`);
             if (!response.ok) throw new Error('Không thể tải dữ liệu vai trò.');
             const rawData = await response.json();
+            // Cập nhật để đọc thêm cột "Describe"
             allRolesData = rawData.map(role => ({
                 name: (role.RoleName || 'Lỗi').trim(),
-                faction: (role.Faction || 'Chưa phân loại').trim()
+                faction: (role.Faction || 'Chưa phân loại').trim(),
+                description: (role.Describe || 'Không có mô tả.').trim()
             }));
         } catch (error) {
             console.error("Lỗi nghiêm trọng khi tải dữ liệu vai trò:", error);
@@ -188,7 +191,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // *** HÀM ĐÃ ĐƯỢC SỬA LỖI ***
     function displayRolesInGame(roleNames) {
         rolesInGameDisplay.innerHTML = '';
         if (roleNames.length === 0 || allRolesData.length === 0) {
@@ -206,7 +208,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return acc;
         }, {});
 
-        // SỬA LỖI: Cập nhật mảng này để khớp với Google Sheets
         const factionOrder = ['Phe Sói', 'Bầy Sói', 'Phe Dân', 'Phe trung lập', 'Chưa phân loại'];
 
         const getFactionClass = (faction) => {
@@ -281,16 +282,18 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => console.error("Lỗi khi gửi lựa chọn:", err));
     }
     
+    // *** HÀM ĐÃ ĐƯỢC CẬP NHẬT ***
     function updateRoleCard(role) {
+        // Cập nhật để hiển thị mô tả từ thuộc tính `description` của object `role`
         document.getElementById('role-name').textContent = role.name || 'Chưa có tên';
         document.getElementById('role-faction').textContent = `Phe ${role.faction || 'Chưa rõ'}`;
         document.getElementById('role-description').textContent = role.description || 'Chưa có mô tả.';
+        
         const roleImage = document.getElementById('role-image');
         const roleFactionEl = document.getElementById('role-faction');
         
         roleFactionEl.className = 'role-faction'; 
         
-        // Cập nhật logic gán class để bao gồm các phe mới
         const faction = role.faction.trim();
         if (faction === 'Phe Sói' || faction === 'Bầy Sói') {
             roleFactionEl.classList.add('wolf');

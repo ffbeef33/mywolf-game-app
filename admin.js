@@ -1,6 +1,6 @@
 // =================================================================
-// === admin.js - PHIÊN BẢN SỬA LỖI CUỐI CÙNG TẠI CREATE ROOM ===
-console.log("ĐANG CHẠY admin.js PHIÊN BẢN SỬA LỖI CUỐI CÙNG!");
+// === admin.js - PHIÊN BẢN TÍCH HỢP MÔ TẢ VAI TRÒ ===
+console.log("ĐANG CHẠY admin.js PHIÊN BẢN TÍCH HỢP MÔ TẢ!");
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
     
-    // --- DOM Elements (giữ nguyên) ---
+    // --- DOM Elements ---
     const setupSection = document.getElementById('setup-section');
     const activeRoomSection = document.getElementById('active-room-section');
     const playerPickMonitoringSection = document.getElementById('player-pick-monitoring-section');
@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let pickTimerInterval = null;
     let allRolesData = [];
 
-    // Các hàm khác giữ nguyên, chỉ sửa hàm createRoom
+    // Các hàm khác giữ nguyên
     const processPlayerPick = async () => {
         if (!currentRoomId) return;
         if (!confirm('Bạn có chắc muốn xử lý và phân phối vai trò? Hành động này không thể hoàn tác.')) return;
@@ -216,6 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             playerIds.forEach((id, index) => {
                 const assignedRoleName = rolesToAssign[index];
+                // Lấy toàn bộ object vai trò, bao gồm cả description
                 let assignedRoleData = allRolesData.find(r => r.name === assignedRoleName) || { name: "Dân Làng", faction: "Phe Dân", description: "Không có chức năng đặc biệt.", image: "" };
                 updates[`/players/${id}/role`] = assignedRoleData;
                 logPayload.push({ name: roomData.players[id].name, role: assignedRoleData.name });
@@ -379,6 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 switch (roleData.faction.trim()) {
                     case 'Phe Dân': counts.villagerFaction++; break;
                     case 'Phe Sói': counts.wolfFaction++; break;
+                    case 'Bầy Sói': counts.wolfFaction++; break;
                     case 'Phe trung lập': counts.neutralFaction++; break;
                 }
             }
@@ -420,16 +422,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // *** HÀM ĐÃ ĐƯỢC CẬP NHẬT ***
     const loadRolesFromSheet = async () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Roles`);
             if (!response.ok) throw new Error('Không thể tải danh sách vai trò.');
             const rawData = await response.json();
+            // Cập nhật để đọc thêm cột "Describe"
             allRolesData = rawData.map(role => ({
-                name: role.RoleName || 'Tên vai trò lỗi',
-                faction: role.Faction || 'Chưa phân loại',
-                description: role.Description || 'Không có mô tả cho vai trò này.',
-                image: role.ImageURL || ''
+                name: (role.RoleName || 'Tên vai trò lỗi').trim(),
+                faction: (role.Faction || 'Chưa phân loại').trim(),
+                description: (role.Describe || 'Không có mô tả cho vai trò này.').trim(),
+                image: (role.ImageURL || '').trim()
             }));
             allRolesData.sort((a, b) => {
                 const aName = a.name.toLowerCase();
@@ -469,19 +473,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // *** HÀM ĐÃ ĐƯỢC SỬA LỖI ***
     const createRoom = () => {
         const newRoomId = `room-${Math.random().toString(36).substr(2, 6)}`;
         const selectedPlayerNodes = document.querySelectorAll('input[name="selected-player"]:checked');
         const selectedPlayers = Array.from(selectedPlayerNodes).map(node => node.value);
 
-        // *** LOGIC SỬA LỖI: Lấy vai trò từ CẢ checkbox VÀ ô nhập số ***
         let selectedRoles = [];
-        // Lấy từ checkbox (Phe Sói, Phe trung lập, etc.)
         document.querySelectorAll('input[name="selected-role"]:checked').forEach(node => {
             selectedRoles.push(node.value);
         });
-        // Lấy từ ô nhập số (Phe Dân, Sói thường, etc.)
         document.querySelectorAll('input[name="quantity-role"]').forEach(input => {
             const count = parseInt(input.value) || 0;
             const roleName = input.dataset.roleName;
@@ -512,7 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
         database.ref(`rooms/${newRoomId}`).set({
             createdAt: firebase.database.ServerValue.TIMESTAMP,
             totalPlayers: selectedPlayers.length,
-            rolesToAssign: selectedRoles, // Mảng vai trò đầy đủ sẽ được lưu tại đây
+            rolesToAssign: selectedRoles,
             players: playersObject,
             gameState: { status: 'setup', message: 'Quản trò đang phân vai...' }
         }).then(() => {
