@@ -1,5 +1,5 @@
 // =================================================================
-// === admin.js - PHIÊN BẢN SỬA LỖI GỬI VAI TRÒ TRIỆT ĐỂ (ĐẦY ĐỦ) ===
+// === admin.js - PHIÊN BẢN SỬA LỖI GỬI VAI TRÒ (BẢO TOÀN LOGIC) ===
 console.log("ĐANG CHẠY admin.js PHIÊN BẢN SỬA LỖI GỬI VAI TRÒ!");
 // =================================================================
 
@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
             Object.keys(playerMap).forEach(playerId => {
                 const playerName = playerMap[playerId].name;
                 const finalRoleName = assignedPlayers[playerName];
-                // *** SỬA LỖI: Chỉ gửi TÊN vai trò lên Firebase, không gửi cả object
+                // *** THAY ĐỔI 1/4: Chỉ gửi TÊN vai trò, không gửi cả object
                 finalUpdates[`/players/${playerId}/roleName`] = finalRoleName; 
                 logPayload.push({ name: playerName, role: finalRoleName });
             });
@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             playerIds.forEach((id, index) => {
                 const assignedRoleName = rolesToAssign[index];
-                // *** SỬA LỖI: Chỉ gửi TÊN của vai trò lên Firebase
+                // *** THAY ĐỔI 2/4: Chỉ gửi TÊN của vai trò, không gửi cả object
                 updates[`/players/${id}/roleName`] = assignedRoleName;
                 logPayload.push({ name: roomData.players[id].name, role: assignedRoleName });
             });
@@ -501,7 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const playersObject = {};
         selectedPlayers.forEach(playerName => {
             const playerId = `player_${playerName.replace(/\s+/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
-            // *** SỬA LỖI: Khởi tạo player với roleName thay vì role
+            // *** THAY ĐỔI 3/4: Khởi tạo player với roleName: null thay vì role: null
             playersObject[playerId] = { name: playerName, isAlive: true, roleName: null };
         });
 
@@ -525,7 +525,7 @@ document.addEventListener('DOMContentLoaded', () => {
         playerListUI.innerHTML = '';
         if (!playersData) return;
         Object.values(playersData).sort((a,b) => a.name.localeCompare(b.name)).forEach(player => {
-            // *** SỬA LỖI: Đọc player.roleName để hiển thị
+            // *** THAY ĐỔI: Đọc `player.roleName` để hiển thị trên giao diện admin
             const roleName = player.roleName ? `<strong>(${player.roleName})</strong>` : '';
             const li = document.createElement('li');
             li.className = 'player-item';
@@ -548,7 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const players = snapshot.val();
             if (players) {
                 const updates = {};
-                // *** SỬA LỖI: Xóa roleName thay vì role
+                // *** THAY ĐỔI 4/4: Xóa `roleName` thay vì `role`
                 for (const playerId in players) updates[`/${playerId}/roleName`] = null;
                 await playersRef.update(updates);
             }

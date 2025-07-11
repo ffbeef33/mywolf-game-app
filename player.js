@@ -1,5 +1,5 @@
 // =================================================================
-// === player.js - PHIÊN BẢN SỬA LỖI LẤY MÔ TẢ TRIỆT ĐỂ (ĐẦY ĐỦ) ===
+// === player.js - PHIÊN BẢN SỬA LỖI LẤY MÔ TẢ (BẢO TOÀN LOGIC) ===
 console.log("ĐANG CHẠY player.js PHIÊN BẢN LẤY MÔ TẢ TRIỆT ĐỂ!");
 // =================================================================
 
@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // *** SỬA LỖI: Kiểm tra `myPlayer.roleName`
+        // *** THAY ĐỔI: Kiểm tra `myPlayer.roleName` thay vì `myPlayer.role`
         if (myPlayer.roleName) {
             showSection(roleRevealSection);
             // Tìm thông tin vai trò đầy đủ từ `allRolesData` mà player đã tự tải về
@@ -284,6 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function updateRoleCard(roleData) {
+        // Nếu không tìm thấy dữ liệu (trường hợp hiếm), hiển thị thông báo lỗi
         if (!roleData) {
             document.getElementById('role-name').textContent = 'Lỗi';
             document.getElementById('role-faction').textContent = 'Không tìm thấy vai trò';
