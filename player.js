@@ -1,6 +1,6 @@
 // =================================================================
-// === player.js - PHIÊN BẢN BỎ HÌNH ẢNH VAI TRÒ ===
-console.log("ĐANG CHẠY player.js PHIÊN BẢN BỎ HÌNH ẢNH!");
+// === player.js - PHIÊN BẢN SỬA LỖI LẤY MÔ TẢ TRIỆT ĐỂ (ĐẦY ĐỦ) ===
+console.log("ĐANG CHẠY player.js PHIÊN BẢN LẤY MÔ TẢ TRIỆT ĐỂ!");
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -172,9 +172,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (myPlayer.role) {
+        // *** SỬA LỖI: Kiểm tra `myPlayer.roleName`
+        if (myPlayer.roleName) {
             showSection(roleRevealSection);
-            updateRoleCard(myPlayer.role);
+            // Tìm thông tin vai trò đầy đủ từ `allRolesData` mà player đã tự tải về
+            const fullRoleData = allRolesData.find(role => role.name === myPlayer.roleName);
+            updateRoleCard(fullRoleData);
         } else if (roomData.playerPickState && roomData.playerPickState.status === 'picking') {
             showSection(playerPickSection);
             handlePlayerPickState(username, roomId, roomData.playerPickState);
@@ -280,18 +283,22 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => console.error("Lỗi khi gửi lựa chọn:", err));
     }
     
-    // *** HÀM ĐÃ ĐƯỢC CẬP NHẬT ***
-    function updateRoleCard(role) {
-        document.getElementById('role-name').textContent = role.name || 'Chưa có tên';
-        document.getElementById('role-faction').textContent = `Phe ${role.faction || 'Chưa rõ'}`;
-        document.getElementById('role-description').textContent = role.description || 'Chưa có mô tả.';
+    function updateRoleCard(roleData) {
+        if (!roleData) {
+            document.getElementById('role-name').textContent = 'Lỗi';
+            document.getElementById('role-faction').textContent = 'Không tìm thấy vai trò';
+            document.getElementById('role-description').textContent = 'Không thể tải dữ liệu cho vai trò này. Vui lòng thử lại.';
+            return;
+        }
+
+        document.getElementById('role-name').textContent = roleData.name || 'Chưa có tên';
+        document.getElementById('role-faction').textContent = `Phe ${roleData.faction || 'Chưa rõ'}`;
+        document.getElementById('role-description').textContent = roleData.description || 'Chưa có mô tả.';
         
-        // Các dòng code liên quan đến roleImage đã được xóa
         const roleFactionEl = document.getElementById('role-faction');
-        
         roleFactionEl.className = 'role-faction'; 
         
-        const faction = role.faction.trim();
+        const faction = roleData.faction.trim();
         if (faction === 'Phe Sói' || faction === 'Bầy Sói') {
             roleFactionEl.classList.add('wolf');
         } else if (faction === 'Phe Dân') {

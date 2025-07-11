@@ -1,6 +1,6 @@
 // =================================================================
-// === admin.js - PHIÊN BẢN TÍCH HỢP MÔ TẢ VAI TRÒ ===
-console.log("ĐANG CHẠY admin.js PHIÊN BẢN TÍCH HỢP MÔ TẢ!");
+// === admin.js - PHIÊN BẢN SỬA LỖI GỬI VAI TRÒ TRIỆT ĐỂ (ĐẦY ĐỦ) ===
+console.log("ĐANG CHẠY admin.js PHIÊN BẢN SỬA LỖI GỬI VAI TRÒ!");
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -53,7 +53,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let pickTimerInterval = null;
     let allRolesData = [];
 
-    // Các hàm khác giữ nguyên
     const processPlayerPick = async () => {
         if (!currentRoomId) return;
         if (!confirm('Bạn có chắc muốn xử lý và phân phối vai trò? Hành động này không thể hoàn tác.')) return;
@@ -113,9 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
             Object.keys(playerMap).forEach(playerId => {
                 const playerName = playerMap[playerId].name;
                 const finalRoleName = assignedPlayers[playerName];
-                const finalRoleData = allRolesData.find(r => r.name === finalRoleName) || { name: "Lỗi", faction: "Lỗi", description: "Vai trò không xác định" };
-                
-                finalUpdates[`/players/${playerId}/role`] = finalRoleData;
+                // *** SỬA LỖI: Chỉ gửi TÊN vai trò lên Firebase, không gửi cả object
+                finalUpdates[`/players/${playerId}/roleName`] = finalRoleName; 
                 logPayload.push({ name: playerName, role: finalRoleName });
             });
 
@@ -216,10 +214,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             playerIds.forEach((id, index) => {
                 const assignedRoleName = rolesToAssign[index];
-                // Lấy toàn bộ object vai trò, bao gồm cả description
-                let assignedRoleData = allRolesData.find(r => r.name === assignedRoleName) || { name: "Dân Làng", faction: "Phe Dân", description: "Không có chức năng đặc biệt.", image: "" };
-                updates[`/players/${id}/role`] = assignedRoleData;
-                logPayload.push({ name: roomData.players[id].name, role: assignedRoleData.name });
+                // *** SỬA LỖI: Chỉ gửi TÊN của vai trò lên Firebase
+                updates[`/players/${id}/roleName`] = assignedRoleName;
+                logPayload.push({ name: roomData.players[id].name, role: assignedRoleName });
             });
 
             updates['/gameState/status'] = 'roles-sent';
@@ -422,13 +419,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // *** HÀM ĐÃ ĐƯỢC CẬP NHẬT ***
     const loadRolesFromSheet = async () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Roles`);
             if (!response.ok) throw new Error('Không thể tải danh sách vai trò.');
             const rawData = await response.json();
-            // Cập nhật để đọc thêm cột "Describe"
             allRolesData = rawData.map(role => ({
                 name: (role.RoleName || 'Tên vai trò lỗi').trim(),
                 faction: (role.Faction || 'Chưa phân loại').trim(),
@@ -506,7 +501,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const playersObject = {};
         selectedPlayers.forEach(playerName => {
             const playerId = `player_${playerName.replace(/\s+/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
-            playersObject[playerId] = { name: playerName, isAlive: true, role: null };
+            // *** SỬA LỖI: Khởi tạo player với roleName thay vì role
+            playersObject[playerId] = { name: playerName, isAlive: true, roleName: null };
         });
 
         database.ref(`rooms/${newRoomId}`).set({
@@ -529,7 +525,8 @@ document.addEventListener('DOMContentLoaded', () => {
         playerListUI.innerHTML = '';
         if (!playersData) return;
         Object.values(playersData).sort((a,b) => a.name.localeCompare(b.name)).forEach(player => {
-            const roleName = (player.role && player.role.name) ? `<strong>(${player.role.name})</strong>` : '';
+            // *** SỬA LỖI: Đọc player.roleName để hiển thị
+            const roleName = player.roleName ? `<strong>(${player.roleName})</strong>` : '';
             const li = document.createElement('li');
             li.className = 'player-item';
             if (!player.isAlive) li.classList.add('dead');
@@ -551,7 +548,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const players = snapshot.val();
             if (players) {
                 const updates = {};
-                for (const playerId in players) updates[`/${playerId}/role`] = null;
+                // *** SỬA LỖI: Xóa roleName thay vì role
+                for (const playerId in players) updates[`/${playerId}/roleName`] = null;
                 await playersRef.update(updates);
             }
             const roomUpdates = {
