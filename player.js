@@ -1,6 +1,6 @@
 // =================================================================
-// === player.js - PHIÊN BẢN TÍCH HỢP MÔ TẢ VAI TRÒ ===
-console.log("ĐANG CHẠY player.js PHIÊN BẢN TÍCH HỢP MÔ TẢ!");
+// === player.js - PHIÊN BẢN BỎ HÌNH ẢNH VAI TRÒ ===
+console.log("ĐANG CHẠY player.js PHIÊN BẢN BỎ HÌNH ẢNH!");
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -41,13 +41,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let allRolesData = [];
 
     // --- DATA FETCHING ---
-    // *** HÀM ĐÃ ĐƯỢC CẬP NHẬT ***
     const fetchAllRolesData = async () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Roles`);
             if (!response.ok) throw new Error('Không thể tải dữ liệu vai trò.');
             const rawData = await response.json();
-            // Cập nhật để đọc thêm cột "Describe"
             allRolesData = rawData.map(role => ({
                 name: (role.RoleName || 'Lỗi').trim(),
                 faction: (role.Faction || 'Chưa phân loại').trim(),
@@ -284,12 +282,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // *** HÀM ĐÃ ĐƯỢC CẬP NHẬT ***
     function updateRoleCard(role) {
-        // Cập nhật để hiển thị mô tả từ thuộc tính `description` của object `role`
         document.getElementById('role-name').textContent = role.name || 'Chưa có tên';
         document.getElementById('role-faction').textContent = `Phe ${role.faction || 'Chưa rõ'}`;
         document.getElementById('role-description').textContent = role.description || 'Chưa có mô tả.';
         
-        const roleImage = document.getElementById('role-image');
+        // Các dòng code liên quan đến roleImage đã được xóa
         const roleFactionEl = document.getElementById('role-faction');
         
         roleFactionEl.className = 'role-faction'; 
@@ -302,9 +299,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (faction === 'Phe trung lập') {
             roleFactionEl.classList.add('neutral');
         }
-        
-        roleImage.src = role.image || 'assets/images/default-role.png';
-        roleImage.alt = `Hình ảnh cho ${role.name}`;
     }
 
     // --- EVENT LISTENERS ---
