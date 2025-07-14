@@ -30,7 +30,6 @@
             </header>
 
             <main id="game-view">
-                <!-- CÁC THẺ TRẠNG THÁI (CHỜ, CHỌN, XEM VAI) -->
                 <div id="game-state-cards">
                     <!-- 1. Trạng thái chờ quản trò -->
                     <div id="waiting-section" class="game-card waiting-card">
@@ -57,7 +56,6 @@
                             </div>
                             <div class="card-back">
                                 <h2 id="role-name">Tên Vai Trò</h2>
-                                <!-- Dòng img đã được xóa khỏi đây -->
                                 <p id="role-faction" class="role-faction"></p>
                                 <p id="role-description" class="role-description"></p>
                             </div>
@@ -65,7 +63,6 @@
                     </div>
                 </div>
 
-                <!-- *** KHU VỰC MỚI: HIỂN THỊ VAI TRÒ XUYÊN SUỐT *** -->
                 <div id="roles-in-game-display" class="roles-display-container hidden">
                     <!-- JS sẽ chèn các box phe và thẻ vai trò vào đây -->
                 </div>
@@ -73,11 +70,19 @@
         </section>
     </div>
 
+    <!-- THÊM MỚI: Modal để xem mô tả vai trò -->
+    <div id="role-description-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal-btn">&times;</span>
+            <h2 id="modal-role-name">Tên Vai Trò</h2>
+            <h4 id="modal-role-faction">Phe</h4>
+            <p id="modal-role-description">Mô tả vai trò.</p>
+        </div>
+    </div>
+
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
-    <!-- Your Player Script -->
     <script src="player.js"></script>
 </body>
 </html>

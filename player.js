@@ -1,6 +1,6 @@
 // =================================================================
-// === player.js - PHIÊN BẢN SỬA LỖI LẤY MÔ TẢ (BẢO TOÀN LOGIC) ===
-console.log("ĐANG CHẠY player.js PHIÊN BẢN LẤY MÔ TẢ TRIỆT ĐỂ!");
+// === player.js - PHIÊN BẢN CHO PHÉP XEM MÔ TẢ TẤT CẢ VAI TRÒ ===
+console.log("ĐANG CHẠY player.js PHIÊN BẢN XEM MÔ TẢ TẤT CẢ VAI TRÒ!");
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -33,6 +33,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const randomChoiceBtn = document.getElementById('random-choice-btn');
     const choiceStatus = document.getElementById('choice-status');
     const rolesInGameDisplay = document.getElementById('roles-in-game-display');
+    
+    // THÊM MỚI: Elements cho modal mô tả
+    const roleDescriptionModal = document.getElementById('role-description-modal');
+    const modalRoleName = document.getElementById('modal-role-name');
+    const modalRoleFaction = document.getElementById('modal-role-faction');
+    const modalRoleDescription = document.getElementById('modal-role-description');
 
     let roomListener = null;
     let pickTimerInterval = null;
@@ -172,10 +178,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // *** THAY ĐỔI: Kiểm tra `myPlayer.roleName` thay vì `myPlayer.role`
         if (myPlayer.roleName) {
             showSection(roleRevealSection);
-            // Tìm thông tin vai trò đầy đủ từ `allRolesData` mà player đã tự tải về
             const fullRoleData = allRolesData.find(role => role.name === myPlayer.roleName);
             updateRoleCard(fullRoleData);
         } else if (roomData.playerPickState && roomData.playerPickState.status === 'picking') {
@@ -191,6 +195,17 @@ document.addEventListener('DOMContentLoaded', () => {
             section.classList.toggle('hidden', section !== sectionToShow);
         });
     }
+
+    // THÊM MỚI: Hàm hiển thị modal mô tả vai trò
+    const showRoleDescriptionModal = (roleName) => {
+        const roleData = allRolesData.find(r => r.name === roleName);
+        if (roleData) {
+            modalRoleName.textContent = roleData.name;
+            modalRoleFaction.textContent = `Phe: ${roleData.faction}`;
+            modalRoleDescription.textContent = roleData.description;
+            roleDescriptionModal.classList.remove('hidden');
+        }
+    };
     
     function displayRolesInGame(roleNames) {
         rolesInGameDisplay.innerHTML = '';
@@ -235,6 +250,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const roleItem = document.createElement('p');
                     roleItem.className = 'in-game-role-item';
                     roleItem.textContent = roleName;
+                    // NÂNG CẤP: Gán sự kiện click cho từng vai trò
+                    roleItem.onclick = () => showRoleDescriptionModal(roleName);
                     rolesList.appendChild(roleItem);
                 });
                 
@@ -284,11 +301,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function updateRoleCard(roleData) {
-        // Nếu không tìm thấy dữ liệu (trường hợp hiếm), hiển thị thông báo lỗi
         if (!roleData) {
             document.getElementById('role-name').textContent = 'Lỗi';
             document.getElementById('role-faction').textContent = 'Không tìm thấy vai trò';
-            document.getElementById('role-description').textContent = 'Không thể tải dữ liệu cho vai trò này. Vui lòng thử lại.';
+            document.getElementById('role-description').textContent = 'Không thể tải dữ liệu cho vai trò này.';
             return;
         }
 
@@ -321,6 +337,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentRoomId) {
             const username = sessionStorage.getItem('mywolf_username');
             if (username) selectRole(username, currentRoomId, 'random');
+        }
+    });
+
+    // THÊM MỚI: Sự kiện đóng modal
+    roleDescriptionModal.addEventListener('click', (event) => {
+        if (event.target === roleDescriptionModal || event.target.classList.contains('close-modal-btn')) {
+            roleDescriptionModal.classList.add('hidden');
         }
     });
 

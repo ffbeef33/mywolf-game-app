@@ -46,7 +46,7 @@ section.card {
     border: 1px solid var(--border-color);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
 }
-.hidden { /* Utility class for JS toggling */
+.hidden {
     display: none !important;
 }
 
@@ -105,179 +105,51 @@ button:disabled {
 }
 
 /* --- IN-GAME VIEW --- */
-.player-header {
-    margin-bottom: 30px;
-}
-.player-header h1 {
-    font-family: var(--font-display);
-    font-size: 2.5rem;
-    color: var(--text-color);
-    margin: 0;
-}
-.player-header p {
-    font-size: 1.1rem;
-    color: var(--light-text);
-    margin: 5px 0 0;
-}
-.game-card {
-    border-radius: var(--border-radius);
-}
+.player-header { margin-bottom: 30px; }
+.player-header h1 { font-family: var(--font-display); font-size: 2.5rem; color: var(--text-color); margin: 0; }
+.player-header p { font-size: 1.1rem; color: var(--light-text); margin: 5px 0 0; }
+.game-card { border-radius: var(--border-radius); }
 
 /* --- WAITING STATE --- */
-.waiting-card {
-    padding: 20px; /* Thêm padding cho đẹp hơn */
-}
-.waiting-card .spinner {
-    width: 50px;
-    height: 50px;
-    border: 5px solid #444;
-    border-top-color: var(--text-color);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 20px;
-}
+.waiting-card { padding: 20px; }
+.waiting-card .spinner { width: 50px; height: 50px; border: 5px solid #444; border-top-color: var(--text-color); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .waiting-card h2 { color: var(--light-text); }
 
 /* --- ROLE REVEAL CARD --- */
-.role-card {
-    perspective: 1000px;
-    cursor: pointer;
-    background-color: transparent;
-}
-.card-inner {
-    position: relative;
-    width: 100%;
-    height: 480px;
-    transition: transform 0.8s;
-    transform-style: preserve-3d;
-}
-.role-card.is-flipped .card-inner {
-    transform: rotateY(180deg);
-}
-.card-front, .card-back {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    border-radius: var(--border-radius);
-    background: linear-gradient(145deg, var(--card-bg), var(--secondary-bg));
-    border: 1px solid var(--border-color);
-}
-.card-front .card-logo {
-    font-family: var(--font-display);
-    font-size: 8rem;
-    color: var(--text-color);
-    line-height: 1;
-}
-.card-back {
-    transform: rotateY(180deg);
-    padding: 20px;
-}
-.role-image {
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
-    border: 4px solid var(--text-color);
-    margin-bottom: 15px;
-    object-fit: cover;
-    background-color: var(--primary-bg);
-}
-#role-name {
-    font-family: var(--font-display);
-    font-size: 3rem;
-    margin: 0;
-    color: var(--text-color);
-}
-.role-faction {
-    font-size: 1rem;
-    font-weight: 500;
-    padding: 5px 15px;
-    border-radius: 20px;
-    margin: 5px 0 15px;
-    color: white;
-}
+.role-card { perspective: 1000px; cursor: pointer; background-color: transparent; }
+.card-inner { position: relative; width: 100%; height: 480px; transition: transform 0.8s; transform-style: preserve-3d; }
+.role-card.is-flipped .card-inner { transform: rotateY(180deg); }
+.card-front, .card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: var(--border-radius); background: linear-gradient(145deg, var(--card-bg), var(--secondary-bg)); border: 1px solid var(--border-color); }
+.card-front .card-logo { font-family: var(--font-display); font-size: 8rem; color: var(--text-color); line-height: 1; }
+.card-back { transform: rotateY(180deg); padding: 20px; }
+#role-name { font-family: var(--font-display); font-size: 3rem; margin: 0; color: var(--text-color); }
+.role-faction { font-size: 1rem; font-weight: 500; padding: 5px 15px; border-radius: 20px; margin: 5px 0 15px; color: white; }
 .role-faction.wolf { background-color: var(--wolf-color); }
 .role-faction.villager { background-color: var(--villager-color); }
 .role-faction.neutral { background-color: var(--neutral-color); }
-.role-description {
-    font-size: 0.9rem;
-    color: var(--light-text);
-}
+.role-description { font-size: 0.9rem; color: var(--light-text); }
 
-/* ============================================= */
-/* CSS MỚI - HIỂN THỊ DANH SÁCH VAI TRÒ          */
-/* ============================================= */
+/* --- HIỂN THỊ DANH SÁCH VAI TRÒ --- */
+.roles-display-container { width: 100%; margin-top: 24px; display: flex; flex-direction: column; gap: 16px; }
+.faction-box { border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 16px; background-color: rgba(15, 52, 96, 0.5); text-align: center; transition: all 0.3s ease; }
+.faction-title { margin: 0 0 12px 0; font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; padding-bottom: 8px; border-bottom: 1px solid rgba(237, 242, 244, 0.2); letter-spacing: 1px; }
+.roles-list { display: flex; flex-direction: column; gap: 8px; }
+.in-game-role-item { margin: 0; font-size: 1rem; color: var(--light-text); cursor: pointer; transition: color 0.2s; }
+.in-game-role-item:hover { color: var(--button-hover-bg); }
+.faction-box.faction-villager { background-color: rgba(39, 174, 96, 0.15); border-color: rgba(39, 174, 96, 0.8); }
+.faction-box.faction-villager .faction-title { color: var(--villager-color); }
+.faction-box.faction-wolf { background-color: rgba(192, 57, 43, 0.15); border-color: rgba(192, 57, 43, 0.8); }
+.faction-box.faction-wolf .faction-title { color: var(--wolf-color); }
+.faction-box.faction-neutral { background-color: rgba(243, 156, 18, 0.15); border-color: rgba(243, 156, 18, 0.8); }
+.faction-box.faction-neutral .faction-title { color: var(--neutral-color); }
 
-.roles-display-container {
-    width: 100%;
-    margin-top: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px; /* Khoảng cách giữa các box phe */
-}
-
-.faction-box {
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: 16px;
-    background-color: rgba(15, 52, 96, 0.5); /* Màu nền hơi trong suốt */
-    text-align: center;
-    transition: all 0.3s ease;
-}
-
-.faction-title {
-    margin: 0 0 12px 0;
-    font-family: var(--font-display);
-    font-size: 1.5rem; /* Tăng kích thước cho dễ đọc */
-    font-weight: 700;
-    padding-bottom: 8px;
-    border-bottom: 1px solid rgba(237, 242, 244, 0.2);
-    letter-spacing: 1px;
-}
-
-.roles-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.in-game-role-item {
-    margin: 0;
-    font-size: 1rem;
-    color: var(--light-text);
-}
-
-/* --- Phân loại màu sắc cho từng phe --- */
-
-/* MÀU PHE DÂN (Xanh) */
-.faction-box.faction-villager {
-    background-color: rgba(39, 174, 96, 0.15);
-    border-color: rgba(39, 174, 96, 0.8);
-}
-.faction-box.faction-villager .faction-title {
-    color: var(--villager-color);
-}
-
-/* MÀU PHE SÓI (Đỏ) */
-.faction-box.faction-wolf {
-    background-color: rgba(192, 57, 43, 0.15);
-    border-color: rgba(192, 57, 43, 0.8);
-}
-.faction-box.faction-wolf .faction-title {
-    color: var(--wolf-color);
-}
-
-/* MÀU PHE TRUNG LẬP (Vàng) */
-.faction-box.faction-neutral {
-    background-color: rgba(243, 156, 18, 0.15);
-    border-color: rgba(243, 156, 18, 0.8);
-}
-.faction-box.faction-neutral .faction-title {
-    color: var(--neutral-color);
-}
+/* --- THÊM MỚI: MODAL MÔ TẢ VAI TRÒ --- */
+.modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0, 0, 0, 0.8); display: flex; justify-content: center; align-items: center; animation: fadeIn 0.3s; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal-content { background-color: var(--secondary-bg); padding: 30px; border: 1px solid var(--border-color); width: 90%; max-width: 450px; border-radius: var(--border-radius); position: relative; box-shadow: 0 8px 30px rgba(0,0,0,0.5); text-align: left; }
+.close-modal-btn { color: var(--light-text); position: absolute; top: 10px; right: 20px; font-size: 32px; font-weight: bold; cursor: pointer; transition: color 0.2s; }
+.close-modal-btn:hover { color: var(--text-color); }
+#modal-role-name { font-family: var(--font-display); font-size: 2.5rem; margin: 0 0 5px 0; color: var(--text-color); }
+#modal-role-faction { margin: 0 0 20px 0; color: var(--light-text); font-style: italic; }
+#modal-role-description { font-size: 1rem; line-height: 1.7; }
