@@ -62,6 +62,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalRoleList = document.getElementById('modal-role-list');
     const confirmAddPlayersBtn = document.getElementById('confirm-add-players-btn');
     const confirmAddRolesBtn = document.getElementById('confirm-add-roles-btn');
+    // KHÔI PHỤC: Lấy element cho khu vực xem trước
+    const pendingPlayersContainer = document.getElementById('pending-players-container');
+    const pendingPlayerAdditions = document.getElementById('pending-player-additions');
+    const pendingRolesContainer = document.getElementById('pending-roles-container');
+    const pendingRoleAdditions = document.getElementById('pending-role-additions');
     
     let isEditMode = false;
     let playersToKick = new Set();
@@ -540,6 +545,9 @@ document.addEventListener('DOMContentLoaded', () => {
         playersToAdd.clear();
         rolesToAdd.clear();
 
+        // KHÔI PHỤC: Reset và ẩn khu vực xem trước khi chuyển chế độ
+        renderPendingAdditions();
+
         database.ref(`rooms/${currentRoomId}`).once('value', (snapshot) => {
             const roomData = snapshot.val();
             if (roomData) {
@@ -608,7 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
         database.ref(`rooms/${currentRoomId}/players`).once('value', snapshot => {
             const currentPlayers = snapshot.val() || {};
             const currentPlayerNames = Object.values(currentPlayers).map(p => p.name);
-            const availablePlayers = allPlayersData.filter(p => p.Username && !currentPlayerNames.includes(p.Username));
+            const availablePlayers = allPlayersData.filter(p => p.Username && !currentPlayerNames.includes(p.Username) && !playersToAdd.has(p.Username));
             
             modalPlayerList.innerHTML = '';
             if (availablePlayers.length === 0) {
@@ -685,6 +693,33 @@ document.addEventListener('DOMContentLoaded', () => {
             saveRoomChangesBtn.textContent = 'Lưu Thay Đổi';
         }
     };
+    
+    // KHÔI PHỤC: Hàm hiển thị các thay đổi đang chờ
+    const renderPendingAdditions = () => {
+        pendingPlayerAdditions.innerHTML = '';
+        if (playersToAdd.size > 0) {
+            playersToAdd.forEach(playerName => {
+                const li = document.createElement('li');
+                li.textContent = playerName;
+                pendingPlayerAdditions.appendChild(li);
+            });
+            pendingPlayersContainer.classList.remove('hidden');
+        } else {
+            pendingPlayersContainer.classList.add('hidden');
+        }
+
+        pendingRoleAdditions.innerHTML = '';
+        if (rolesToAdd.size > 0) {
+            rolesToAdd.forEach(roleName => {
+                const li = document.createElement('li');
+                li.textContent = roleName;
+                pendingRoleAdditions.appendChild(li);
+            });
+            pendingRolesContainer.classList.remove('hidden');
+        } else {
+            pendingRolesContainer.classList.add('hidden');
+        }
+    };
 
     // --- EVENT LISTENERS ---
     createRoomBtn.addEventListener('click', createRoom);
@@ -721,18 +756,16 @@ document.addEventListener('DOMContentLoaded', () => {
     confirmAddPlayersBtn.onclick = () => {
         document.querySelectorAll('#modal-player-list input:checked').forEach(cb => {
             playersToAdd.add(cb.value);
-            cb.checked = false;
         });
-        alert(`Đã chọn thêm ${playersToAdd.size} người chơi. Nhấn "Lưu Thay Đổi" để áp dụng.`);
+        renderPendingAdditions(); // Cập nhật UI ngay lập tức
         addPlayerModal.classList.add('hidden');
     };
 
     confirmAddRolesBtn.onclick = () => {
         document.querySelectorAll('#modal-role-list input:checked').forEach(cb => {
             rolesToAdd.add(cb.value);
-            cb.checked = false;
         });
-        alert(`Đã chọn thêm ${rolesToAdd.size} vai trò. Nhấn "Lưu Thay Đổi" để áp dụng.`);
+        renderPendingAdditions(); // Cập nhật UI ngay lập tức
         addRoleModal.classList.add('hidden');
     };
 

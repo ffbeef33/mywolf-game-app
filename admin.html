@@ -53,13 +53,22 @@
                 <div class="room-info-section">
                     <h3>Các vai trò trong game (<span id="roles-total">0</span>):</h3>
                     <ul id="roles-in-game-list"></ul>
+                    <!-- KHÔI PHỤC: Khu vực hiển thị vai trò sắp thêm -->
+                    <div id="pending-roles-container" class="pending-container hidden">
+                        <h4>Sẽ thêm:</h4>
+                        <ul id="pending-role-additions" class="pending-additions"></ul>
+                    </div>
                 </div>
                 <div class="room-info-section">
                     <h3>Danh sách người chơi (<span id="players-total">0</span>):</h3>
                     <ul id="player-list"></ul>
+                     <!-- KHÔI PHỤC: Khu vực hiển thị người chơi sắp thêm -->
+                    <div id="pending-players-container" class="pending-container hidden">
+                        <h4>Sẽ thêm:</h4>
+                        <ul id="pending-player-additions" class="pending-additions"></ul>
+                    </div>
                 </div>
                 
-                <!-- Khu vực điều khiển chỉnh sửa (mặc định ẩn) -->
                 <div id="edit-controls" class="hidden">
                     <h3>Chế Độ Chỉnh Sửa</h3>
                     <div class="action-buttons">
@@ -70,7 +79,6 @@
                     </div>
                 </div>
 
-                <!-- Khu vực nút hành động chính (mặc định hiện) -->
                 <div class="main-action-buttons">
                     <div class="player-pick-controls">
                         <input type="number" id="player-pick-timer" value="60" min="10" title="Thời gian chọn (giây)">

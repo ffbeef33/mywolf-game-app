@@ -146,6 +146,14 @@ button.btn-save:hover:not(:disabled) { background-color: var(--save-hover-color)
 .kick-btn, .remove-role-btn { background-color: var(--danger-bg); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 14px; font-weight: bold; cursor: pointer; flex-shrink: 0; padding: 0; line-height: 24px; text-align: center; }
 .kick-btn:hover, .remove-role-btn:hover { background-color: var(--danger-hover-bg); }
 
+/* --- KHÔI PHỤC: Style cho các mục đang chờ --- */
+.pending-container { margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 10px; }
+.pending-container.hidden { display: none; }
+.pending-container h4 { margin: 0 0 10px 0; color: var(--light-text); font-size: 1rem; }
+.pending-additions { padding-left: 0; }
+.pending-additions li { color: var(--save-color); font-weight: bold; list-style-type: none; padding: 5px 0; }
+.pending-additions li::before { content: '+ '; font-weight: bold; }
+
 /* --- Modal Styles --- */
 .modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; animation: fadeIn 0.3s; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
