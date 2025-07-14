@@ -61,6 +61,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalRoleList = document.getElementById('modal-role-list');
     const confirmAddPlayersBtn = document.getElementById('confirm-add-players-btn');
     const confirmAddRolesBtn = document.getElementById('confirm-add-roles-btn');
+    // *** SỬA LỖI TẠI ĐÂY: Tìm chính xác khu vực nút bấm chính ***
+    const mainActionButtons = activeRoomSection.querySelector('.action-buttons:not(div#edit-controls .action-buttons)');
 
     let currentRoomId = null;
     let roomListener = null;
@@ -532,9 +534,13 @@ document.addEventListener('DOMContentLoaded', () => {
         isEditMode = enabled;
         editControls.classList.toggle('hidden', !enabled);
         
-        const mainActionButtons = activeRoomSection.querySelector('.action-buttons');
-        if (editRoomBtn) editRoomBtn.style.display = enabled ? 'none' : 'block';
-        if (mainActionButtons) mainActionButtons.style.display = enabled ? 'none' : 'flex';
+        // *** SỬA LỖI TẠI ĐÂY: Kiểm tra xem 'mainActionButtons' có tồn tại không trước khi thay đổi style ***
+        if (editRoomBtn) {
+            editRoomBtn.style.display = enabled ? 'none' : 'block';
+        }
+        if (mainActionButtons) {
+            mainActionButtons.style.display = enabled ? 'none' : 'flex';
+        }
         
         playersToKick.clear();
         playersToAdd.clear();

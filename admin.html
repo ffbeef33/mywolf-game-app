@@ -45,7 +45,6 @@
                 <button id="create-room-btn" disabled>Tạo Phòng Chơi Mới</button>
             </section>
 
-            <!-- Giao diện quản lý phòng sau khi tạo -->
             <section class="card hidden" id="active-room-section">
                 <div class="active-room-header">
                     <h2>Quản Lý Phòng</h2>
@@ -60,7 +59,6 @@
                     <ul id="player-list"></ul>
                 </div>
                 
-                <!-- KHU VỰC ĐIỀU KHIỂN CHỈNH SỬA (MẶC ĐỊNH ẨN) -->
                 <div id="edit-controls" class="hidden">
                     <h3>Chế Độ Chỉnh Sửa</h3>
                     <div class="action-buttons">
@@ -70,8 +68,9 @@
                         <button id="cancel-edit-btn" class="btn-danger">Hủy Bỏ</button>
                     </div>
                 </div>
-
-                <div class="action-buttons">
+                
+                <!-- *** SỬA LỖI TẠI ĐÂY: Đổi class="action-buttons" thành class="main-action-buttons" *** -->
+                <div class="main-action-buttons">
                     <div class="player-pick-controls">
                         <input type="number" id="player-pick-timer" value="60" min="10" title="Thời gian chọn (giây)">
                         <button id="start-player-pick-btn">Bắt Đầu Player Pick</button>
@@ -79,12 +78,10 @@
                     <button id="start-normal-random-btn">Bắt Đầu Random Ngẫu Nhiên</button>
                     <button id="clear-gamelog-btn" class="btn-secondary">Xóa Log & Reset Roles</button>
                     <button id="delete-room-btn" class="btn-danger">Xóa Phòng Này</button>
-                    <!-- *** SỬA LỖI TẠI ĐÂY: Thêm dấu > bị thiếu *** -->
                     <button id="back-to-setup-btn" class="btn-secondary">Quay Lại Thiết Lập</button>
                 </div>
             </section>
             
-            <!-- KHU VỰC THEO DÕI PLAYER PICK -->
             <section class="card hidden" id="player-pick-monitoring-section">
                 <h2>Theo Dõi Lựa Chọn Của Người Chơi</h2>
                 <p class="timer">Thời gian còn lại: <strong id="monitor-timer-display">--</strong></p>
@@ -100,7 +97,6 @@
         </main>
     </div>
 
-    <!-- MODALS (CÁC HỘP THOẠI ẨN) -->
     <div id="add-player-modal" class="modal hidden">
         <div class="modal-content">
             <span class="close-modal-btn">&times;</span>
