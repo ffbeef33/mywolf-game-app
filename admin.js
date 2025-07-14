@@ -1,6 +1,6 @@
 // =================================================================
-// === admin.js - PHIÊN BẢN SỬA LỖI KẸT MODAL (BẢO TOÀN LOGIC) ===
-console.log("ĐANG CHẠY admin.js PHIÊN BẢN SỬA LỖI KẸT MODAL!");
+// === admin.js - PHIÊN BẢN SỬA LỖI CUỐI CÙNG (BẢO TOÀN LOGIC) ===
+console.log("ĐANG CHẠY admin.js PHIÊN BẢN SỬA LỖI CUỐI CÙNG!");
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -72,11 +72,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let isEditMode = false;
     let playersToKick = new Set();
     let playersToAdd = new Set();
-    let rolesToAdd = []; 
+    let rolesToAdd = [];
     
-    // =======================================================
-    // === CÁC HÀM GỐC CỦA BẠN (ĐƯỢC GIỮ NGUYÊN) ===
-    // =======================================================
+    // --- HÀM GỐC ---
     const processPlayerPick = async () => {
         if (!currentRoomId) return;
         if (!confirm('Bạn có chắc muốn xử lý và phân phối vai trò? Hành động này không thể hoàn tác.')) return;
@@ -486,14 +484,12 @@ document.addEventListener('DOMContentLoaded', () => {
         activeRoomSection.classList.add('hidden');
         playerPickMonitoringSection.classList.add('hidden');
         setupSection.classList.remove('hidden');
-        setEditMode(false); // Đảm bảo thoát chế độ edit khi reset
+        setEditMode(false); 
         updateCounters();
         loadAndDisplayRooms();
     };
 
-    // =======================================================
-    // === CÁC HÀM MỚI VÀ HÀM CẬP NHẬT CHO TÍNH NĂNG CHỈNH SỬA ===
-    // =======================================================
+    // --- CÁC HÀM MỚI VÀ HÀM CẬP NHẬT CHO TÍNH NĂNG CHỈNH SỬA ---
 
     const setEditMode = (enabled) => {
         isEditMode = enabled;
@@ -544,15 +540,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentRoomId) return;
         saveRoomChangesBtn.disabled = true;
         saveRoomChangesBtn.textContent = 'Đang lưu...';
-
         try {
             const roomRef = database.ref(`rooms/${currentRoomId}`);
             const snapshot = await roomRef.once('value');
             const roomData = snapshot.val();
-
             const currentPlayers = roomData.players || {};
             const currentRoles = roomData.rolesToAssign || [];
-
             const finalPlayerCount = Object.keys(currentPlayers).length - playersToKick.size + playersToAdd.size;
             const finalRoleCount = currentRoles.length + rolesToAdd.length;
 
@@ -575,7 +568,6 @@ document.addEventListener('DOMContentLoaded', () => {
             await roomRef.update(updates);
             alert('Cập nhật phòng thành công!');
             setEditMode(false);
-
         } catch (error) {
             console.error("Lỗi khi lưu thay đổi:", error);
             alert("Đã có lỗi xảy ra khi lưu thay đổi.");
@@ -658,7 +650,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target.classList.contains('delete-room-btn')) handleDeleteRoomFromList(target.dataset.roomId);
     });
 
-    // === EVENT LISTENERS MỚI CHO TÍNH NĂNG CHỈNH SỬA ===
     editRoomBtn.addEventListener('click', () => setEditMode(true));
     cancelEditBtn.addEventListener('click', () => setEditMode(false));
     saveRoomChangesBtn.addEventListener('click', saveRoomChanges);
