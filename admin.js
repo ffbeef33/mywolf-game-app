@@ -62,13 +62,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalRoleList = document.getElementById('modal-role-list');
     const confirmAddPlayersBtn = document.getElementById('confirm-add-players-btn');
     const confirmAddRolesBtn = document.getElementById('confirm-add-roles-btn');
+    const pendingPlayersContainer = document.getElementById('pending-players-container');
+    const pendingPlayerAdditions = document.getElementById('pending-player-additions');
+    const pendingRolesContainer = document.getElementById('pending-roles-container');
+    const pendingRoleAdditions = document.getElementById('pending-role-additions');
     
     let isEditMode = false;
     let playersToKick = new Set();
     let rolesToRemove = new Set();
     let playersToAdd = new Set();
     let rolesToAdd = new Set();
-    let allPlayersData = []; // Biến toàn cục để lưu danh sách tất cả người chơi
+    let allPlayersData = []; 
     // --- KẾT THÚC KHAI BÁO BIẾN MỚI ---
 
     let currentRoomId = null;
@@ -240,14 +244,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 setupSection.classList.add('hidden');
                 playerPickMonitoringSection.classList.add('hidden');
                 activeRoomSection.classList.remove('hidden');
-                updateActiveRoomUI(roomData);
+                // NÂNG CẤP: Gọi hàm phù hợp tùy theo chế độ edit
+                if (isEditMode) {
+                    updateActiveRoomUIForEditing(roomData);
+                } else {
+                    updateActiveRoomUI(roomData);
+                }
             }
         });
     };
     const updateActiveRoomUI = (roomData) => {
         const rolesInGame = roomData.rolesToAssign || [];
         rolesTotalDisplay.textContent = rolesInGame.length;
-        rolesInGameList.innerHTML = rolesInGame.map(role => `<li>${role}</li>`).join('');
+        rolesInGameList.innerHTML = rolesInGame.map(role => `<li class="role-item">${role}</li>`).join('');
         const playersInGame = roomData.players || {};
         playersTotalDisplay.textContent = Object.keys(playersInGame).length;
         updatePlayerListUI(playersInGame);
@@ -360,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Players`);
             if (!response.ok) throw new Error('Không thể tải danh sách người chơi.');
-            allPlayersData = await response.json(); // LƯU VÀO BIẾN TOÀN CỤC
+            allPlayersData = await response.json(); 
             let playerHtml = '<div class="player-checkbox-grid">';
             allPlayersData.forEach(player => {
                 if (player.Username) {
@@ -519,6 +528,8 @@ document.addEventListener('DOMContentLoaded', () => {
         rolesInGameList.innerHTML = '';
         playersTotalDisplay.textContent = '0';
         rolesTotalDisplay.textContent = '0';
+        // NÂNG CẤP: Tắt chế độ edit khi reset
+        if (isEditMode) { setEditMode(false); }
         updateCounters();
         loadAndDisplayRooms();
     };
@@ -535,12 +546,22 @@ document.addEventListener('DOMContentLoaded', () => {
         rolesToRemove.clear();
         playersToAdd.clear();
         rolesToAdd.clear();
+        
+        // Ẩn/hiện các container pending
+        pendingPlayersContainer.classList.add('hidden');
+        pendingRolesContainer.classList.add('hidden');
+        pendingPlayerAdditions.innerHTML = '';
+        pendingRoleAdditions.innerHTML = '';
 
-        // Cập nhật lại giao diện để hiển thị các nút kick/remove
+        // Cập nhật lại giao diện để hiển thị hoặc ẩn các nút kick/remove
         database.ref(`rooms/${currentRoomId}`).once('value', (snapshot) => {
             const roomData = snapshot.val();
             if (roomData) {
-                updateActiveRoomUIForEditing(roomData);
+                if (enabled) {
+                    updateActiveRoomUIForEditing(roomData);
+                } else {
+                    updateActiveRoomUI(roomData); // Quay về giao diện xem bình thường
+                }
             }
         });
     };
@@ -556,46 +577,50 @@ document.addEventListener('DOMContentLoaded', () => {
             const li = document.createElement('li');
             li.className = 'player-item';
             li.dataset.playerId = playerId;
-            li.innerHTML = `<span class="player-name">${player.name} ${roleName}</span>`;
-            if (isEditMode) {
-                const kickBtn = document.createElement('button');
-                kickBtn.className = 'kick-btn';
-                kickBtn.innerHTML = '&times;';
-                kickBtn.title = `Kick ${player.name}`;
-                kickBtn.onclick = () => {
-                    li.classList.toggle('kicked');
-                    if (playersToKick.has(playerId)) {
-                        playersToKick.delete(playerId);
-                    } else {
-                        playersToKick.add(playerId);
-                    }
-                };
-                li.appendChild(kickBtn);
-            }
+            
+            const playerSpan = document.createElement('span');
+            playerSpan.className = 'player-name';
+            playerSpan.innerHTML = `${player.name} ${roleName}`;
+            li.appendChild(playerSpan);
+
+            const kickBtn = document.createElement('button');
+            kickBtn.className = 'kick-btn';
+            kickBtn.innerHTML = '&times;';
+            kickBtn.title = `Kick ${player.name}`;
+            kickBtn.onclick = () => {
+                li.classList.toggle('kicked');
+                if (playersToKick.has(playerId)) {
+                    playersToKick.delete(playerId);
+                } else {
+                    playersToKick.add(playerId);
+                }
+            };
+            li.appendChild(kickBtn);
             playerListUI.appendChild(li);
         });
 
         // Cập nhật danh sách vai trò với nút remove
         rolesInGameList.innerHTML = '';
-        rolesInGame.forEach(roleName => {
+        rolesInGame.forEach((roleName, index) => {
             const li = document.createElement('li');
             li.className = 'role-item';
             li.textContent = roleName;
-            if (isEditMode) {
-                const removeBtn = document.createElement('button');
-                removeBtn.className = 'remove-role-btn';
-                removeBtn.innerHTML = '&times;';
-                removeBtn.title = `Loại bỏ vai trò ${roleName}`;
-                removeBtn.onclick = () => {
-                    li.classList.toggle('removed');
-                    if (rolesToRemove.has(roleName)) {
-                        rolesToRemove.delete(roleName);
-                    } else {
-                        rolesToRemove.add(roleName);
-                    }
-                };
-                li.appendChild(removeBtn);
-            }
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'remove-role-btn';
+            removeBtn.innerHTML = '&times;';
+            removeBtn.title = `Loại bỏ vai trò ${roleName}`;
+            removeBtn.onclick = () => {
+                li.classList.toggle('removed');
+                // Sử dụng một định danh duy nhất (tên + vị trí) để xử lý các vai trò trùng lặp
+                const uniqueRoleId = `${roleName}_${index}`;
+                if (rolesToRemove.has(uniqueRoleId)) {
+                    rolesToRemove.delete(uniqueRoleId);
+                } else {
+                    rolesToRemove.add(uniqueRoleId);
+                }
+            };
+            li.appendChild(removeBtn);
             rolesInGameList.appendChild(li);
         });
     };
@@ -604,7 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
         database.ref(`rooms/${currentRoomId}/players`).once('value', snapshot => {
             const currentPlayers = snapshot.val() || {};
             const currentPlayerNames = Object.values(currentPlayers).map(p => p.name);
-            const availablePlayers = allPlayersData.filter(p => p.Username && !currentPlayerNames.includes(p.Username));
+            const availablePlayers = allPlayersData.filter(p => p.Username && !currentPlayerNames.includes(p.Username) && !playersToAdd.has(p.Username));
             
             modalPlayerList.innerHTML = '';
             if (availablePlayers.length === 0) {
@@ -647,7 +672,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Tính toán số lượng cuối cùng
             const finalPlayerCount = Object.keys(currentPlayers).length - playersToKick.size + playersToAdd.size;
-            const finalRoleCount = currentRoles.length - rolesToRemove.size + rolesToAdd.size;
+            
+            const rolesAfterRemoval = currentRoles.filter((role, index) => !rolesToRemove.has(`${role}_${index}`));
+            const finalRoleCount = rolesAfterRemoval.length + rolesToAdd.size;
 
             if (finalPlayerCount !== finalRoleCount) {
                 alert(`Lỗi: Số lượng người chơi cuối cùng (${finalPlayerCount}) không khớp với số lượng vai trò cuối cùng (${finalRoleCount}). Vui lòng điều chỉnh lại.`);
@@ -658,27 +685,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const updates = {};
             
-            // Xử lý kick người chơi
-            playersToKick.forEach(playerId => {
-                updates[`/players/${playerId}`] = null;
-            });
-
-            // Xử lý thêm người chơi mới
+            playersToKick.forEach(playerId => { updates[`/players/${playerId}`] = null; });
             playersToAdd.forEach(playerName => {
                 const newPlayerId = `player_${playerName.replace(/\s+/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
                 updates[`/players/${newPlayerId}`] = { name: playerName, isAlive: true, roleName: null };
             });
 
-            // Xử lý vai trò
-            let finalRoles = currentRoles.filter(role => !rolesToRemove.has(role));
-            finalRoles = [...finalRoles, ...rolesToAdd];
+            const finalRoles = [...rolesAfterRemoval, ...Array.from(rolesToAdd)];
             
             updates['/rolesToAssign'] = finalRoles;
             updates['/totalPlayers'] = finalPlayerCount;
 
             await roomRef.update(updates);
             alert('Cập nhật phòng thành công!');
-            setEditMode(false); // Tắt chế độ chỉnh sửa sau khi lưu
+            setEditMode(false);
 
         } catch (error) {
             console.error("Lỗi khi lưu thay đổi:", error);
@@ -689,6 +709,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const renderPendingAdditions = () => {
+        pendingPlayerAdditions.innerHTML = '';
+        if (playersToAdd.size > 0) {
+            playersToAdd.forEach(playerName => {
+                const li = document.createElement('li');
+                li.textContent = playerName;
+                pendingPlayerAdditions.appendChild(li);
+            });
+            pendingPlayersContainer.classList.remove('hidden');
+        } else {
+            pendingPlayersContainer.classList.add('hidden');
+        }
+
+        pendingRoleAdditions.innerHTML = '';
+        if (rolesToAdd.size > 0) {
+            rolesToAdd.forEach(roleName => {
+                const li = document.createElement('li');
+                li.textContent = roleName;
+                pendingRoleAdditions.appendChild(li);
+            });
+            pendingRolesContainer.classList.remove('hidden');
+        } else {
+            pendingRolesContainer.classList.add('hidden');
+        }
+    };
 
     // --- EVENT LISTENERS ---
     createRoomBtn.addEventListener('click', createRoom);
@@ -715,7 +760,6 @@ document.addEventListener('DOMContentLoaded', () => {
     openAddPlayerModalBtn.addEventListener('click', showAddPlayerModal);
     openAddRoleModalBtn.addEventListener('click', showAddRoleModal);
 
-    // Đóng modal
     document.querySelectorAll('.close-modal-btn').forEach(btn => {
         btn.onclick = () => {
             addPlayerModal.classList.add('hidden');
@@ -726,18 +770,16 @@ document.addEventListener('DOMContentLoaded', () => {
     confirmAddPlayersBtn.onclick = () => {
         document.querySelectorAll('#modal-player-list input:checked').forEach(cb => {
             playersToAdd.add(cb.value);
-            cb.checked = false; // Reset checkbox
         });
-        alert(`Đã chọn thêm ${playersToAdd.size} người chơi. Nhấn "Lưu Thay Đổi" để áp dụng.`);
+        renderPendingAdditions(); // Cập nhật UI
         addPlayerModal.classList.add('hidden');
     };
 
     confirmAddRolesBtn.onclick = () => {
         document.querySelectorAll('#modal-role-list input:checked').forEach(cb => {
             rolesToAdd.add(cb.value);
-            cb.checked = false; // Reset checkbox
         });
-        alert(`Đã chọn thêm ${rolesToAdd.size} vai trò. Nhấn "Lưu Thay Đổi" để áp dụng.`);
+        renderPendingAdditions(); // Cập nhật UI
         addRoleModal.classList.add('hidden');
     };
 
