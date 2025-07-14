@@ -220,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // NÂNG CẤP HÀM NÀY ĐỂ XỬ LÝ CHẾ ĐỘ CHỈNH SỬA
+    // HÀM GỐC ĐƯỢC NÂNG CẤP
     const updatePlayerListUI = (playersData) => {
         playerListUI.innerHTML = '';
         if (!playersData) return;
@@ -234,7 +234,6 @@ document.addEventListener('DOMContentLoaded', () => {
             playerInfo.innerHTML = `${player.name} ${roleName}`;
             li.appendChild(playerInfo);
             
-            // CHỈ THÊM NÚT KICK KHI Ở CHẾ ĐỘ CHỈNH SỬA
             if (isEditMode) {
                 if (playersToKick.has(playerId)) li.classList.add('kicked');
                 const kickBtn = document.createElement('button');
@@ -436,7 +435,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // NÂNG CẤP HÀM NÀY ĐỂ LƯU DỮ LIỆU VÀO BIẾN TOÀN CỤC
     const loadPlayersFromSheet = async () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Players`);
@@ -531,6 +529,31 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch((error) => alert("Lỗi khi xóa phòng: " + error.message));
     };
 
+    // HÀM MỚI
+    const setEditMode = (enabled) => {
+        isEditMode = enabled;
+        editControls.classList.toggle('hidden', !enabled);
+        
+        // Ẩn/hiện nút "Chỉnh sửa" và các nút hành động chính
+        const mainActionButtons = activeRoomSection.querySelector('.action-buttons');
+        if (editRoomBtn) editRoomBtn.style.display = enabled ? 'none' : 'block';
+        if (mainActionButtons) mainActionButtons.style.display = enabled ? 'none' : 'flex';
+        
+        // Reset trạng thái
+        playersToKick.clear();
+        playersToAdd.clear();
+        rolesToAdd = [];
+
+        // Cập nhật lại UI để hiển thị/ẩn nút kick
+        if (currentRoomId) {
+            database.ref(`rooms/${currentRoomId}`).once('value', snapshot => {
+                if (snapshot.exists()) {
+                    updateActiveRoomUI(snapshot.val());
+                }
+            });
+        }
+    };
+
     const resetAdminUI = () => {
         if (roomListener && currentRoomId) {
             database.ref(`rooms/${currentRoomId}`).off('value', roomListener);
@@ -548,26 +571,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- CÁC HÀM MỚI CHO TÍNH NĂNG CHỈNH SỬA ---
-
-    const setEditMode = (enabled) => {
-        isEditMode = enabled;
-        editControls.classList.toggle('hidden', !enabled);
-        const mainActionButtons = activeRoomSection.querySelector('.action-buttons');
-        if (mainActionButtons) mainActionButtons.style.display = enabled ? 'none' : 'flex';
-        
-        playersToKick.clear();
-        playersToAdd.clear();
-        rolesToAdd = [];
-
-        if (currentRoomId) {
-            database.ref(`rooms/${currentRoomId}`).once('value', snapshot => {
-                if (snapshot.exists()) {
-                    updateActiveRoomUI(snapshot.val());
-                }
-            });
-        }
-    };
-
     const showAddPlayerModal = () => {
         database.ref(`rooms/${currentRoomId}/players`).once('value', snapshot => {
             const currentPlayers = snapshot.val() || {};
