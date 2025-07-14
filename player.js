@@ -1,6 +1,6 @@
 // =================================================================
-// === player.js - PHIÊN BẢN CHO PHÉP XEM MÔ TẢ TẤT CẢ VAI TRÒ ===
-console.log("ĐANG CHẠY player.js PHIÊN BẢN XEM MÔ TẢ TẤT CẢ VAI TRÒ!");
+// === player.js - PHIÊN BẢN CHO PHÉP XEM MÔ TẢ + HƯỚNG DẪN      ===
+console.log("ĐANG CHẠY player.js PHIÊN BẢN XEM MÔ TẢ + HƯỚNG DẪN!");
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -34,7 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const choiceStatus = document.getElementById('choice-status');
     const rolesInGameDisplay = document.getElementById('roles-in-game-display');
     
-    // THÊM MỚI: Elements cho modal mô tả
     const roleDescriptionModal = document.getElementById('role-description-modal');
     const modalRoleName = document.getElementById('modal-role-name');
     const modalRoleFaction = document.getElementById('modal-role-faction');
@@ -195,8 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
             section.classList.toggle('hidden', section !== sectionToShow);
         });
     }
-
-    // THÊM MỚI: Hàm hiển thị modal mô tả vai trò
+    
     const showRoleDescriptionModal = (roleName) => {
         const roleData = allRolesData.find(r => r.name === roleName);
         if (roleData) {
@@ -213,6 +211,12 @@ document.addEventListener('DOMContentLoaded', () => {
             rolesInGameDisplay.classList.add('hidden');
             return;
         }
+
+        // THÊM MỚI: Thêm dòng hướng dẫn
+        const instruction = document.createElement('p');
+        instruction.className = 'role-list-instruction';
+        instruction.innerHTML = '💡 Chạm vào một vai trò để xem mô tả';
+        rolesInGameDisplay.appendChild(instruction);
 
         const rolesByFaction = roleNames.reduce((acc, name) => {
             const roleData = allRolesData.find(r => r.name.trim() === name.trim());
@@ -250,7 +254,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const roleItem = document.createElement('p');
                     roleItem.className = 'in-game-role-item';
                     roleItem.textContent = roleName;
-                    // NÂNG CẤP: Gán sự kiện click cho từng vai trò
                     roleItem.onclick = () => showRoleDescriptionModal(roleName);
                     rolesList.appendChild(roleItem);
                 });
@@ -340,7 +343,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // THÊM MỚI: Sự kiện đóng modal
     roleDescriptionModal.addEventListener('click', (event) => {
         if (event.target === roleDescriptionModal || event.target.classList.contains('close-modal-btn')) {
             roleDescriptionModal.classList.add('hidden');

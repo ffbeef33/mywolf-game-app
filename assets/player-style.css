@@ -132,6 +132,19 @@ button:disabled {
 
 /* --- HIỂN THỊ DANH SÁCH VAI TRÒ --- */
 .roles-display-container { width: 100%; margin-top: 24px; display: flex; flex-direction: column; gap: 16px; }
+
+/* THÊM MỚI: Style cho dòng hướng dẫn */
+.role-list-instruction {
+    font-size: 0.9rem;
+    color: var(--light-text);
+    opacity: 0.8;
+    font-style: italic;
+    margin: 0 0 8px 0; /* Giảm margin bottom */
+    padding: 8px;
+    background-color: rgba(15, 52, 96, 0.5);
+    border-radius: 8px;
+}
+
 .faction-box { border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 16px; background-color: rgba(15, 52, 96, 0.5); text-align: center; transition: all 0.3s ease; }
 .faction-title { margin: 0 0 12px 0; font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; padding-bottom: 8px; border-bottom: 1px solid rgba(237, 242, 244, 0.2); letter-spacing: 1px; }
 .roles-list { display: flex; flex-direction: column; gap: 8px; }
@@ -144,7 +157,7 @@ button:disabled {
 .faction-box.faction-neutral { background-color: rgba(243, 156, 18, 0.15); border-color: rgba(243, 156, 18, 0.8); }
 .faction-box.faction-neutral .faction-title { color: var(--neutral-color); }
 
-/* --- THÊM MỚI: MODAL MÔ TẢ VAI TRÒ --- */
+/* --- MODAL MÔ TẢ VAI TRÒ --- */
 .modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0, 0, 0, 0.8); display: flex; justify-content: center; align-items: center; animation: fadeIn 0.3s; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .modal-content { background-color: var(--secondary-bg); padding: 30px; border: 1px solid var(--border-color); width: 90%; max-width: 450px; border-radius: var(--border-radius); position: relative; box-shadow: 0 8px 30px rgba(0,0,0,0.5); text-align: left; }
