@@ -16,6 +16,8 @@
   --secondary-button-hover-bg: #7b8aab;
   --border-color: #3a4b6f; /* Màu viền nhẹ nhàng hơn */
   --success-color: #2ecc71;
+  --save-color: #27ae60;
+  --save-hover-color: #2ecc71;
   --error-color: var(--danger-bg);
   --skeleton-bg: #1f3a5c; /* Màu cho skeleton loader */
 
@@ -113,7 +115,6 @@ strong {
   margin-bottom: 30px;
 }
 
-/* Vùng chứa danh sách người chơi và vai trò có thể cuộn */
 #player-list-container, #roles-by-faction {
   max-height: 250px;
   overflow-y: auto;
@@ -123,7 +124,6 @@ strong {
   background-color: var(--primary-bg);
 }
 
-/* Style cho thanh cuộn */
 #player-list-container::-webkit-scrollbar, 
 #roles-by-faction::-webkit-scrollbar {
   width: 8px;
@@ -141,7 +141,6 @@ strong {
   border-radius: 10px;
 }
 
-/* Checkbox và Label cho người chơi/vai trò */
 .checkbox-item {
   display: block;
   margin-bottom: 12px;
@@ -155,7 +154,6 @@ strong {
    5. Các thành phần cụ thể (Specific Components)
    ========================================================================== */
 
-/* Bộ đếm vai trò */
 #role-count-display {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -176,7 +174,6 @@ strong {
   display: block;
 }
 
-/* Nút bấm */
 button {
   width: 100%;
   padding: 12px 20px;
@@ -216,7 +213,7 @@ button:disabled {
 }
 
 .action-buttons button {
-  flex-grow: 1; /* Các nút sẽ chia đều không gian */
+  flex-grow: 1; 
 }
 
 button.btn-secondary {
@@ -233,14 +230,13 @@ button.btn-danger:hover:not(:disabled) {
   background-color: var(--danger-hover-bg);
 }
 
-/* Vùng thông báo (Thêm từ HTML tối ưu) */
 .notification {
   padding: 15px;
   margin-bottom: 20px;
   border-radius: var(--border-radius);
   text-align: center;
   font-weight: 500;
-  display: none; /* Mặc định ẩn */
+  display: none; 
 }
 .notification.success {
   background-color: var(--success-color);
@@ -253,7 +249,6 @@ button.btn-danger:hover:not(:disabled) {
   display: block;
 }
 
-/* Skeleton Loader (Thêm từ HTML tối ưu) */
 .skeleton-loader .skeleton-line {
   height: 1.8em;
   background-color: var(--skeleton-bg);
@@ -269,27 +264,140 @@ button.btn-danger:hover:not(:disabled) {
 }
 
 /* ==========================================================================
-   6. Responsive Design
+   6. STYLE MỚI CHO TÍNH NĂNG CHỈNH SỬA
+   ========================================================================== */
+.active-room-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#edit-controls {
+  border-top: 2px dashed var(--border-color);
+  margin-top: 25px;
+  padding-top: 25px;
+}
+
+button.btn-save {
+  background-color: var(--save-color);
+}
+button.btn-save:hover:not(:disabled) {
+  background-color: var(--save-hover-color);
+}
+
+#player-list .player-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+#player-list .player-list-item:last-child {
+  border-bottom: none;
+}
+#player-list .player-list-item.kicked {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.kick-player-btn {
+  background-color: var(--danger-bg);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  line-height: 24px;
+  text-align: center;
+}
+.kick-player-btn:hover {
+  background-color: var(--danger-hover-bg);
+}
+
+/* --- Modal Styles --- */
+.modal {
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.3s;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-content {
+  background-color: var(--secondary-bg);
+  padding: 30px;
+  border: 1px solid var(--border-color);
+  width: 90%;
+  max-width: 500px;
+  border-radius: var(--border-radius);
+  position: relative;
+  box-shadow: var(--box-shadow);
+}
+
+.close-modal-btn {
+  color: var(--light-text);
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.close-modal-btn:hover {
+  color: var(--text-color);
+}
+
+.modal-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  margin-bottom: 20px;
+}
+.modal-list::-webkit-scrollbar { width: 8px; }
+.modal-list::-webkit-scrollbar-track { background: var(--secondary-bg); }
+.modal-list::-webkit-scrollbar-thumb { background: var(--text-color); }
+
+/* ==========================================================================
+   7. Responsive Design
    ========================================================================== */
 
 @media (max-width: 768px) {
   body {
     padding: 10px;
   }
-
   h1 {
     font-size: 1.8rem;
   }
-
   .card {
     padding: 15px;
   }
-
   #role-count-display {
-    grid-template-columns: 1fr 1fr; /* 2 cột trên màn hình nhỏ */
+    grid-template-columns: 1fr 1fr;
   }
-
   .action-buttons {
     flex-direction: column;
+  }
+  .active-room-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
   }
 }
