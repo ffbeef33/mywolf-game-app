@@ -234,6 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
             playerInfo.innerHTML = `${player.name} ${roleName}`;
             li.appendChild(playerInfo);
             
+            // CHỈ THÊM NÚT KICK KHI Ở CHẾ ĐỘ CHỈNH SỬA
             if (isEditMode) {
                 if (playersToKick.has(playerId)) li.classList.add('kicked');
                 const kickBtn = document.createElement('button');
@@ -269,8 +270,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const loadRoomForManagement = async (roomId) => {
-        const roomRef = database.ref(`rooms/${roomId}`);
         if (roomListener) database.ref(`rooms/${currentRoomId}`).off('value', roomListener);
+        const roomRef = database.ref(`rooms/${roomId}`);
         roomListener = roomRef.on('value', (snapshot) => {
             if (!snapshot.exists()) {
                 alert("Phòng không còn tồn tại. Quay lại màn hình chính.");
@@ -439,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Players`);
             if (!response.ok) throw new Error('Không thể tải danh sách người chơi.');
-            allPlayersData = await response.json(); // LƯU VÀO BIẾN TOÀN CỤC
+            allPlayersData = await response.json(); 
             
             playerListContainer.innerHTML = '';
             let playerHtml = '<div class="checkbox-group">';
@@ -529,22 +530,18 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch((error) => alert("Lỗi khi xóa phòng: " + error.message));
     };
 
-    // HÀM MỚI
     const setEditMode = (enabled) => {
         isEditMode = enabled;
         editControls.classList.toggle('hidden', !enabled);
         
-        // Ẩn/hiện nút "Chỉnh sửa" và các nút hành động chính
         const mainActionButtons = activeRoomSection.querySelector('.action-buttons');
         if (editRoomBtn) editRoomBtn.style.display = enabled ? 'none' : 'block';
         if (mainActionButtons) mainActionButtons.style.display = enabled ? 'none' : 'flex';
         
-        // Reset trạng thái
         playersToKick.clear();
         playersToAdd.clear();
         rolesToAdd = [];
 
-        // Cập nhật lại UI để hiển thị/ẩn nút kick
         if (currentRoomId) {
             database.ref(`rooms/${currentRoomId}`).once('value', snapshot => {
                 if (snapshot.exists()) {
@@ -570,7 +567,6 @@ document.addEventListener('DOMContentLoaded', () => {
         loadAndDisplayRooms();
     };
 
-    // --- CÁC HÀM MỚI CHO TÍNH NĂNG CHỈNH SỬA ---
     const showAddPlayerModal = () => {
         database.ref(`rooms/${currentRoomId}/players`).once('value', snapshot => {
             const currentPlayers = snapshot.val() || {};
@@ -612,6 +608,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (finalPlayerCount !== finalRoleCount) {
                 alert(`Lỗi: Số lượng người chơi (${finalPlayerCount}) không khớp với số lượng vai trò (${finalRoleCount}).\nVui lòng điều chỉnh lại.`);
+                saveRoomChangesBtn.disabled = false;
+                saveRoomChangesBtn.textContent = 'Lưu Thay Đổi';
                 return;
             }
 
