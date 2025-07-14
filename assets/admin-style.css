@@ -5,21 +5,20 @@
   --primary-bg: #1a1a2e;
   --secondary-bg: #16213e;
   --card-bg: #0f3460;
-  --text-color: #e94560; /* Màu nhấn chính */
-  --light-text: #dcdcdc; /* Màu chữ phụ */
+  --text-color: #e94560;
+  --light-text: #dcdcdc;
   --button-bg: #e94560;
   --button-hover-bg: #f96d86;
-  --danger-bg: #c0392b; /* Màu cho hành động nguy hiểm */
+  --danger-bg: #c0392b;
   --danger-hover-bg: #e74c3c;
-  --secondary-button-bg: #5a6a8a; /* Màu cho nút phụ */
+  --secondary-button-bg: #5a6a8a;
   --secondary-button-hover-bg: #7b8aab;
-  --border-color: #3a4b6f; /* Màu viền nhẹ nhàng hơn */
+  --border-color: #3a4b6f;
   --success-color: #2ecc71;
   --save-color: #27ae60;
   --save-hover-color: #2ecc71;
   --error-color: var(--danger-bg);
-  --skeleton-bg: #1f3a5c; /* Màu cho skeleton loader */
-
+  --skeleton-bg: #1f3a5c;
   --border-radius: 8px;
   --box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
   --transition-speed: 0.3s;
@@ -120,8 +119,8 @@ button:hover:not(:disabled) { background-color: var(--button-hover-bg); transfor
 button:active:not(:disabled) { transform: translateY(0); }
 button:disabled { background-color: #555; cursor: not-allowed; opacity: 0.6; }
 
-.action-buttons, .main-action-buttons, .edit-action-buttons { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px; }
-.action-buttons button, .main-action-buttons button, .edit-action-buttons button { flex-grow: 1; }
+.action-buttons, .main-action-buttons { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px; }
+.action-buttons button, .main-action-buttons button { flex-grow: 1; }
 
 button.btn-secondary { background-color: var(--secondary-button-bg); }
 button.btn-secondary:hover:not(:disabled) { background-color: var(--secondary-button-hover-bg); }
@@ -134,24 +133,18 @@ button.btn-save:hover:not(:disabled) { background-color: var(--save-hover-color)
 @keyframes pulse { 0% { background-color: var(--skeleton-bg); } 50% { background-color: var(--secondary-bg); } 100% { background-color: var(--skeleton-bg); } }
 
 /* ==========================================================================
-   6. STYLE MỚI CHO TÍNH NĂNG CHỈNH SỬA
+   6. STYLE CHO TÍNH NĂNG CHỈNH SỬA
    ========================================================================== */
 .active-room-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
 #edit-controls { border-top: 2px dashed var(--border-color); margin-top: 25px; padding-top: 25px; }
+#edit-controls.hidden, .main-action-buttons.hidden { display: none; }
 
-.player-item, .role-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); }
+.player-item, .role-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); transition: all 0.2s ease-in-out; }
 .player-item:last-child, .role-item:last-child { border-bottom: none; }
-.player-item.kicked, .role-item.removed { text-decoration: line-through; opacity: 0.5; color: var(--danger-bg) !important; }
+.player-item.kicked, .role-item.removed { text-decoration: line-through; opacity: 0.5; color: var(--danger-bg) !important; background-color: rgba(231, 76, 60, 0.1); }
 
 .kick-btn, .remove-role-btn { background-color: var(--danger-bg); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 14px; font-weight: bold; cursor: pointer; flex-shrink: 0; padding: 0; line-height: 24px; text-align: center; }
 .kick-btn:hover, .remove-role-btn:hover { background-color: var(--danger-hover-bg); }
-
-/* --- Style cho các mục đang chờ --- */
-.pending-container { margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 10px; }
-.pending-container.hidden { display: none; }
-.pending-container h4 { margin: 0 0 10px 0; color: var(--light-text); font-size: 1rem; }
-.pending-additions li { color: var(--save-color); font-weight: bold; list-style-type: none; padding: 5px 0; }
-.pending-additions li::before { content: '+ '; }
 
 /* --- Modal Styles --- */
 .modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; animation: fadeIn 0.3s; }
@@ -170,5 +163,5 @@ button.btn-save:hover:not(:disabled) { background-color: var(--save-hover-color)
   h1 { font-size: 1.8rem; }
   .card { padding: 15px; }
   #role-count-display { grid-template-columns: 1fr 1fr; }
-  .action-buttons, .main-action-buttons, .edit-action-buttons { flex-direction: column; }
+  .action-buttons, .main-action-buttons { flex-direction: column; }
 }
