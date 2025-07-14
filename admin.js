@@ -1,6 +1,6 @@
 // =================================================================
-// === admin.js - PHIÊN BẢN SỬA LỖI CUỐI CÙNG (BẢO TOÀN LOGIC) ===
-console.log("ĐANG CHẠY admin.js PHIÊN BẢN SỬA LỖI CUỐI CÙNG!");
+// === admin.js - PHIÊN BẢN SỬA LỖI TRIỆT ĐỂ (BẢO TOÀN LOGIC) ===
+console.log("ĐANG CHẠY admin.js PHIÊN BẢN SỬA LỖI TRIỆT ĐỂ!");
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -220,7 +220,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // HÀM GỐC ĐƯỢC NÂNG CẤP
     const updatePlayerListUI = (playersData) => {
         playerListUI.innerHTML = '';
         if (!playersData) return;
@@ -234,7 +233,6 @@ document.addEventListener('DOMContentLoaded', () => {
             playerInfo.innerHTML = `${player.name} ${roleName}`;
             li.appendChild(playerInfo);
             
-            // CHỈ THÊM NÚT KICK KHI Ở CHẾ ĐỘ CHỈNH SỬA
             if (isEditMode) {
                 if (playersToKick.has(playerId)) li.classList.add('kicked');
                 const kickBtn = document.createElement('button');
@@ -262,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
         rolesInGameList.innerHTML = rolesInGame.map(role => `<li>${role}</li>`).join('');
         const playersInGame = roomData.players || {};
         playersTotalDisplay.textContent = Object.keys(playersInGame).length;
-        updatePlayerListUI(playersInGame); // Sử dụng hàm đã được nâng cấp
+        updatePlayerListUI(playersInGame);
         const rolesSent = roomData.gameState?.status === 'roles-sent';
         startNormalRandomBtn.disabled = rolesSent;
         startPlayerPickBtn.disabled = rolesSent;

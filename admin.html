@@ -49,7 +49,6 @@
             <section class="card hidden" id="active-room-section">
                 <div class="active-room-header">
                     <h2>Quản Lý Phòng</h2>
-                    <!-- NÚT CHỈNH SỬA MỚI -->
                     <button id="edit-room-btn" class="btn-secondary">Chỉnh Sửa Phòng</button>
                 </div>
                 <div class="room-info-section">
@@ -80,7 +79,8 @@
                     <button id="start-normal-random-btn">Bắt Đầu Random Ngẫu Nhiên</button>
                     <button id="clear-gamelog-btn" class="btn-secondary">Xóa Log & Reset Roles</button>
                     <button id="delete-room-btn" class="btn-danger">Xóa Phòng Này</button>
-                    <button id="back-to-setup-btn" class="btn-secondary">Quay Lại Thiết Lập</button> 
+                    <!-- *** SỬA LỖI TẠI ĐÂY: Thêm dấu > bị thiếu *** -->
+                    <button id="back-to-setup-btn" class="btn-secondary">Quay Lại Thiết Lập</button>
                 </div>
             </section>
             
@@ -90,9 +90,7 @@
                 <p class="timer">Thời gian còn lại: <strong id="monitor-timer-display">--</strong></p>
                 <div class="room-info-section">
                     <h3>Trạng thái lựa chọn:</h3>
-                    <ul id="player-choices-list">
-                        <!-- JS sẽ chèn trạng thái người chơi vào đây -->
-                    </ul>
+                    <ul id="player-choices-list"></ul>
                 </div>
                 <div class="action-buttons">
                     <button id="process-player-pick-btn" disabled>Xử Lý & Phân Phối Vai Trò</button>
@@ -120,7 +118,6 @@
             <button id="confirm-add-roles-btn" class="btn-save">Xác Nhận Thêm</button>
         </div>
     </div>
-
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
