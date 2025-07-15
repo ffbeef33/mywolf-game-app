@@ -12,7 +12,7 @@
     --villager-color: #27ae60;
     --neutral-color: #f39c12;
     --font-main: 'Roboto', sans-serif;
-    --font-display: 'Teko', sans-serif;
+    --font-display: 'Teko', sans-serif; /* Vẫn giữ lại cho các tiêu đề không dấu nếu cần */
     --border-radius: 12px;
 }
 
@@ -106,7 +106,14 @@ button:disabled {
 
 /* --- IN-GAME VIEW --- */
 .player-header { margin-bottom: 30px; }
-.player-header h1 { font-family: var(--font-display); font-size: 2.5rem; color: var(--text-color); margin: 0; }
+.player-header h1 { 
+    /* SỬA FONT */
+    font-family: var(--font-main); 
+    font-weight: 700;
+    font-size: 2.5rem; 
+    color: var(--text-color); 
+    margin: 0; 
+}
 .player-header p { font-size: 1.1rem; color: var(--light-text); margin: 5px 0 0; }
 .game-card { border-radius: var(--border-radius); }
 
@@ -125,7 +132,7 @@ button:disabled {
 .card-back { transform: rotateY(180deg); padding: 20px; }
 
 #role-name {
-    /* SỬA LỖI FONT */
+    /* SỬA FONT */
     font-family: var(--font-main);
     font-weight: 700;
     font-size: 3rem;
@@ -151,7 +158,16 @@ button:disabled {
     border-radius: 8px;
 }
 .faction-box { border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 16px; background-color: rgba(15, 52, 96, 0.5); text-align: center; transition: all 0.3s ease; }
-.faction-title { margin: 0 0 12px 0; font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; padding-bottom: 8px; border-bottom: 1px solid rgba(237, 242, 244, 0.2); letter-spacing: 1px; }
+.faction-title { 
+    /* SỬA FONT */
+    font-family: var(--font-main);
+    font-size: 1.5rem; 
+    font-weight: 700; 
+    margin: 0 0 12px 0;
+    padding-bottom: 8px; 
+    border-bottom: 1px solid rgba(237, 242, 244, 0.2); 
+    letter-spacing: 1px; 
+}
 .roles-list { display: flex; flex-direction: column; gap: 8px; }
 .in-game-role-item { margin: 0; font-size: 1rem; color: var(--light-text); cursor: pointer; transition: color 0.2s; }
 .in-game-role-item:hover { color: var(--button-hover-bg); }
@@ -170,7 +186,7 @@ button:disabled {
 .close-modal-btn:hover { color: var(--text-color); }
 
 #modal-role-name {
-    /* SỬA LỖI FONT */
+    /* SỬA FONT */
     font-family: var(--font-main);
     font-weight: 700;
     font-size: 2.5rem;
