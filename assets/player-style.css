@@ -12,7 +12,8 @@
     --villager-color: #27ae60;
     --neutral-color: #f39c12;
     --font-main: 'Roboto', sans-serif;
-    --font-display: 'Teko', sans-serif; /* Vẫn giữ lại cho các tiêu đề không dấu nếu cần */
+    /* THAY ĐỔI: Đổi font hiển thị chính sang Montserrat */
+    --font-display: 'Montserrat', sans-serif;
     --border-radius: 12px;
 }
 
@@ -106,9 +107,9 @@ button:disabled {
 
 /* --- IN-GAME VIEW --- */
 .player-header { margin-bottom: 30px; }
+/* Áp dụng font mới */
 .player-header h1 { 
-    /* SỬA FONT */
-    font-family: var(--font-main); 
+    font-family: var(--font-display); 
     font-weight: 700;
     font-size: 2.5rem; 
     color: var(--text-color); 
@@ -131,9 +132,9 @@ button:disabled {
 .card-front .card-logo { font-family: var(--font-display); font-size: 8rem; color: var(--text-color); line-height: 1; }
 .card-back { transform: rotateY(180deg); padding: 20px; }
 
+/* Áp dụng font mới */
 #role-name {
-    /* SỬA FONT */
-    font-family: var(--font-main);
+    font-family: var(--font-display);
     font-weight: 700;
     font-size: 3rem;
     margin: 0;
@@ -158,15 +159,15 @@ button:disabled {
     border-radius: 8px;
 }
 .faction-box { border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 16px; background-color: rgba(15, 52, 96, 0.5); text-align: center; transition: all 0.3s ease; }
+/* Áp dụng font mới */
 .faction-title { 
-    /* SỬA FONT */
-    font-family: var(--font-main);
+    font-family: var(--font-display);
     font-size: 1.5rem; 
     font-weight: 700; 
     margin: 0 0 12px 0;
     padding-bottom: 8px; 
     border-bottom: 1px solid rgba(237, 242, 244, 0.2); 
-    letter-spacing: 1px; 
+    letter-spacing: 0.5px; /* Điều chỉnh khoảng cách ký tự cho đẹp hơn */
 }
 .roles-list { display: flex; flex-direction: column; gap: 8px; }
 .in-game-role-item { margin: 0; font-size: 1rem; color: var(--light-text); cursor: pointer; transition: color 0.2s; }
@@ -185,9 +186,9 @@ button:disabled {
 .close-modal-btn { color: var(--light-text); position: absolute; top: 10px; right: 20px; font-size: 32px; font-weight: bold; cursor: pointer; transition: color 0.2s; }
 .close-modal-btn:hover { color: var(--text-color); }
 
+/* Áp dụng font mới */
 #modal-role-name {
-    /* SỬA FONT */
-    font-family: var(--font-main);
+    font-family: var(--font-display);
     font-weight: 700;
     font-size: 2.5rem;
     margin: 0 0 5px 0;
