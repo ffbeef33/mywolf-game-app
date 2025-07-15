@@ -8,6 +8,7 @@
     --button-hover-bg: #f96d86;
     --input-bg: #1f4068;
     --border-color: #e94560;
+    --success-color: #2ecc71; /* Thêm màu cho thông báo thành công */
 }
 
 body {
@@ -19,52 +20,42 @@ body {
     align-items: center;
     min-height: 100vh;
     margin: 0;
+    text-align: center; /* Căn giữa nội dung trong body */
 }
 
 .container {
     width: 100%;
     max-width: 500px;
     padding: 20px;
-}
-
-.login-wrapper {
-    background-color: var(--secondary-bg);
-    padding: 40px;
+    background-color: var(--secondary-bg); /* Chuyển nền vào container */
     border-radius: 15px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    text-align: center;
     border: 1px solid var(--border-color);
 }
 
-h1 {
+.title {
     color: var(--text-color);
     font-size: 2.5rem;
     margin-bottom: 10px;
 }
 
-.subtitle {
+.welcome-text {
     font-size: 1rem;
     margin-bottom: 30px;
     color: var(--light-text);
 }
 
-.form-container {
-    margin-bottom: 25px;
+.login-section, .admin-section {
+    margin-bottom: 20px;
 }
 
-h2 {
+.login-title {
     font-size: 1.5rem;
     color: var(--light-text);
     margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
 }
 
-input[type="text"],
-input[type="password"],
-input[type="number"] {
+.password-input, .login-button {
     width: 100%;
     padding: 12px 15px;
     margin-bottom: 15px;
@@ -76,36 +67,26 @@ input[type="number"] {
     box-sizing: border-box;
 }
 
-input::placeholder {
-    color: #a0a0a0;
-}
-
-button {
-    width: 100%;
-    padding: 12px;
+.login-button {
     border: none;
-    border-radius: 8px;
     background-color: var(--button-bg);
-    color: white;
-    font-size: 1.1rem;
     font-weight: 700;
     cursor: pointer;
     transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
-button:hover {
+.login-button:hover {
     background-color: var(--button-hover-bg);
     transform: translateY(-2px);
 }
 
-.error-message {
-    color: #ff4d4d;
-    margin-top: 15px;
+.password-label {
+    display: block;
+    text-align: left;
+    margin-bottom: 5px;
     font-weight: 500;
-    height: 20px; /* Reserve space to prevent layout shift */
 }
 
-/* Thêm style cho divider giữa người chơi và quản trò */
 .divider {
     margin: 30px 0;
     border: none;
@@ -114,36 +95,38 @@ button:hover {
     opacity: 0.3;
 }
 
-/* Thêm style cho phần quản trò */
-.admin-section {
-    margin-top: 30px;
-    padding-top: 10px;
-}
-
-/* Hiệu ứng cho các phần đăng nhập */
-.login-section, .admin-section {
-    transition: transform 0.3s ease;
-}
-
-.login-section:hover, .admin-section:hover {
-    transform: translateY(-5px);
-}
-
-/* Đảm bảo nút có padding đủ */
-#loginButton, #adminButton {
-    margin-top: 10px;
+/* THÊM MỚI: Style cho thông báo và chuyển đổi form */
+.error-message, .message {
+    font-weight: 500;
+    min-height: 20px;
+    margin-top: -5px;
     margin-bottom: 10px;
 }
 
-/* Đảm bảo khoảng cách dưới cùng của container */
-.login-wrapper {
-    margin-bottom: 20px;
+.error-message {
+    color: #ff4d4d;
 }
 
-/* Style cho label mật khẩu */
-.password-label {
-    text-align: left;
-    margin-bottom: 5px;
-    color: var(--light-text);
-    font-weight: 500;
+.message {
+    color: var(--success-color);
+}
+
+.hidden {
+    display: none;
+}
+
+.toggle-form-text {
+    margin-top: 15px;
+    font-size: 0.9rem;
+}
+
+.toggle-form-text a {
+    color: var(--text-color);
+    font-weight: bold;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.toggle-form-text a:hover {
+    text-decoration: underline;
 }

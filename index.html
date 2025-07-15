@@ -8,20 +8,44 @@
 </head>
 <body>
   <div class="container">
-    <h1 class="title">Board Game Ma Sói</h1>
-    <p class="welcome-text">Chào mừng bạn đến với đêm ma sói kinh hoàng!</p>
-    
-    <!-- Phần đăng nhập người chơi -->
-    <div class="login-section">
-      <h2 class="login-title">👤 Đăng Nhập Người Chơi</h2>
-      <p class="password-label">Mật khẩu</p>
-      <input type="password" id="playerPassword" class="password-input" placeholder="Nhập mật khẩu của bạn">
-      <button id="loginButton" class="login-button">Đăng Nhập</button>
+    <!-- Phần form sẽ được chứa trong một wrapper để dễ dàng chuyển đổi -->
+    <div class="form-wrapper">
+      <!-- PHẦN ĐĂNG NHẬP (Mặc định hiển thị) -->
+      <div id="login-view">
+        <h1 class="title">Board Game Ma Sói</h1>
+        <p class="welcome-text">Chào mừng bạn đến với đêm ma sói kinh hoàng!</p>
+        
+        <div class="login-section">
+          <h2 class="login-title">👤 Đăng Nhập Người Chơi</h2>
+          <p class="password-label">Mật khẩu</p>
+          <input type="password" id="playerPassword" class="password-input" placeholder="Nhập mật khẩu của bạn">
+          <button id="loginButton" class="login-button">Đăng Nhập</button>
+          <p id="loginError" class="error-message"></p>
+        </div>
+        <p class="toggle-form-text">Chưa có tài khoản? <a href="#" id="show-register-link">Đăng ký ngay</a></p>
+      </div>
+
+      <!-- PHẦN ĐĂNG KÝ (Mặc định ẩn) -->
+      <div id="register-view" class="hidden">
+        <h1 class="title">Đăng Ký Tài Khoản</h1>
+        <p class="welcome-text">Tham gia vào cộng đồng ma sói!</p>
+        
+        <div class="login-section">
+          <h2 class="login-title">📝 Tạo Tài Khoản Mới</h2>
+          <p class="password-label">Tên người chơi</p>
+          <input type="text" id="newUsername" class="password-input" placeholder="Nhập tên bạn muốn dùng">
+          <p class="password-label">Mật khẩu</p>
+          <input type="password" id="newPassword" class="password-input" placeholder="Tạo mật khẩu cho bạn">
+          <button id="registerButton" class="login-button">Tạo Tài Khoản</button>
+          <p id="registerMessage" class="message"></p>
+        </div>
+        <p class="toggle-form-text">Đã có tài khoản? <a href="#" id="show-login-link">Quay lại đăng nhập</a></p>
+      </div>
     </div>
-    
+
     <hr class="divider">
     
-    <!-- Phần đăng nhập quản trò -->
+    <!-- Phần đăng nhập quản trò (giữ nguyên) -->
     <div class="admin-section">
       <h2 class="login-title">👑 Đăng Nhập Quản Trò</h2>
       <p class="password-label">Mật khẩu quản trò</p>
