@@ -1,6 +1,6 @@
 // =================================================================
-// === player.js - PHIÊN BẢN CHO PHÉP XEM MÔ TẢ + HƯỚNG DẪN      ===
-console.log("ĐANG CHẠY player.js PHIÊN BẢN XEM MÔ TẢ + HƯỚNG DẪN!");
+// === player.js - PHIÊN BẢN NÂNG CẤP GIAO DIỆN VỚI ICON & MÀU MỚI ===
+console.log("ĐANG CHẠY player.js PHIÊN BẢN ICON & MÀU MỚI!");
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -212,7 +212,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // THÊM MỚI: Thêm dòng hướng dẫn
         const instruction = document.createElement('p');
         instruction.className = 'role-list-instruction';
         instruction.innerHTML = '💡 Chạm vào một vai trò để xem mô tả';
@@ -230,21 +229,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const factionOrder = ['Phe Sói', 'Bầy Sói', 'Phe Dân', 'Phe trung lập', 'Chưa phân loại'];
 
-        const getFactionClass = (faction) => {
-            if (faction === 'Phe Sói' || faction === 'Bầy Sói') return 'faction-wolf';
-            if (faction === 'Phe Dân') return 'faction-villager';
-            if (faction === 'Phe trung lập') return 'faction-neutral';
-            return 'faction-unknown';
+        const getFactionClassAndIcon = (faction) => {
+            if (faction === 'Phe Sói' || faction === 'Bầy Sói') {
+                return { class: 'faction-wolf', icon: 'fa-solid fa-paw' };
+            }
+            if (faction === 'Phe Dân') {
+                return { class: 'faction-villager', icon: 'fa-solid fa-shield-halved' };
+            }
+            if (faction === 'Phe trung lập') {
+                return { class: 'faction-neutral', icon: 'fa-solid fa-person-circle-question' };
+            }
+            return { class: 'faction-unknown', icon: 'fa-solid fa-question' };
         };
 
         factionOrder.forEach(faction => {
             if (rolesByFaction[faction]) {
+                const { class: factionClass, icon: factionIcon } = getFactionClassAndIcon(faction);
+
                 const factionBox = document.createElement('div');
-                factionBox.className = `faction-box ${getFactionClass(faction)}`;
+                factionBox.className = `faction-box ${factionClass}`;
 
                 const factionTitle = document.createElement('h4');
                 factionTitle.className = 'faction-title';
-                factionTitle.textContent = faction;
+                // THÊM MỚI: Chèn icon vào tiêu đề phe
+                factionTitle.innerHTML = `<i class="${factionIcon}"></i> ${faction}`;
                 factionBox.appendChild(factionTitle);
 
                 const rolesList = document.createElement('div');
@@ -316,16 +324,28 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('role-description').textContent = roleData.description || 'Chưa có mô tả.';
         
         const roleFactionEl = document.getElementById('role-faction');
+        const roleIconEl = document.getElementById('role-icon');
         roleFactionEl.className = 'role-faction'; 
+        roleIconEl.className = 'role-icon';
         
         const faction = roleData.faction.trim();
+        let iconClass = 'fa-solid fa-question';
+        
         if (faction === 'Phe Sói' || faction === 'Bầy Sói') {
             roleFactionEl.classList.add('wolf');
+            iconClass = 'fa-solid fa-paw';
         } else if (faction === 'Phe Dân') {
             roleFactionEl.classList.add('villager');
+            iconClass = 'fa-solid fa-shield-halved';
         } else if (faction === 'Phe trung lập') {
             roleFactionEl.classList.add('neutral');
+            iconClass = 'fa-solid fa-person-circle-question';
         }
+        
+        roleIconEl.className = `role-icon ${iconClass}`; // Gán lại class cho icon
+        // Lấy màu từ CSS variable và gán cho icon
+        const factionColorVar = `--${roleFactionEl.classList[1]}-color`;
+        roleIconEl.style.color = getComputedStyle(document.documentElement).getPropertyValue(factionColorVar);
     }
 
     // --- EVENT LISTENERS ---

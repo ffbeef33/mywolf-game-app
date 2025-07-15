@@ -8,11 +8,13 @@
     --button-hover-bg: #f96d86;
     --input-bg: #1f4068;
     --border-color: #3a4b6f;
-    --wolf-color: #c0392b;
-    --villager-color: #27ae60;
-    --neutral-color: #f39c12;
+    
+    /* THAY ĐỔI: Bộ màu mới cho các phe */
+    --wolf-color: #e74c3c; /* Đỏ đậm hơn */
+    --villager-color: #2ecc71; /* Xanh lá cây sáng */
+    --neutral-color: #f1c40f; /* Vàng sáng */
+    
     --font-main: 'Roboto', sans-serif;
-    /* THAY ĐỔI: Đổi font hiển thị chính sang Montserrat */
     --font-display: 'Montserrat', sans-serif;
     --border-radius: 12px;
 }
@@ -107,7 +109,6 @@ button:disabled {
 
 /* --- IN-GAME VIEW --- */
 .player-header { margin-bottom: 30px; }
-/* Áp dụng font mới */
 .player-header h1 { 
     font-family: var(--font-display); 
     font-weight: 700;
@@ -132,7 +133,13 @@ button:disabled {
 .card-front .card-logo { font-family: var(--font-display); font-size: 8rem; color: var(--text-color); line-height: 1; }
 .card-back { transform: rotateY(180deg); padding: 20px; }
 
-/* Áp dụng font mới */
+/* THÊM MỚI: Style cho icon trên thẻ bài */
+.role-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    opacity: 0.8;
+}
+
 #role-name {
     font-family: var(--font-display);
     font-weight: 700;
@@ -159,7 +166,7 @@ button:disabled {
     border-radius: 8px;
 }
 .faction-box { border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 16px; background-color: rgba(15, 52, 96, 0.5); text-align: center; transition: all 0.3s ease; }
-/* Áp dụng font mới */
+
 .faction-title { 
     font-family: var(--font-display);
     font-size: 1.5rem; 
@@ -167,16 +174,23 @@ button:disabled {
     margin: 0 0 12px 0;
     padding-bottom: 8px; 
     border-bottom: 1px solid rgba(237, 242, 244, 0.2); 
-    letter-spacing: 0.5px; /* Điều chỉnh khoảng cách ký tự cho đẹp hơn */
+    letter-spacing: 0.5px;
+    /* THÊM MỚI: Căn chỉnh icon và text */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
 }
 .roles-list { display: flex; flex-direction: column; gap: 8px; }
 .in-game-role-item { margin: 0; font-size: 1rem; color: var(--light-text); cursor: pointer; transition: color 0.2s; }
 .in-game-role-item:hover { color: var(--button-hover-bg); }
-.faction-box.faction-villager { background-color: rgba(39, 174, 96, 0.15); border-color: rgba(39, 174, 96, 0.8); }
+
+/* Áp dụng màu mới cho các box phe */
+.faction-box.faction-villager { background-color: rgba(46, 204, 113, 0.1); border-color: rgba(46, 204, 113, 0.7); }
 .faction-box.faction-villager .faction-title { color: var(--villager-color); }
-.faction-box.faction-wolf { background-color: rgba(192, 57, 43, 0.15); border-color: rgba(192, 57, 43, 0.8); }
+.faction-box.faction-wolf { background-color: rgba(231, 76, 60, 0.1); border-color: rgba(231, 76, 60, 0.7); }
 .faction-box.faction-wolf .faction-title { color: var(--wolf-color); }
-.faction-box.faction-neutral { background-color: rgba(243, 156, 18, 0.15); border-color: rgba(243, 156, 18, 0.8); }
+.faction-box.faction-neutral { background-color: rgba(241, 196, 15, 0.1); border-color: rgba(241, 196, 15, 0.7); }
 .faction-box.faction-neutral .faction-title { color: var(--neutral-color); }
 
 /* --- MODAL MÔ TẢ VAI TRÒ --- */
@@ -186,7 +200,6 @@ button:disabled {
 .close-modal-btn { color: var(--light-text); position: absolute; top: 10px; right: 20px; font-size: 32px; font-weight: bold; cursor: pointer; transition: color 0.2s; }
 .close-modal-btn:hover { color: var(--text-color); }
 
-/* Áp dụng font mới */
 #modal-role-name {
     font-family: var(--font-display);
     font-weight: 700;
