@@ -48,6 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const playerChoicesList = document.getElementById('player-choices-list');
     const processPlayerPickBtn = document.getElementById('process-player-pick-btn');
 
+    // THÊM MỚI: Lấy element cho nút ghi chú đêm
+    const startNightNoteBtn = document.getElementById('start-night-note-btn');
+
     // --- CÁC BIẾN VÀ ELEMENT MỚI CHO TÍNH NĂNG CHỈNH SỬA ---
     const editRoomBtn = document.getElementById('edit-room-btn');
     const editControls = document.getElementById('edit-controls');
