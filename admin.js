@@ -1,6 +1,6 @@
 // =================================================================
-// === admin.js - PHIÊN BẢN GỐC + TÍNH NĂNG CHỈNH SỬA AN TOÀN ===
-console.log("ĐANG CHẠY admin.js PHIÊN BẢN GỐC + TÍNH NĂNG CHỈNH SỬA AN TOÀN!");
+// === admin.js - PHIÊN BẢN SỬA LỖI TOÀN DIỆN CHO NÚT GHI CHÚ ===
+console.log("ĐANG CHẠY admin.js PHIÊN BẢN SỬA LỖI!");
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -47,11 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const monitorTimerDisplay = document.getElementById('monitor-timer-display');
     const playerChoicesList = document.getElementById('player-choices-list');
     const processPlayerPickBtn = document.getElementById('process-player-pick-btn');
+    const startNightNoteBtn = document.getElementById('start-night-note-btn'); // Lấy nút ghi chú
 
-    // THÊM MỚI: Lấy element cho nút ghi chú đêm
-    const startNightNoteBtn = document.getElementById('start-night-note-btn');
-
-    // --- CÁC BIẾN VÀ ELEMENT MỚI CHO TÍNH NĂNG CHỈNH SỬA ---
+    // --- Elements cho tính năng chỉnh sửa ---
     const editRoomBtn = document.getElementById('edit-room-btn');
     const editControls = document.getElementById('edit-controls');
     const mainActionButtons = activeRoomSection.querySelector('.main-action-buttons');
@@ -65,26 +63,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalRoleList = document.getElementById('modal-role-list');
     const confirmAddPlayersBtn = document.getElementById('confirm-add-players-btn');
     const confirmAddRolesBtn = document.getElementById('confirm-add-roles-btn');
-    // KHÔI PHỤC: Lấy element cho khu vực xem trước
     const pendingPlayersContainer = document.getElementById('pending-players-container');
     const pendingPlayerAdditions = document.getElementById('pending-player-additions');
     const pendingRolesContainer = document.getElementById('pending-roles-container');
     const pendingRoleAdditions = document.getElementById('pending-role-additions');
     
+    // --- Biến trạng thái (State Variables) ---
     let isEditMode = false;
     let playersToKick = new Set();
     let rolesToRemove = new Set();
     let playersToAdd = new Set();
     let rolesToAdd = new Set();
     let allPlayersData = [];
-    // --- KẾT THÚC KHAI BÁO BIẾN MỚI ---
-
-    let currentRoomId = null;
+    let currentRoomId = null; // **QUAN TRỌNG**: Biến toàn cục cho ID phòng
     let roomListener = null;
     let pickTimerInterval = null;
     let allRolesData = [];
 
-    // --- CÁC HÀM GỐC CỦA BẠN (KHÔNG THAY ĐỔI) ---
+    // --- Các hàm xử lý logic ---
+    
+    // **SỬA LỖI**: Hàm xử lý sự kiện cho nút Ghi chú đêm
+    const handleStartNightNote = () => {
+        if (currentRoomId) {
+            const noteUrl = `night-note.html?roomId=${currentRoomId}`;
+            window.open(noteUrl, '_blank');
+        } else {
+            alert('Lỗi: Không tìm thấy ID phòng hiện tại. Vui lòng chọn một phòng để quản lý trước.');
+        }
+    };
+
     const processPlayerPick = async () => {
         if (!currentRoomId) return;
         if (!confirm('Bạn có chắc muốn xử lý và phân phối vai trò? Hành động này không thể hoàn tác.')) return;
@@ -227,8 +234,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     const loadRoomForManagement = async (roomId) => {
+        if (roomListener) { database.ref(`rooms/${currentRoomId}`).off('value', roomListener); }
+        currentRoomId = roomId; // **QUAN TRỌNG**: Cập nhật ID phòng hiện tại
         const roomRef = database.ref(`rooms/${roomId}`);
-        if (roomListener) roomListener.off();
         roomListener = roomRef.on('value', (snapshot) => {
             const roomData = snapshot.val();
             if (!roomData) {
@@ -236,7 +244,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 resetAdminUI();
                 return;
             }
-            currentRoomId = roomId;
             roomIdDisplay.textContent = currentRoomId;
             const pickState = roomData.playerPickState;
             if (pickState && pickState.status === 'picking') {
@@ -536,7 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadAndDisplayRooms();
     };
 
-    // --- CÁC HÀM MỚI CHO TÍNH NĂNG CHỈNH SỬA ---
+    // --- Logic cho tính năng chỉnh sửa ---
     const setEditMode = (enabled) => {
         isEditMode = enabled;
         editControls.classList.toggle('hidden', !enabled);
@@ -547,8 +554,6 @@ document.addEventListener('DOMContentLoaded', () => {
         rolesToRemove.clear();
         playersToAdd.clear();
         rolesToAdd.clear();
-
-        // KHÔI PHỤC: Reset và ẩn khu vực xem trước khi chuyển chế độ
         renderPendingAdditions();
 
         database.ref(`rooms/${currentRoomId}`).once('value', (snapshot) => {
@@ -562,7 +567,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     };
-
     const updateActiveRoomUIForEditing = (roomData) => {
         const playersInGame = roomData.players || {};
         const rolesInGame = roomData.rolesToAssign || [];
@@ -614,7 +618,6 @@ document.addEventListener('DOMContentLoaded', () => {
             rolesInGameList.appendChild(li);
         });
     };
-
     const showAddPlayerModal = () => {
         database.ref(`rooms/${currentRoomId}/players`).once('value', snapshot => {
             const currentPlayers = snapshot.val() || {};
@@ -635,7 +638,6 @@ document.addEventListener('DOMContentLoaded', () => {
             addPlayerModal.classList.remove('hidden');
         });
     };
-
     const showAddRoleModal = () => {
         modalRoleList.innerHTML = '';
         let roleHtml = '<div class="role-checkbox-group">';
@@ -646,7 +648,6 @@ document.addEventListener('DOMContentLoaded', () => {
         modalRoleList.innerHTML = roleHtml;
         addRoleModal.classList.remove('hidden');
     };
-
     const saveRoomChanges = async () => {
         if (!currentRoomId) return;
         saveRoomChangesBtn.disabled = true;
@@ -696,8 +697,6 @@ document.addEventListener('DOMContentLoaded', () => {
             saveRoomChangesBtn.textContent = 'Lưu Thay Đổi';
         }
     };
-    
-    // KHÔI PHỤC: Hàm hiển thị các thay đổi đang chờ
     const renderPendingAdditions = () => {
         pendingPlayerAdditions.innerHTML = '';
         if (playersToAdd.size > 0) {
@@ -724,7 +723,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- EVENT LISTENERS ---
+    // --- Gán sự kiện (Event Listeners) ---
     createRoomBtn.addEventListener('click', createRoom);
     startNormalRandomBtn.addEventListener('click', startNormalRandom);
     startPlayerPickBtn.addEventListener('click', startPlayerPick);
@@ -735,6 +734,9 @@ document.addEventListener('DOMContentLoaded', () => {
     rolesByFactionContainer.addEventListener('input', updateCounters);
     refreshRoomsBtn.addEventListener('click', loadAndDisplayRooms);
     backToSetupBtn.addEventListener('click', resetAdminUI);
+    
+    // **SỬA LỖI**: Gán sự kiện cho nút Ghi chú đêm
+    startNightNoteBtn.addEventListener('click', handleStartNightNote);
 
     roomListContainer.addEventListener('click', (event) => {
         const target = event.target;
@@ -742,7 +744,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target.classList.contains('delete-room-btn')) { handleDeleteRoomFromList(target.dataset.roomId); }
     });
     
-    // --- EVENT LISTENERS MỚI CHO TÍNH NĂNG CHỈNH SỬA ---
+    // Event Listeners cho tính năng chỉnh sửa
     editRoomBtn.addEventListener('click', () => setEditMode(true));
     cancelEditBtn.addEventListener('click', () => setEditMode(false));
     saveRoomChangesBtn.addEventListener('click', saveRoomChanges);
@@ -760,7 +762,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('#modal-player-list input:checked').forEach(cb => {
             playersToAdd.add(cb.value);
         });
-        renderPendingAdditions(); // Cập nhật UI ngay lập tức
+        renderPendingAdditions();
         addPlayerModal.classList.add('hidden');
     };
 
@@ -768,11 +770,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('#modal-role-list input:checked').forEach(cb => {
             rolesToAdd.add(cb.value);
         });
-        renderPendingAdditions(); // Cập nhật UI ngay lập tức
+        renderPendingAdditions();
         addRoleModal.classList.add('hidden');
     };
 
-    // --- TẢI DỮ LIỆU BAN ĐẦU ---
+    // --- Tải dữ liệu ban đầu ---
     loadPlayersFromSheet();
     loadRolesFromSheet();
     loadAndDisplayRooms();
