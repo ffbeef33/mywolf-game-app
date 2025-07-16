@@ -21,31 +21,39 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetNightBtn = document.getElementById('reset-night-btn');
 
     // --- Game Logic Configuration ---
+    // SỬA LỖI: Mở rộng và định nghĩa hành động cho các vai trò mới
     const ROLE_ACTIONS = {
-        'Sói': ['Bite'],
-        'Bảo Vệ': ['Protect'],
-        'Tiên Tri': ['Check'],
-        'Phù Thủy': ['Heal', 'Kill'],
-        'Thợ Săn': [], // Thụ động
-        'Sát Nhân': ['Kill'],
-        'Sói Nguyền': ['Curse'],
-        'Dân Làng': [],
-        // Thêm các vai trò và hành động khác ở đây
+        'phù thuỷ': ['Heal', 'Kill'],
+        'sói': ['Bite'],
+        'sói do thám': ['Bite', 'Check'],
+        'sói vô hiệu': ['Bite', 'Disable'],
+        'bảo vệ': ['Protect'],
+        'kẻ bảo kê': ['Protect'], // Giả định Kẻ bảo kê có chức năng như Bảo Vệ
+        'tiên tri': ['Check'],
+        'sát nhân': ['Kill'],
+        'sói nguyền': ['Bite', 'Curse'],
+        'phán quan pháp trường': ['Mark'], // Đánh dấu để xử lý sau
+        // Các vai trò không có hành động đêm sẽ là mảng rỗng
+        'dân làng': [],
+        'dân quân bất mãn': [],
+        'con rơi của tiên tri': [],
     };
 
     const ACTION_PROPERTIES = {
         'Bite': { type: 'damage', value: 1 },
         'Kill': { type: 'damage', value: 1 },
-        'Protect': { type: 'defense', value: Infinity }, // Bảo vệ khỏi mọi sát thương
-        'Heal': { type: 'defense', value: Infinity },
+        'Protect': { type: 'defense' },
+        'Heal': { type: 'defense' },
         'Check': { type: 'info' },
-        'Curse': { type: 'status_effect' }
+        'Disable': { type: 'status_effect' },
+        'Curse': { type: 'status_effect' },
+        'Mark': { type: 'status_effect' },
     };
 
     // --- State Management ---
     let currentRoomId = null;
-    let roomPlayers = []; // Dữ liệu gốc từ Firebase
-    let nightStates = []; // Mảng lưu trạng thái của tất cả các đêm
+    let roomPlayers = []; 
+    let nightStates = [];
     let activeNightIndex = 0;
 
     // --- Core Functions ---
@@ -65,25 +73,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         return {
-            actions: [], // Danh sách các hành động trong đêm
-            playersStatus: playersStatus // Trạng thái sống/chết/nguyền của người chơi đầu đêm
+            actions: [], 
+            playersStatus: playersStatus 
         };
     };
 
     const calculateNightResults = (nightState) => {
-        // B1: Khởi tạo trạng thái tạm thời cho mỗi người chơi
         let tempStatus = {};
         const alivePlayerIds = Object.keys(nightState.playersStatus).filter(pId => nightState.playersStatus[pId].isAlive);
 
         alivePlayerIds.forEach(pId => {
-            tempStatus[pId] = {
-                damage: 0,
-                isProtected: false,
-                isHealed: false,
-            };
+            tempStatus[pId] = { damage: 0, isProtected: false, isHealed: false };
         });
 
-        // B2: Xử lý các hành động phòng thủ trước (Bảo Vệ, Cứu)
         nightState.actions.forEach(({ action, targetId }) => {
             if (!tempStatus[targetId]) return;
             const prop = ACTION_PROPERTIES[action];
@@ -93,7 +95,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // B3: Xử lý các hành động tấn công
         nightState.actions.forEach(({ action, targetId }) => {
             if (!tempStatus[targetId]) return;
             const prop = ACTION_PROPERTIES[action];
@@ -102,7 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // B4: Quyết định kết quả cuối cùng
         let finalStatus = JSON.parse(JSON.stringify(nightState.playersStatus));
         let deadPlayerNames = [];
 
@@ -123,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const activeNight = nightStates[activeNightIndex];
         if (!activeNight) return;
         
-        renderNight(activeNightIndex); // Vẽ lại toàn bộ giao diện của đêm hiện tại
+        renderNight(activeNightIndex); 
         
         const { deadPlayerNames } = calculateNightResults(activeNight);
         if (deadPlayerNames.length > 0) {
@@ -143,11 +143,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!playerStatus || !playerStatus.isAlive) {
             row.classList.add('status-dead');
         }
-
-        const availableActions = ROLE_ACTIONS[player.roleName] || [];
+        
+        // SỬA LỖI: Chuẩn hóa tên vai trò trước khi tra cứu
+        const normalizedRoleName = (player.roleName || '').trim().toLowerCase();
+        const availableActions = ROLE_ACTIONS[normalizedRoleName] || [];
         const livingPlayers = roomPlayers.filter(p => nightState.playersStatus[p.id]?.isAlive);
 
-        // Phần header của người chơi (Tên, vai trò, nút sống/chết)
         let headerHTML = `
             <div class="player-header">
                 <div class="player-info">
@@ -159,7 +160,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
         `;
 
-        // Chỉ hiển thị bộ điều khiển hành động nếu người chơi còn sống và có hành động
         if (playerStatus?.isAlive && availableActions.length > 0) {
             headerHTML += `
                 <div class="action-controls">
@@ -175,9 +175,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
         }
-        headerHTML += `</div>`; // Đóng player-header
+        headerHTML += `</div>`;
 
-        // Phần danh sách các hành động đã thực hiện
         const playerActions = nightState.actions.filter(a => a.actorId === player.id);
         let actionListHTML = '<div class="action-list">';
         playerActions.forEach((action, index) => {
@@ -243,39 +242,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const actorId = row.dataset.playerId;
         const nightState = nightStates[activeNightIndex];
 
-        // Xử lý thêm hành động
         if (target.closest('.add-action-btn')) {
             const actionSelect = row.querySelector('.action-select');
             const targetSelect = row.querySelector('.target-select');
             const action = actionSelect.value;
             const targetId = targetSelect.value;
-
             if (action && targetId) {
                 nightState.actions.push({ actorId, action, targetId });
                 updateUI();
-                actionSelect.value = '';
-                targetSelect.value = '';
             }
         }
 
-        // Xử lý xóa hành động
         if (target.closest('.remove-action-btn')) {
             const actionItem = target.closest('.action-item');
-            const actionIndex = parseInt(actionItem.dataset.actionIndex, 10);
-            // Lọc ra các hành động của đúng người chơi đó trước khi xóa theo index
-            const actorActionsIndices = nightState.actions
-                .map((act, idx) => ({ ...act, originalIndex: idx }))
-                .filter(act => act.actorId === actorId);
+            const actionIndexToRemove = parseInt(actionItem.dataset.actionIndex, 10);
             
-            const originalIndexToDelete = actorActionsIndices[actionIndex]?.originalIndex;
+            let count = -1;
+            const originalIndexToDelete = nightState.actions.findIndex(act => {
+                if (act.actorId === actorId) {
+                    count++;
+                    return count === actionIndexToRemove;
+                }
+                return false;
+            });
 
-            if (originalIndexToDelete !== undefined) {
+            if (originalIndexToDelete !== -1) {
                 nightState.actions.splice(originalIndexToDelete, 1);
                 updateUI();
             }
         }
         
-        // Xử lý nút Sống/Chết
         if (target.closest('.status-btn.life')) {
              if (nightState.playersStatus[actorId]) {
                 nightState.playersStatus[actorId].isAlive = !nightState.playersStatus[actorId].isAlive;
@@ -315,7 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 resetNightBtn.addEventListener('click', handleResetNight);
                 interactionTable.addEventListener('click', handleTableClick);
                 
-                handleAddNight(); // Tự động tạo đêm đầu tiên
+                handleAddNight();
             } else {
                 interactionTable.innerHTML = '<p>Không tìm thấy dữ liệu người chơi trong phòng này.</p>';
             }
