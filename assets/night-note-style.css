@@ -1,0 +1,135 @@
+:root {
+    --primary-bg: #1a1a2e;
+    --secondary-bg: #16213e;
+    --card-bg: #0f3460;
+    --text-color: #e94560;
+    --light-text: #dcdcdc;
+    --button-bg: #e94560;
+    --border-color: #3a4b6f;
+    --danger-color: #e74c3c;
+    --safe-color: #2ecc71;
+    --protect-color: #3498db;
+    --font-main: 'Roboto', sans-serif;
+    --font-display: 'Montserrat', sans-serif;
+    --border-radius: 12px;
+}
+
+body {
+    font-family: var(--font-main);
+    background-color: var(--primary-bg);
+    color: var(--light-text);
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.card {
+    background-color: var(--secondary-bg);
+    padding: 25px;
+    border-radius: var(--border-radius);
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+}
+
+.main-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+.main-header h1 {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    color: var(--text-color);
+    margin: 0;
+}
+.main-header p {
+    font-size: 1.2rem;
+    opacity: 0.8;
+}
+
+/* Results Card */
+#night-results {
+    background-color: var(--card-bg);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    min-height: 50px;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+#night-results .dead-player {
+    color: var(--danger-color);
+    font-weight: 700;
+}
+
+button {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--button-bg);
+    color: white;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+button:hover { background-color: #f96d86; }
+
+/* Player Interaction Table */
+.player-row {
+    display: flex;
+    align-items: center;
+    padding: 15px 10px;
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.3s;
+}
+.player-row:last-child { border-bottom: none; }
+.player-row.status-dead {
+    opacity: 0.4;
+    background-color: #333;
+    pointer-events: none; /* Vô hiệu hóa tương tác khi đã chết */
+}
+.player-row.status-danger {
+    background-color: rgba(231, 76, 60, 0.2); /* Nền đỏ mờ */
+}
+
+.player-info { flex: 2; min-width: 120px; }
+.player-info .player-name { font-size: 1.2rem; font-weight: 700; }
+.player-info .player-role { font-size: 0.9rem; opacity: 0.7; }
+
+.player-status-controls { flex: 1; display: flex; gap: 5px; }
+.status-btn { font-size: 1.2rem; background: none; border: none; padding: 5px; cursor: pointer; color: var(--light-text); }
+.status-btn.active.alive { color: var(--safe-color); }
+.status-btn.active.dead { color: var(--danger-color); }
+.status-btn.active.ability-on { color: var(--safe-color); }
+.status-btn.active.ability-off { color: #777; }
+
+.interaction-group { flex: 3; display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-start; }
+.checkbox-label { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 0.9rem; }
+.checkbox-label input { width: 18px; height: 18px; }
+
+.grouping-control { flex: 1; }
+.grouping-control input {
+    width: 50px;
+    padding: 8px;
+    text-align: center;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--light-text);
+    border-radius: 5px;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #444;
+    border-top-color: var(--text-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

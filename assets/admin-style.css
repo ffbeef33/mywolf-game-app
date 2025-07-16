@@ -19,6 +19,8 @@
   --save-hover-color: #2ecc71;
   --error-color: var(--danger-bg);
   --skeleton-bg: #1f3a5c;
+  --special-color: #8e44ad; /* Thêm màu tím cho nút đặc biệt */
+  --special-hover-color: #9b59b6;
   --border-radius: 8px;
   --box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
   --transition-speed: 0.3s;
@@ -128,6 +130,11 @@ button.btn-danger { background-color: var(--danger-bg); }
 button.btn-danger:hover:not(:disabled) { background-color: var(--danger-hover-bg); }
 button.btn-save { background-color: var(--save-color); }
 button.btn-save:hover:not(:disabled) { background-color: var(--save-hover-color); }
+
+/* THÊM MỚI: Style cho nút đặc biệt */
+button.btn-special { background-color: var(--special-color); }
+button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-color); }
+
 
 .skeleton-loader .skeleton-line { height: 1.8em; background-color: var(--skeleton-bg); margin-bottom: 12px; border-radius: 4px; animation: pulse 1.5s infinite ease-in-out; }
 @keyframes pulse { 0% { background-color: var(--skeleton-bg); } 50% { background-color: var(--secondary-bg); } 100% { background-color: var(--skeleton-bg); } }
