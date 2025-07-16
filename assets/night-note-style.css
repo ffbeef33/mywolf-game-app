@@ -19,7 +19,7 @@ body {
     background-color: var(--primary-bg);
     color: var(--light-text);
     margin: 0;
-    padding: 20px;
+    padding: 10px; /* Giảm padding cho màn hình nhỏ */
 }
 
 .container {
@@ -30,7 +30,7 @@ body {
 
 .card {
     background-color: var(--secondary-bg);
-    padding: 25px;
+    padding: 15px;
     border-radius: var(--border-radius);
     margin-bottom: 20px;
     border: 1px solid var(--border-color);
@@ -38,16 +38,16 @@ body {
 
 .main-header {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 .main-header h1 {
     font-family: var(--font-display);
-    font-size: 2.5rem;
+    font-size: 2rem;
     color: var(--text-color);
     margin: 0;
 }
 .main-header p {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     opacity: 0.8;
 }
 
@@ -57,7 +57,7 @@ body {
     padding: 15px;
     border-radius: 8px;
     margin-bottom: 15px;
-    min-height: 50px;
+    min-height: 40px;
     font-size: 1.1rem;
     font-weight: 500;
 }
@@ -82,83 +82,129 @@ button:hover { background-color: #f96d86; }
 /* Player Interaction Table */
 .player-row {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
     padding: 15px 10px;
     border-bottom: 1px solid var(--border-color);
     transition: background-color 0.3s;
 }
 .player-row:last-child { border-bottom: none; }
+
 .player-row.status-dead {
     opacity: 0.4;
     background-color: #333;
-    pointer-events: none; /* Vô hiệu hóa tương tác khi đã chết */
 }
+.player-row.status-dead .action-controls {
+    display: none; /* Ẩn hành động khi chết */
+}
+
 .player-row.status-danger {
-    background-color: rgba(231, 76, 60, 0.2); /* Nền đỏ mờ */
+    background-color: rgba(231, 76, 60, 0.2);
 }
-
-.player-info { flex: 2; min-width: 120px; }
-.player-info .player-name { font-size: 1.2rem; font-weight: 700; }
-.player-info .player-role { font-size: 0.9rem; opacity: 0.7; }
-
-.player-status-controls { flex: 1; display: flex; gap: 5px; }
-.status-btn { font-size: 1.2rem; background: none; border: none; padding: 5px; cursor: pointer; color: var(--light-text); }
-.status-btn.active.alive { color: var(--safe-color); }
-.status-btn.active.dead { color: var(--danger-color); }
-.status-btn.active.ability-on { color: var(--safe-color); }
-.status-btn.active.ability-off { color: #777; }
-
-.interaction-group { flex: 3; display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-start; }
-.checkbox-label { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 0.9rem; }
-.checkbox-label input { width: 18px; height: 18px; }
-
-.grouping-control { flex: 1; }
-.grouping-control input {
-    width: 50px;
-    padding: 8px;
-    text-align: center;
-    background-color: var(--card-bg);
-    border: 1px solid var(--border-color);
-    color: var(--light-text);
-    border-radius: 5px;
-}
-
-.loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid #444;
-    border-top-color: var(--text-color);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 20px auto;
-}
-
-/* Thêm vào cuối file assets/night-note-style.css */
-
 .player-row.status-dead-calculated {
-    background-color: rgba(192, 57, 43, 0.5) !important; /* Màu đỏ đậm hơn cho người chắc chắn chết */
+    background-color: rgba(192, 57, 43, 0.5) !important;
     border: 1px solid var(--danger-color);
 }
 .player-row.status-dead-calculated .player-name {
     text-decoration: line-through;
 }
 
+.player-header {
+    display: flex;
+    flex-wrap: wrap; /* SỬA LỖI: Cho phép các item xuống dòng */
+    align-items: center;
+    width: 100%;
+    gap: 10px; /* Thêm khoảng cách giữa các item */
+}
+
+.player-info {
+    flex: 1 1 150px; /* Co giãn và có chiều rộng cơ bản */
+}
+.player-info .player-name { font-size: 1.2rem; font-weight: 700; }
+.player-info .player-role { font-size: 0.9rem; opacity: 0.7; }
+
+.player-status-controls {
+    flex-shrink: 0; /* Không co lại */
+    display: flex;
+    gap: 5px;
+}
+.status-btn {
+    font-size: 1.2rem;
+    background: none;
+    border: none;
+    padding: 5px;
+    cursor: pointer;
+    color: var(--light-text);
+}
+.status-btn.active.alive { color: var(--safe-color); }
+.status-btn.active.dead { color: var(--danger-color); }
+
+.action-controls {
+    display: flex;
+    flex-wrap: wrap; /* Cho phép các select xuống dòng */
+    gap: 10px;
+    align-items: center;
+    width: 100%; /* Chiếm toàn bộ chiều rộng để xuống dòng */
+    margin-top: 10px; /* Thêm khoảng cách khi xuống dòng */
+}
+
+.action-controls select {
+    padding: 8px;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--light-text);
+    border-radius: 5px;
+    font-size: 0.9rem;
+    flex: 1 1 120px; /* Co giãn linh hoạt */
+}
+.add-action-btn {
+    padding: 8px 12px;
+    flex-shrink: 0;
+}
+
+.action-list {
+    width: 100%;
+    padding-left: 15px;
+    margin-top: 15px;
+}
+
+.action-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 1rem;
+}
+.action-item .target-name { font-weight: 700; color: var(--safe-color); }
+.action-item .action-type-damage { color: var(--danger-color); }
+.action-item .action-type-defense { color: var(--protect-color); }
+
+.remove-action-btn {
+    background: none;
+    border: none;
+    color: var(--danger-color);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0 5px;
+}
+
 /* Night Tabs Management */
 .night-tabs-container {
     background-color: var(--secondary-bg);
-    padding: 15px 25px;
+    padding: 15px;
     border-radius: var(--border-radius);
     margin-bottom: 20px;
     border: 1px solid var(--border-color);
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 10px;
     flex-wrap: wrap;
 }
 .night-tabs-container h3 {
     margin: 0;
     font-size: 1.2rem;
     color: var(--light-text);
+    flex-shrink: 0;
 }
 #night-tabs {
     display: flex;
@@ -181,71 +227,13 @@ button:hover { background-color: #f96d86; }
     background-color: #27ae60;
 }
 
-.player-row {
-    flex-direction: column;
-    align-items: flex-start;
-}
-
-.player-header {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    margin-bottom: 10px;
-}
-
-.player-header .player-info {
-    flex-grow: 1;
-}
-
-.action-controls {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-.action-controls select {
-    padding: 8px;
-    background-color: var(--card-bg);
-    border: 1px solid var(--border-color);
-    color: var(--light-text);
-    border-radius: 5px;
-    font-size: 0.9rem;
-}
-
-.action-list {
-    width: 100%;
-    padding-left: 20px;
-    border-left: 3px solid var(--card-bg);
-    margin-top: 5px;
-}
-
-.action-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 8px;
-    font-size: 1rem;
-}
-
-.action-item .target-name {
-    font-weight: 700;
-    color: var(--safe-color);
-}
-
-.action-item .action-type-bite { color: var(--danger-color); }
-.action-item .action-type-protect { color: var(--protect-color); }
-.action-item .action-type-heal { color: var(--safe-color); }
-.action-item .action-type-kill { color: #f39c12; } /* Màu cam cho giết */
-.action-item .action-type-curse { color: #8e44ad; } /* Màu tím cho nguyền */
-.action-item .action-type-check { color: #1abc9c; } /* Màu xanh ngọc cho soi */
-
-
-.remove-action-btn {
-    background: none;
-    border: none;
-    color: var(--danger-color);
-    font-size: 1.1rem;
-    cursor: pointer;
-    padding: 0 5px;
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #444;
+    border-top-color: var(--text-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
 }
 @keyframes spin { to { transform: rotate(360deg); } }

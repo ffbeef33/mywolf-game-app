@@ -21,38 +21,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetNightBtn = document.getElementById('reset-night-btn');
 
     // --- Game Logic Configuration ---
-    // SỬA LỖI: Mở rộng và định nghĩa hành động cho các vai trò mới
-    const ROLE_ACTIONS = {
-        'phù thuỷ': ['Heal', 'Kill'],
-        'sói': ['Bite'],
-        'sói do thám': ['Bite', 'Check'],
-        'sói vô hiệu': ['Bite', 'Disable'],
-        'bảo vệ': ['Protect'],
-        'kẻ bảo kê': ['Protect'], // Giả định Kẻ bảo kê có chức năng như Bảo Vệ
-        'tiên tri': ['Check'],
-        'sát nhân': ['Kill'],
-        'sói nguyền': ['Bite', 'Curse'],
-        'phán quan pháp trường': ['Mark'], // Đánh dấu để xử lý sau
-        // Các vai trò không có hành động đêm sẽ là mảng rỗng
-        'dân làng': [],
-        'dân quân bất mãn': [],
-        'con rơi của tiên tri': [],
+    // SỬA LỖI: Danh sách hành động chung cho mọi người chơi
+    const UNIVERSAL_ACTIONS = {
+        'wolf_bite': 'Sói cắn',
+        'wolf_dmg': 'ST Sói',
+        'villager_dmg': 'ST Dân',
+        'other_dmg': 'ST Khác',
+        'protect': 'Bảo vệ',
+        'save': 'Cứu',
+        'armor': 'Giáp',
     };
 
     const ACTION_PROPERTIES = {
-        'Bite': { type: 'damage', value: 1 },
-        'Kill': { type: 'damage', value: 1 },
-        'Protect': { type: 'defense' },
-        'Heal': { type: 'defense' },
-        'Check': { type: 'info' },
-        'Disable': { type: 'status_effect' },
-        'Curse': { type: 'status_effect' },
-        'Mark': { type: 'status_effect' },
+        'wolf_bite': { type: 'damage', value: 1 },
+        'wolf_dmg': { type: 'damage', value: 1 },
+        'villager_dmg': { type: 'damage', value: 1 },
+        'other_dmg': { type: 'damage', value: 1 },
+        'protect': { type: 'defense' },
+        'save': { type: 'defense' },
+        'armor': { type: 'defense', value: 1 }, // Giáp là loại phòng thủ đặc biệt
     };
 
     // --- State Management ---
     let currentRoomId = null;
-    let roomPlayers = []; 
+    let roomPlayers = [];
     let nightStates = [];
     let activeNightIndex = 0;
 
@@ -68,14 +60,11 @@ document.addEventListener('DOMContentLoaded', () => {
             playersStatus = lastNightResults.finalStatus;
         } else {
             roomPlayers.forEach(p => {
-                playersStatus[p.id] = { isAlive: true, isCursed: false };
+                playersStatus[p.id] = { isAlive: true };
             });
         }
         
-        return {
-            actions: [], 
-            playersStatus: playersStatus 
-        };
+        return { actions: [], playersStatus: playersStatus };
     };
 
     const calculateNightResults = (nightState) => {
@@ -83,23 +72,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const alivePlayerIds = Object.keys(nightState.playersStatus).filter(pId => nightState.playersStatus[pId].isAlive);
 
         alivePlayerIds.forEach(pId => {
-            tempStatus[pId] = { damage: 0, isProtected: false, isHealed: false };
+            tempStatus[pId] = { damage: 0, isProtected: false, isHealed: false, hasArmor: false };
         });
 
+        // Xử lý các hành động
         nightState.actions.forEach(({ action, targetId }) => {
             if (!tempStatus[targetId]) return;
             const prop = ACTION_PROPERTIES[action];
             if (prop?.type === 'defense') {
-                if (action === 'Protect') tempStatus[targetId].isProtected = true;
-                if (action === 'Heal') tempStatus[targetId].isHealed = true;
+                if (action === 'protect') tempStatus[targetId].isProtected = true;
+                if (action === 'save') tempStatus[targetId].isHealed = true;
+                if (action === 'armor') tempStatus[targetId].hasArmor = true;
             }
         });
 
         nightState.actions.forEach(({ action, targetId }) => {
             if (!tempStatus[targetId]) return;
             const prop = ACTION_PROPERTIES[action];
-            if (prop?.type === 'damage' && !tempStatus[targetId].isProtected) {
-                tempStatus[targetId].damage += prop.value;
+            if (prop?.type === 'damage') {
+                // Sát thương chỉ được tính nếu không được bảo vệ toàn diện
+                if (!tempStatus[targetId].isProtected) {
+                    tempStatus[targetId].damage += prop.value;
+                }
             }
         });
         
@@ -108,7 +102,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         alivePlayerIds.forEach(pId => {
             const player = tempStatus[pId];
-            const willDie = player.damage > 0 && !player.isHealed;
+            let finalDamage = player.damage;
+
+            // Giáp đỡ 1 sát thương
+            if (player.hasArmor && finalDamage > 0) {
+                finalDamage--;
+            }
+            
+            // Cứu hóa giải cái chết
+            const willDie = finalDamage > 0 && !player.isHealed;
             if (willDie) {
                 finalStatus[pId].isAlive = false;
                 const playerData = roomPlayers.find(p => p.id === pId);
@@ -144,9 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
             row.classList.add('status-dead');
         }
         
-        // SỬA LỖI: Chuẩn hóa tên vai trò trước khi tra cứu
-        const normalizedRoleName = (player.roleName || '').trim().toLowerCase();
-        const availableActions = ROLE_ACTIONS[normalizedRoleName] || [];
         const livingPlayers = roomPlayers.filter(p => nightState.playersStatus[p.id]?.isAlive);
 
         let headerHTML = `
@@ -156,16 +155,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="player-role">${player.roleName}</div>
                 </div>
                 <div class="player-status-controls">
-                    <button class="status-btn life ${playerStatus?.isAlive ? 'active alive' : 'dead'}" data-status="life" title="Đánh dấu Sống/Chết"><i class="fas fa-heart"></i></button>
+                    <button class="status-btn life ${playerStatus?.isAlive ? 'active alive' : 'dead'}" title="Đánh dấu Sống/Chết"><i class="fas fa-heart"></i></button>
                 </div>
-        `;
-
-        if (playerStatus?.isAlive && availableActions.length > 0) {
-            headerHTML += `
                 <div class="action-controls">
                     <select class="action-select">
                         <option value="">-- Chọn hành động --</option>
-                        ${availableActions.map(act => `<option value="${act}">${act}</option>`).join('')}
+                        ${Object.entries(UNIVERSAL_ACTIONS).map(([key, label]) => `<option value="${key}">${label}</option>`).join('')}
                     </select>
                     <select class="target-select">
                         <option value="">-- Chọn mục tiêu --</option>
@@ -173,19 +168,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     </select>
                     <button class="add-action-btn" title="Thêm hành động này"><i class="fas fa-plus"></i></button>
                 </div>
-            `;
-        }
-        headerHTML += `</div>`;
+            </div>`;
 
         const playerActions = nightState.actions.filter(a => a.actorId === player.id);
         let actionListHTML = '<div class="action-list">';
         playerActions.forEach((action, index) => {
             const target = roomPlayers.find(p => p.id === action.targetId);
+            const prop = ACTION_PROPERTIES[action.action];
             if (target) {
                 actionListHTML += `
                     <div class="action-item" data-action-index="${index}">
                         <i class="fas fa-arrow-right"></i>
-                        <span class="action-type-${action.action.toLowerCase()}">${action.action}</span>
+                        <span class="action-type-${prop.type}">${UNIVERSAL_ACTIONS[action.action]}</span>
                         <span class="target-name">${target.name}</span>
                         <button class="remove-action-btn" title="Xóa hành động">&times;</button>
                     </div>
@@ -207,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const alivePlayers = roomPlayers.filter(p => nightState.playersStatus[p.id]?.isAlive);
         const deadPlayers = roomPlayers.filter(p => !nightState.playersStatus[p.id]?.isAlive);
 
-        [...alivePlayers, ...deadPlayers].forEach(player => {
+        [...alivePlayers, ...deadPlayers].sort((a,b) => a.name.localeCompare(b.name)).forEach(player => {
             const playerRow = createPlayerRow(player, nightState);
             interactionTable.appendChild(playerRow);
         });
