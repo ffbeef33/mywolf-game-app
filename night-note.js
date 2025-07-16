@@ -28,6 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Logic ---
     const calculateLiveStatuses = (nightState) => {
         const statuses = {};
+        if (!nightState || !nightState.playersStatus) return statuses;
+
         const alivePlayerIds = Object.keys(nightState.playersStatus).filter(pId => nightState.playersStatus[pId].isAlive);
 
         alivePlayerIds.forEach(pId => {
@@ -72,21 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         return { deadPlayerNames, finalPlayerStatus };
-    };
-
-    const createNewNightState = () => {
-        const lastNight = nightStates.length > 0 ? nightStates[nightStates.length - 1] : null;
-        const playersStatus = {};
-        if (lastNight) {
-            const liveStatuses = calculateLiveStatuses(lastNight);
-            const { finalPlayerStatus } = calculateFinalResults(lastNight, liveStatuses);
-            Object.keys(lastNight.playersStatus).forEach(pId => {
-                playersStatus[pId] = { isAlive: finalPlayerStatus[pId].isAlive };
-            });
-        } else {
-            roomPlayers.forEach(p => { playersStatus[p.id] = { isAlive: true }; });
-        }
-        return { actions: [], playersStatus: playersStatus, isFinished: false };
     };
 
     // --- Rendering ---
@@ -230,7 +217,27 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const handleAddNight = () => {
-        const newNight = createNewNightState();
+        const lastNight = nightStates[nightStates.length - 1];
+        if (lastNight && !lastNight.isFinished) {
+            alert(`Vui lòng kết thúc Đêm ${nightStates.length} trước khi thêm đêm mới.`);
+            return;
+        }
+
+        const liveStatuses = lastNight ? calculateLiveStatuses(lastNight) : null;
+        const { finalPlayerStatus } = lastNight ? calculateFinalResults(lastNight, liveStatuses) : { finalPlayerStatus: null };
+
+        const newNight = {
+            actions: [],
+            isFinished: false,
+            playersStatus: {}
+        };
+        
+        if(finalPlayerStatus) {
+            newNight.playersStatus = finalPlayerStatus;
+        } else {
+            roomPlayers.forEach(p => { newNight.playersStatus[p.id] = { isAlive: true }; });
+        }
+
         nightStates.push(newNight);
         activeNightIndex = nightStates.length - 1;
         render();
