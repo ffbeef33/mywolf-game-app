@@ -132,4 +132,52 @@ button:hover { background-color: #f96d86; }
     animation: spin 1s linear infinite;
     margin: 20px auto;
 }
+
+/* Thêm vào cuối file assets/night-note-style.css */
+
+.player-row.status-dead-calculated {
+    background-color: rgba(192, 57, 43, 0.5) !important; /* Màu đỏ đậm hơn cho người chắc chắn chết */
+    border: 1px solid var(--danger-color);
+}
+.player-row.status-dead-calculated .player-name {
+    text-decoration: line-through;
+}
+
+/* Night Tabs Management */
+.night-tabs-container {
+    background-color: var(--secondary-bg);
+    padding: 15px 25px;
+    border-radius: var(--border-radius);
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+.night-tabs-container h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: var(--light-text);
+}
+#night-tabs {
+    display: flex;
+    gap: 10px;
+}
+.night-tab {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+}
+.night-tab.active {
+    background-color: var(--text-color);
+    border-color: var(--text-color);
+    transform: translateY(-2px);
+}
+.btn-add-night {
+    background-color: var(--safe-color);
+    margin-left: auto; /* Đẩy nút sang phải */
+}
+.btn-add-night:hover {
+    background-color: #27ae60;
+}
 @keyframes spin { to { transform: rotate(360deg); } }
