@@ -123,18 +123,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return { deadPlayerNames, finalStatus, tempStatus };
     };
 
-    /**
-     * SỬA LỖI: Hợp nhất hai hàm render và update thành một hàm duy nhất
-     * Hàm này sẽ vẽ lại toàn bộ giao diện và áp dụng kết quả ngay lập tức
-     */
     const renderAndUpdate = () => {
         const nightState = nightStates[activeNightIndex];
         if (!nightState) return;
 
-        // 1. Tính toán kết quả dựa trên trạng thái hiện tại
         const { deadPlayerNames, tempStatus } = calculateNightResults(nightState);
         
-        // 2. Vẽ lại bảng tương tác
         interactionTable.innerHTML = '';
         const alivePlayers = roomPlayers.filter(p => nightState.playersStatus[p.id]?.isAlive);
         const deadPlayers = roomPlayers.filter(p => !nightState.playersStatus[p.id]?.isAlive);
@@ -144,7 +138,6 @@ document.addEventListener('DOMContentLoaded', () => {
             interactionTable.appendChild(playerRow);
         });
 
-        // 3. Áp dụng các lớp CSS (màu đỏ nguy hiểm,...) lên giao diện vừa được vẽ
         document.querySelectorAll('.player-row').forEach(row => {
             const playerId = row.dataset.playerId;
             const playerCalcStatus = tempStatus[playerId];
@@ -156,20 +149,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // 4. Cập nhật bảng kết quả
         if (deadPlayerNames.length > 0) {
             nightResultsDiv.innerHTML = '<strong>Sẽ chết:</strong> ' + deadPlayerNames.map(name => `<span class="dead-player">${name}</span>`).join(', ');
         } else {
             nightResultsDiv.innerHTML = '<p>Chưa có ai chết...</p>';
         }
 
-        // 5. Cập nhật tab đang active
         document.querySelectorAll('.night-tab').forEach((tab, index) => {
             tab.classList.toggle('active', index === activeNightIndex);
         });
     };
 
-    // --- UI Rendering Functions ---
     const createPlayerRow = (player, nightState) => {
         const row = document.createElement('div');
         row.className = 'player-row';
@@ -204,20 +194,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>`;
 
-        const playerActions = nightState.actions.filter(a => a.actorId === player.id);
         let actionListHTML = '<div class="action-list">';
-        playerActions.forEach((action, index) => {
-            const target = roomPlayers.find(p => p.id === action.targetId);
-            const prop = ACTION_PROPERTIES[action.action];
-            if (target && prop) {
-                actionListHTML += `
-                    <div class="action-item" data-action-index="${index}">
-                        <i class="fas fa-arrow-right"></i>
-                        <span class="action-type-${prop.type}">${UNIVERSAL_ACTIONS[action.action]}</span>
-                        <span class="target-name">${target.name}</span>
-                        <button class="remove-action-btn" title="Xóa hành động">&times;</button>
-                    </div>
-                `;
+        // SỬA LỖI: Gán chỉ số gốc của hành động vào nút xóa
+        nightState.actions.forEach((action, originalIndex) => {
+            if (action.actorId === player.id) {
+                const target = roomPlayers.find(p => p.id === action.targetId);
+                const prop = ACTION_PROPERTIES[action.action];
+                if (target && prop) {
+                    actionListHTML += `
+                        <div class="action-item" data-original-index="${originalIndex}">
+                            <i class="fas fa-arrow-right"></i>
+                            <span class="action-type-${prop.type}">${UNIVERSAL_ACTIONS[action.action]}</span>
+                            <span class="target-name">${target.name}</span>
+                            <button class="remove-action-btn" title="Xóa hành động">&times;</button>
+                        </div>
+                    `;
+                }
             }
         });
         actionListHTML += '</div>';
@@ -232,7 +224,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const tab = document.createElement('button');
             tab.className = 'night-tab';
             tab.textContent = `Đêm ${index + 1}`;
-            tab.dataset.index = index;
             tab.addEventListener('click', () => {
                 activeNightIndex = index;
                 renderAndUpdate();
@@ -263,18 +254,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (target.closest('.remove-action-btn')) {
             const actionItem = target.closest('.action-item');
-            const actionIndexToRemove = parseInt(actionItem.dataset.actionIndex, 10);
-            
-            let count = -1;
-            const originalIndexToDelete = nightState.actions.findIndex(act => {
-                if (act.actorId === actorId) {
-                    count++;
-                    return count === actionIndexToRemove;
-                }
-                return false;
-            });
-
-            if (originalIndexToDelete !== -1) {
+            // SỬA LỖI: Lấy chỉ số gốc và xóa trực tiếp
+            const originalIndexToDelete = parseInt(actionItem.dataset.originalIndex, 10);
+            if (!isNaN(originalIndexToDelete)) {
                 nightState.actions.splice(originalIndexToDelete, 1);
                 renderAndUpdate();
             }
