@@ -28,8 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Logic ---
     const calculateLiveStatuses = (nightState) => {
         const statuses = {};
-        if (!nightState || !nightState.playersStatus) return statuses;
-
         const alivePlayerIds = Object.keys(nightState.playersStatus).filter(pId => nightState.playersStatus[pId].isAlive);
 
         alivePlayerIds.forEach(pId => {
@@ -39,8 +37,9 @@ document.addEventListener('DOMContentLoaded', () => {
         nightState.actions.forEach(({ action, targetId }) => {
             if (!statuses[targetId]) return;
             const config = ACTIONS_CONFIG[action];
-            if (config.type === 'damage') statuses[targetId].damage++;
-            else if (config.type === 'defense') {
+            if (config.type === 'damage') {
+                statuses[targetId].damage++;
+            } else if (config.type === 'defense') {
                 if (action === 'protect') statuses[targetId].isProtected = true;
                 if (action === 'save') statuses[targetId].isHealed = true;
                 if (action === 'armor') statuses[targetId].hasArmor = true;
@@ -75,11 +74,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         return { deadPlayerNames, finalPlayerStatus };
     };
-
+    
     // --- Rendering ---
     const render = () => {
         const nightState = nightStates[activeNightIndex];
-        if (!nightState) return;
+        if (!nightState) {
+            interactionTable.innerHTML = '<p>Hãy thêm một đêm để bắt đầu.</p>';
+            return;
+        }
 
         const liveStatuses = calculateLiveStatuses(nightState);
 
@@ -184,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const actorId = row.dataset.playerId;
         const nightState = nightStates[activeNightIndex];
-        if (nightState.isFinished) return;
+        if (!nightState || nightState.isFinished) return;
 
         if (target.closest('.add-action-btn')) {
             const action = row.querySelector('.action-select').value;
@@ -222,22 +224,17 @@ document.addEventListener('DOMContentLoaded', () => {
             alert(`Vui lòng kết thúc Đêm ${nightStates.length} trước khi thêm đêm mới.`);
             return;
         }
-
-        const liveStatuses = lastNight ? calculateLiveStatuses(lastNight) : null;
-        const { finalPlayerStatus } = lastNight ? calculateFinalResults(lastNight, liveStatuses) : { finalPlayerStatus: null };
-
-        const newNight = {
-            actions: [],
-            isFinished: false,
-            playersStatus: {}
-        };
         
-        if(finalPlayerStatus) {
-            newNight.playersStatus = finalPlayerStatus;
+        const playersStatus = {};
+        if (lastNight) {
+            const liveStatuses = calculateLiveStatuses(lastNight);
+            const { finalPlayerStatus } = calculateFinalResults(lastNight, liveStatuses);
+            Object.assign(playersStatus, finalPlayerStatus);
         } else {
-            roomPlayers.forEach(p => { newNight.playersStatus[p.id] = { isAlive: true }; });
+            roomPlayers.forEach(p => { playersStatus[p.id] = { isAlive: true }; });
         }
 
+        const newNight = { actions: [], playersStatus: playersStatus, isFinished: false };
         nightStates.push(newNight);
         activeNightIndex = nightStates.length - 1;
         render();
