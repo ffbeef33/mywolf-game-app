@@ -32,10 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const ACTION_PROPERTIES = {
-        'wolf_bite': { type: 'damage', value: 1 },
-        'wolf_dmg': { type: 'damage', value: 1 },
-        'villager_dmg': { type: 'damage', value: 1 },
-        'other_dmg': { type: 'damage', value: 1 },
+        'wolf_bite': { type: 'damage' },
+        'wolf_dmg': { type: 'damage' },
+        'villager_dmg': { type: 'damage' },
+        'other_dmg': { type: 'damage' },
         'protect': { type: 'defense' },
         'save': { type: 'defense' },
         'armor': { type: 'defense' },
@@ -66,14 +66,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return { actions: [], playersStatus: playersStatus };
     };
 
-    /**
-     * SỬA LỖI: Viết lại toàn bộ hàm tính toán để tuân thủ logic mới
-     */
     const calculateNightResults = (nightState) => {
         const tempStatus = {};
         const alivePlayerIds = Object.keys(nightState.playersStatus).filter(pId => nightState.playersStatus[pId].isAlive);
 
-        // B1: Khởi tạo bảng trạng thái cho tất cả người chơi còn sống
         alivePlayerIds.forEach(pId => {
             tempStatus[pId] = {
                 damageSources: 0,
@@ -85,12 +81,11 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         });
 
-        // B2: Quét tất cả hành động và cập nhật bảng trạng thái
         nightState.actions.forEach(({ action, targetId }) => {
-            if (!tempStatus[targetId]) return; // Bỏ qua nếu mục tiêu đã chết đầu đêm
+            if (!tempStatus[targetId]) return;
             const prop = ACTION_PROPERTIES[action];
             if (prop.type === 'damage') {
-                tempStatus[targetId].damageSources += prop.value;
+                tempStatus[targetId].damageSources++;
             } else if (prop.type === 'defense') {
                 if (action === 'protect') tempStatus[targetId].isProtected = true;
                 if (action === 'save') tempStatus[targetId].isHealed = true;
@@ -98,7 +93,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // B3: Tính toán kết quả cuối cùng cho từng người
         let finalStatus = JSON.parse(JSON.stringify(nightState.playersStatus));
         let deadPlayerNames = [];
 
@@ -106,60 +100,73 @@ document.addEventListener('DOMContentLoaded', () => {
             const player = tempStatus[pId];
             let finalDamage = player.damageSources;
 
-            // Nếu nhận bất kỳ sát thương nào, người đó sẽ ở trạng thái "nguy hiểm"
             if (finalDamage > 0) {
                 player.isInDanger = true;
             }
 
-            // `Bảo vệ` là ưu tiên cao nhất, vô hiệu hóa mọi sát thương
             if (player.isProtected) {
                 finalDamage = 0;
             }
 
-            // `Giáp` đỡ 1 sát thương nếu không được bảo vệ
             if (!player.isProtected && player.hasArmor && finalDamage > 0) {
                 finalDamage--;
             }
             
-            // Quyết định sống/chết
-            if (finalDamage > 0) {
-                // Nếu không được `Cứu`, người chơi sẽ chết
-                if (!player.isHealed) {
-                    player.isDead = true;
-                    finalStatus[pId].isAlive = false;
-                    const playerData = roomPlayers.find(p => p.id === pId);
-                    if (playerData) deadPlayerNames.push(playerData.name);
-                }
+            if (finalDamage > 0 && !player.isHealed) {
+                player.isDead = true;
+                finalStatus[pId].isAlive = false;
+                const playerData = roomPlayers.find(p => p.id === pId);
+                if (playerData) deadPlayerNames.push(playerData.name);
             }
         });
 
         return { deadPlayerNames, finalStatus, tempStatus };
     };
 
-    const updateUI = () => {
-        const activeNight = nightStates[activeNightIndex];
-        if (!activeNight) return;
+    /**
+     * SỬA LỖI: Hợp nhất hai hàm render và update thành một hàm duy nhất
+     * Hàm này sẽ vẽ lại toàn bộ giao diện và áp dụng kết quả ngay lập tức
+     */
+    const renderAndUpdate = () => {
+        const nightState = nightStates[activeNightIndex];
+        if (!nightState) return;
+
+        // 1. Tính toán kết quả dựa trên trạng thái hiện tại
+        const { deadPlayerNames, tempStatus } = calculateNightResults(nightState);
         
-        const { deadPlayerNames, tempStatus } = calculateNightResults(activeNight);
-        
-        // Cập nhật giao diện từng hàng người chơi với trạng thái nguy hiểm/chết
+        // 2. Vẽ lại bảng tương tác
+        interactionTable.innerHTML = '';
+        const alivePlayers = roomPlayers.filter(p => nightState.playersStatus[p.id]?.isAlive);
+        const deadPlayers = roomPlayers.filter(p => !nightState.playersStatus[p.id]?.isAlive);
+
+        [...alivePlayers, ...deadPlayers].sort((a,b) => a.name.localeCompare(b.name)).forEach(player => {
+            const playerRow = createPlayerRow(player, nightState);
+            interactionTable.appendChild(playerRow);
+        });
+
+        // 3. Áp dụng các lớp CSS (màu đỏ nguy hiểm,...) lên giao diện vừa được vẽ
         document.querySelectorAll('.player-row').forEach(row => {
             const playerId = row.dataset.playerId;
-            const playerStatus = tempStatus[playerId];
+            const playerCalcStatus = tempStatus[playerId];
             
             row.classList.remove('status-danger', 'status-dead-calculated');
-            if (playerStatus) {
-                if (playerStatus.isInDanger) row.classList.add('status-danger');
-                if (playerStatus.isDead) row.classList.add('status-dead-calculated');
+            if (playerCalcStatus) {
+                if (playerCalcStatus.isInDanger) row.classList.add('status-danger');
+                if (playerCalcStatus.isDead) row.classList.add('status-dead-calculated');
             }
         });
 
-        // Cập nhật kết quả cuối cùng
+        // 4. Cập nhật bảng kết quả
         if (deadPlayerNames.length > 0) {
             nightResultsDiv.innerHTML = '<strong>Sẽ chết:</strong> ' + deadPlayerNames.map(name => `<span class="dead-player">${name}</span>`).join(', ');
         } else {
             nightResultsDiv.innerHTML = '<p>Chưa có ai chết...</p>';
         }
+
+        // 5. Cập nhật tab đang active
+        document.querySelectorAll('.night-tab').forEach((tab, index) => {
+            tab.classList.toggle('active', index === activeNightIndex);
+        });
     };
 
     // --- UI Rendering Functions ---
@@ -219,25 +226,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return row;
     };
 
-    const renderNight = (nightIndex) => {
-        activeNightIndex = nightIndex;
-        const nightState = nightStates[nightIndex];
-        if (!nightState) return;
-
-        interactionTable.innerHTML = '';
-        const alivePlayers = roomPlayers.filter(p => nightState.playersStatus[p.id]?.isAlive);
-        const deadPlayers = roomPlayers.filter(p => !nightState.playersStatus[p.id]?.isAlive);
-
-        [...alivePlayers, ...deadPlayers].sort((a,b) => a.name.localeCompare(b.name)).forEach(player => {
-            const playerRow = createPlayerRow(player, nightState);
-            interactionTable.appendChild(playerRow);
-        });
-
-        document.querySelectorAll('.night-tab').forEach((tab, index) => {
-            tab.classList.toggle('active', index === activeNightIndex);
-        });
-    };
-
     const renderNightTabs = () => {
         nightTabsContainer.innerHTML = '';
         nightStates.forEach((_, index) => {
@@ -245,10 +233,9 @@ document.addEventListener('DOMContentLoaded', () => {
             tab.className = 'night-tab';
             tab.textContent = `Đêm ${index + 1}`;
             tab.dataset.index = index;
-            if (index === activeNightIndex) tab.classList.add('active');
             tab.addEventListener('click', () => {
-                renderNight(index);
-                updateUI();
+                activeNightIndex = index;
+                renderAndUpdate();
             });
             nightTabsContainer.appendChild(tab);
         });
@@ -270,8 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetId = targetSelect.value;
             if (action && targetId) {
                 nightState.actions.push({ actorId, action, targetId });
-                renderNight(activeNightIndex); // Vẽ lại để hiển thị hành động mới
-                updateUI(); // Tính toán lại kết quả
+                renderAndUpdate();
             }
         }
 
@@ -290,16 +276,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (originalIndexToDelete !== -1) {
                 nightState.actions.splice(originalIndexToDelete, 1);
-                renderNight(activeNightIndex);
-                updateUI();
+                renderAndUpdate();
             }
         }
         
         if (target.closest('.status-btn.life')) {
              if (nightState.playersStatus[actorId]) {
                 nightState.playersStatus[actorId].isAlive = !nightState.playersStatus[actorId].isAlive;
-                renderNight(activeNightIndex);
-                updateUI();
+                renderAndUpdate();
             }
         }
     };
@@ -307,9 +291,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleAddNight = () => {
         const newNight = createNewNightState();
         nightStates.push(newNight);
+        activeNightIndex = nightStates.length - 1;
         renderNightTabs();
-        renderNight(nightStates.length - 1);
-        updateUI();
+        renderAndUpdate();
     };
 
     const handleResetNight = () => {
@@ -317,8 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const activeNight = nightStates[activeNightIndex];
         if (activeNight) {
             activeNight.actions = [];
-            renderNight(activeNightIndex);
-            updateUI();
+            renderAndUpdate();
         }
     };
 
