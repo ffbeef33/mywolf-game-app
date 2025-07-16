@@ -32,14 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const createNewNightState = () => {
         const lastNightState = nightStates.length > 0 ? nightStates[nightStates.length - 1] : null;
         const newNight = { players: {} };
-        
-        // Tính toán trạng thái sống/chết từ đêm trước
         const lastNightCalculated = lastNightState ? calculateNightResults(lastNightState) : null;
 
         roomPlayers.forEach(player => {
-            // Người chơi bắt đầu đêm mới với trạng thái sống/chết của cuối đêm trước
             const isAlive = lastNightCalculated ? !lastNightCalculated[player.id]?.isDead : player.isAlive;
-            
             newNight.players[player.id] = {
                 id: player.id, name: player.name, roleName: player.roleName,
                 isAlive: isAlive,
@@ -197,15 +193,22 @@ document.addEventListener('DOMContentLoaded', () => {
             playerState.interactions[target.dataset.action] = target.checked;
         } else if (target.matches('input[type="number"]')) {
             playerState.group = target.value ? parseInt(target.value, 10) : null;
-        } else if (target.matches('.status-btn[data-status="life"]')) {
-            playerState.isAlive = !playerState.isAlive;
-            row.classList.toggle('status-dead', !playerState.isAlive);
-            target.classList.toggle('alive', playerState.isAlive);
-            target.classList.toggle('dead', !playerState.isAlive);
-        } else if (target.matches('.status-btn[data-status="ability"]')) {
-            playerState.abilityOn = !playerState.abilityOn;
-            target.classList.toggle('ability-on', playerState.abilityOn);
-            target.classList.toggle('ability-off', !playerState.abilityOn);
+        } 
+        
+        // SỬA LỖI: Logic bật/tắt cho nút Sống/Chết và Chức năng
+        const statusBtn = target.closest('.status-btn');
+        if (statusBtn) {
+            const statusType = statusBtn.dataset.status;
+            if (statusType === 'life') {
+                playerState.isAlive = !playerState.isAlive; // Đảo ngược trạng thái
+                row.classList.toggle('status-dead', !playerState.isAlive);
+                statusBtn.classList.toggle('alive', playerState.isAlive);
+                statusBtn.classList.toggle('dead', !playerState.isAlive);
+            } else if (statusType === 'ability') {
+                playerState.abilityOn = !playerState.abilityOn; // Đảo ngược trạng thái
+                statusBtn.classList.toggle('ability-on', playerState.abilityOn);
+                statusBtn.classList.toggle('ability-off', !playerState.abilityOn);
+            }
         }
         updateUI();
     };
@@ -240,14 +243,20 @@ document.addEventListener('DOMContentLoaded', () => {
         roomRef.once('value', (snapshot) => {
             const playersData = snapshot.val();
             if (playersData) {
-                roomPlayers = Object.values(playersData);
+                // SỬA LỖI: Chuyển đổi object từ Firebase thành mảng một cách chính xác
+                roomPlayers = Object.keys(playersData).map(key => {
+                    return {
+                        id: key,
+                        ...playersData[key]
+                    };
+                });
+
                 // Gán sự kiện cho các nút
                 addNightBtn.addEventListener('click', handleAddNight);
                 resetNightBtn.addEventListener('click', handleResetNight);
-                interactionTable.addEventListener('input', handleInteractionChange); // 'input' hiệu quả hơn 'change'
-                interactionTable.addEventListener('click', (e) => {
-                    if (e.target.closest('.status-btn')) handleInteractionChange(e);
-                });
+                interactionTable.addEventListener('input', handleInteractionChange);
+                interactionTable.addEventListener('click', handleInteractionChange);
+                
                 // Tự động tạo đêm đầu tiên
                 handleAddNight();
             } else {
