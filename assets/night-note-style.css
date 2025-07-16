@@ -13,21 +13,18 @@
     --font-display: 'Montserrat', sans-serif;
     --border-radius: 12px;
 }
-
 body {
     font-family: var(--font-main);
     background-color: var(--primary-bg);
     color: var(--light-text);
     margin: 0;
-    padding: 10px; /* Giảm padding cho màn hình nhỏ */
+    padding: 10px;
 }
-
 .container {
     width: 100%;
     max-width: 900px;
     margin: 0 auto;
 }
-
 .card {
     background-color: var(--secondary-bg);
     padding: 15px;
@@ -35,23 +32,9 @@ body {
     margin-bottom: 20px;
     border: 1px solid var(--border-color);
 }
-
-.main-header {
-    text-align: center;
-    margin-bottom: 20px;
-}
-.main-header h1 {
-    font-family: var(--font-display);
-    font-size: 2rem;
-    color: var(--text-color);
-    margin: 0;
-}
-.main-header p {
-    font-size: 1.1rem;
-    opacity: 0.8;
-}
-
-/* Results Card */
+.main-header { text-align: center; margin-bottom: 20px; }
+.main-header h1 { font-family: var(--font-display); font-size: 2rem; color: var(--text-color); margin: 0; }
+.main-header p { font-size: 1.1rem; opacity: 0.8; }
 #night-results {
     background-color: var(--card-bg);
     padding: 15px;
@@ -61,179 +44,88 @@ body {
     font-size: 1.1rem;
     font-weight: 500;
 }
-#night-results .dead-player {
-    color: var(--danger-color);
-    font-weight: 700;
-}
+#night-results .dead-player { color: var(--danger-color); font-weight: 700; }
 
+.result-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
 button {
-    padding: 10px 15px;
-    border: none;
-    border-radius: 8px;
-    background-color: var(--button-bg);
-    color: white;
-    font-size: 1rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background-color 0.2s;
+    padding: 10px 15px; border: none; border-radius: 8px;
+    background-color: var(--button-bg); color: white;
+    font-size: 1rem; font-weight: 700; cursor: pointer;
+    transition: filter 0.2s;
 }
-button:hover { background-color: #f96d86; }
+button:hover { filter: brightness(1.1); }
+.btn-end-night { background-color: var(--protect-color); }
+#reset-night-btn { background-color: #7f8c8d; }
 
-/* Player Interaction Table */
 .player-row {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 15px 10px;
-    border-bottom: 1px solid var(--border-color);
+    display: flex; flex-direction: column; align-items: flex-start;
+    padding: 15px 10px; border-bottom: 1px solid var(--border-color);
     transition: background-color 0.3s;
 }
 .player-row:last-child { border-bottom: none; }
+.player-row.status-dead { opacity: 0.4; background-color: #333; }
+.player-row.status-dead .action-controls { display: none; }
 
-.player-row.status-dead {
-    opacity: 0.4;
-    background-color: #333;
-}
-.player-row.status-dead .action-controls {
-    display: none; /* Ẩn hành động khi chết */
-}
-
-.player-row.status-danger {
-    background-color: rgba(231, 76, 60, 0.2);
-}
+/* TRẠNG THÁI MÀU TỨC THÌ */
+.player-row.status-danger { background-color: rgba(231, 76, 60, 0.2); }
+.player-row.status-protected { background-color: rgba(46, 204, 113, 0.2); }
 .player-row.status-dead-calculated {
     background-color: rgba(192, 57, 43, 0.5) !important;
     border: 1px solid var(--danger-color);
 }
-.player-row.status-dead-calculated .player-name {
-    text-decoration: line-through;
-}
+.player-row.status-dead-calculated .player-name { text-decoration: line-through; }
 
 .player-header {
-    display: flex;
-    flex-wrap: wrap; /* SỬA LỖI: Cho phép các item xuống dòng */
-    align-items: center;
-    width: 100%;
-    gap: 10px; /* Thêm khoảng cách giữa các item */
+    display: flex; flex-wrap: wrap; align-items: center;
+    width: 100%; gap: 10px;
 }
-
-.player-info {
-    flex: 1 1 150px; /* Co giãn và có chiều rộng cơ bản */
-}
+.player-info { flex: 1 1 150px; }
 .player-info .player-name { font-size: 1.2rem; font-weight: 700; }
 .player-info .player-role { font-size: 0.9rem; opacity: 0.7; }
-
-.player-status-controls {
-    flex-shrink: 0; /* Không co lại */
-    display: flex;
-    gap: 5px;
-}
+.player-status-controls { flex-shrink: 0; display: flex; gap: 5px; }
 .status-btn {
-    font-size: 1.2rem;
-    background: none;
-    border: none;
-    padding: 5px;
-    cursor: pointer;
-    color: var(--light-text);
+    font-size: 1.2rem; background: none; border: none;
+    padding: 5px; cursor: pointer; color: var(--light-text);
 }
-.status-btn.active.alive { color: var(--safe-color); }
-.status-btn.active.dead { color: var(--danger-color); }
+.status-btn.alive { color: var(--safe-color); }
+.status-btn.dead { color: var(--danger-color); }
 
 .action-controls {
-    display: flex;
-    flex-wrap: wrap; /* Cho phép các select xuống dòng */
-    gap: 10px;
-    align-items: center;
-    width: 100%; /* Chiếm toàn bộ chiều rộng để xuống dòng */
-    margin-top: 10px; /* Thêm khoảng cách khi xuống dòng */
+    display: flex; flex-wrap: wrap; gap: 10px;
+    align-items: center; width: 100%; margin-top: 10px;
 }
-
 .action-controls select {
-    padding: 8px;
-    background-color: var(--card-bg);
-    border: 1px solid var(--border-color);
-    color: var(--light-text);
-    border-radius: 5px;
-    font-size: 0.9rem;
-    flex: 1 1 120px; /* Co giãn linh hoạt */
+    padding: 8px; background-color: var(--card-bg);
+    border: 1px solid var(--border-color); color: var(--light-text);
+    border-radius: 5px; font-size: 0.9rem; flex: 1 1 120px;
 }
-.add-action-btn {
-    padding: 8px 12px;
-    flex-shrink: 0;
-}
-
-.action-list {
-    width: 100%;
-    padding-left: 15px;
-    margin-top: 15px;
-}
-
+.add-action-btn { padding: 8px 12px; flex-shrink: 0; }
+.action-list { width: 100%; padding-left: 15px; margin-top: 15px; }
 .action-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 8px;
-    font-size: 1rem;
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 8px; font-size: 1rem;
 }
 .action-item .target-name { font-weight: 700; color: var(--safe-color); }
 .action-item .action-type-damage { color: var(--danger-color); }
 .action-item .action-type-defense { color: var(--protect-color); }
-
 .remove-action-btn {
-    background: none;
-    border: none;
-    color: var(--danger-color);
-    font-size: 1.1rem;
-    cursor: pointer;
-    padding: 0 5px;
+    background: none; border: none; color: var(--danger-color);
+    font-size: 1.1rem; cursor: pointer; padding: 0 5px;
 }
-
-/* Night Tabs Management */
 .night-tabs-container {
-    background-color: var(--secondary-bg);
-    padding: 15px;
-    border-radius: var(--border-radius);
-    margin-bottom: 20px;
-    border: 1px solid var(--border-color);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
+    background-color: var(--secondary-bg); padding: 15px;
+    border-radius: var(--border-radius); margin-bottom: 20px;
+    border: 1px solid var(--border-color); display: flex;
+    align-items: center; gap: 10px; flex-wrap: wrap;
 }
-.night-tabs-container h3 {
-    margin: 0;
-    font-size: 1.2rem;
-    color: var(--light-text);
-    flex-shrink: 0;
-}
-#night-tabs {
-    display: flex;
-    gap: 10px;
-}
-.night-tab {
-    background-color: var(--card-bg);
-    border: 1px solid var(--border-color);
-}
-.night-tab.active {
-    background-color: var(--text-color);
-    border-color: var(--text-color);
-    transform: translateY(-2px);
-}
-.btn-add-night {
-    background-color: var(--safe-color);
-    margin-left: auto; /* Đẩy nút sang phải */
-}
-.btn-add-night:hover {
-    background-color: #27ae60;
-}
-
+.night-tabs-container h3 { margin: 0; font-size: 1.2rem; color: var(--light-text); flex-shrink: 0; }
+#night-tabs { display: flex; gap: 10px; }
+.night-tab { background-color: var(--card-bg); border: 1px solid var(--border-color); }
+.night-tab.active { background-color: var(--text-color); border-color: var(--text-color); }
+.btn-add-night { background-color: var(--safe-color); margin-left: auto; }
 .loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid #444;
-    border-top-color: var(--text-color);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 20px auto;
+    width: 40px; height: 40px; border: 4px solid #444;
+    border-top-color: var(--text-color); border-radius: 50%;
+    animation: spin 1s linear infinite; margin: 20px auto;
 }
 @keyframes spin { to { transform: rotate(360deg); } }

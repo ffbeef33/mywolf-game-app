@@ -17,7 +17,6 @@
             <p>Phòng: <strong id="room-id-display">...</strong></p>
         </header>
 
-        <!-- SỬA LỖI: Thêm trực tiếp khu vực quản lý đêm vào HTML -->
         <section class="card night-tabs-container">
             <h3>Các Đêm:</h3>
             <div id="night-tabs"></div>
@@ -27,9 +26,13 @@
         <section class="card results-card">
             <h2><i class="fas fa-skull-crossbones"></i> Kết Quả Đêm Nay</h2>
             <div id="night-results">
-                <p>Chưa có ai chết...</p>
+                <p>Đang chờ kết quả...</p>
             </div>
-            <button id="reset-night-btn">Làm Mới Đêm</button>
+            <!-- KHU VỰC NÚT BẤM KẾT QUẢ -->
+            <div class="result-buttons">
+                <button id="end-night-btn" class="btn-end-night">Kết Thúc Đêm</button>
+                <button id="reset-night-btn">Làm Mới Đêm</button>
+            </div>
         </section>
 
         <section class="card players-card">
