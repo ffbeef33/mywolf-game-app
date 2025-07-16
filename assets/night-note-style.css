@@ -64,7 +64,8 @@ button:hover { filter: brightness(1.1); }
 }
 .player-row:last-child { border-bottom: none; }
 .player-row.status-dead { opacity: 0.4; background-color: #333; }
-.player-row.status-dead .action-controls { display: none; }
+.player-row.status-dead .action-controls,
+.player-row.status-dead .player-status-controls { display: none; }
 
 /* TRẠNG THÁI MÀU TỨC THÌ */
 .player-row.status-danger { background-color: rgba(231, 76, 60, 0.2); }
