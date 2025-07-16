@@ -180,4 +180,72 @@ button:hover { background-color: #f96d86; }
 .btn-add-night:hover {
     background-color: #27ae60;
 }
+
+.player-row {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.player-header {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.player-header .player-info {
+    flex-grow: 1;
+}
+
+.action-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.action-controls select {
+    padding: 8px;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--light-text);
+    border-radius: 5px;
+    font-size: 0.9rem;
+}
+
+.action-list {
+    width: 100%;
+    padding-left: 20px;
+    border-left: 3px solid var(--card-bg);
+    margin-top: 5px;
+}
+
+.action-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 1rem;
+}
+
+.action-item .target-name {
+    font-weight: 700;
+    color: var(--safe-color);
+}
+
+.action-item .action-type-bite { color: var(--danger-color); }
+.action-item .action-type-protect { color: var(--protect-color); }
+.action-item .action-type-heal { color: var(--safe-color); }
+.action-item .action-type-kill { color: #f39c12; } /* Màu cam cho giết */
+.action-item .action-type-curse { color: #8e44ad; } /* Màu tím cho nguyền */
+.action-item .action-type-check { color: #1abc9c; } /* Màu xanh ngọc cho soi */
+
+
+.remove-action-btn {
+    background: none;
+    border: none;
+    color: var(--danger-color);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0 5px;
+}
 @keyframes spin { to { transform: rotate(360deg); } }
