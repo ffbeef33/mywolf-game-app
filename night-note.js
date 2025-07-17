@@ -198,7 +198,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             const prevStatus = lastNight ? calculateNightStatus(lastNight).finalStatus : Object.fromEntries(roomPlayers.map(p => [p.id, { isAlive: p.isAlive }]));
-            nightStates.push({ actions: [], playersStatus: prevStatus, isFinished: false });
+            
+            // **SỬA LỖI: TẠO BẢN SAO LƯU TRẠNG THÁI**
+            const initialStatusForNewNight = JSON.parse(JSON.stringify(prevStatus));
+
+            nightStates.push({
+                actions: [],
+                playersStatus: prevStatus, // Trạng thái sẽ bị thay đổi
+                initialPlayersStatus: initialStatusForNewNight, // Trạng thái ban đầu để reset
+                isFinished: false
+            });
             activeNightIndex = nightStates.length - 1;
             render();
             return;
@@ -209,8 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
             activeNightIndex = parseInt(target.closest('.night-tab').dataset.index, 10);
             render();
         } else if (target.closest('#reset-night-btn')) {
-            if (confirm(`Bạn có chắc muốn làm mới mọi hành động trong Đêm ${activeNightIndex + 1}?`)) {
-                // **SỬA LỖI: KHÔI PHỤC LẠI SỐ LƯỢT DÙNG**
+            if (confirm(`Bạn có chắc muốn làm mới mọi hành động và trạng thái Sống/Chết trong Đêm ${activeNightIndex + 1}?`)) {
                 nightState.actions.forEach(actionToReset => {
                     const player = roomPlayers.find(p => p.id === actionToReset.actorId);
                     if (player && typeof player.actionUses[actionToReset.action] === 'number') {
@@ -219,6 +227,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 nightState.actions = [];
                 nightState.isFinished = false;
+                // **SỬA LỖI: KHÔI PHỤC LẠI TRẠNG THÁI SỐNG/CHẾT BAN ĐẦU**
+                nightState.playersStatus = JSON.parse(JSON.stringify(nightState.initialPlayersStatus));
                 render();
             }
         } else if (target.closest('#end-night-btn')) {
@@ -235,7 +245,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const actionKey = row.querySelector('.action-select').value;
                     const targetId = row.querySelector('.target-select').value;
                     if (actionKey && targetId) {
-                        // **SỬA LỖI: TRỪ ĐI SỐ LƯỢT DÙNG**
                         if (typeof actor.actionUses[actionKey] === 'number') {
                             actor.actionUses[actionKey]--;
                         }
@@ -246,7 +255,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const actionId = parseInt(target.closest('.action-item').dataset.actionId, 10);
                     const actionIndex = nightState.actions.findIndex(a => a.id === actionId);
                     if (actionIndex > -1) {
-                        // **SỬA LỖI: KHÔI PHỤC LẠI SỐ LƯỢT DÙNG KHI XÓA**
                         const actionToRestore = nightState.actions[actionIndex];
                         const player = roomPlayers.find(p => p.id === actionToRestore.actorId);
                         if (player && typeof player.actionUses[actionToRestore.action] === 'number') {
