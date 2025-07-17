@@ -97,6 +97,23 @@ button:hover { filter: brightness(1.1); }
     opacity: 1 !important;
 }
 
+/* Vô hiệu hóa người chơi */
+.player-row.status-disabled {
+    border-left: 5px solid var(--neutral-color);
+    background-color: #444 !important;
+    opacity: 0.7;
+    filter: grayscale(0.3);
+}
+/* Nút trạng thái vô hiệu hóa */
+.status-btn.disable {
+    color: var(--neutral-color);
+}
+.status-btn.disable.disabled {
+    color: var(--neutral-color);
+    background: none;
+    opacity: 1;
+}
+
 .player-row.status-danger { background-color: rgba(231, 76, 60, 0.2); }
 .player-row.status-protected { background-color: rgba(46, 204, 113, 0.2); }
 .player-row.status-dead-calculated {

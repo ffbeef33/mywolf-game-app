@@ -57,7 +57,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const finalStatus = JSON.parse(JSON.stringify(nightState.playersStatus));
         const alivePlayerIds = Object.keys(finalStatus).filter(pId => finalStatus[pId].isAlive);
         alivePlayerIds.forEach(pId => { statuses[pId] = { damage: 0, isProtected: false, isHealed: false, hasArmor: false, isInDanger: false, isDead: false }; });
-        nightState.actions.forEach(({ action, targetId }) => {
+        nightState.actions.forEach(({ action, targetId, actorId }) => {
+            // Nếu actor bị disable, action không tác dụng
+            if (nightState.playersStatus[actorId]?.isDisabled) return;
             if (!statuses[targetId]) return;
             const config = ALL_ACTIONS[action];
             if (config.type === 'damage') statuses[targetId].damage++;
@@ -115,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
             interactionTable.appendChild(header);
             
             playersInFaction.sort((a, b) => a.name.localeCompare(b.name)).forEach(player => {
-                const playerState = nightState ? nightState.playersStatus[player.id] : { isAlive: player.isAlive };
+                const playerState = nightState ? nightState.playersStatus[player.id] : { isAlive: player.isAlive, isDisabled: false };
                 const lStatus = nightState ? liveStatuses[player.id] : null;
                 if (playerState) interactionTable.appendChild(createPlayerRow(player, playerState, lStatus, nightState ? nightState.isFinished : false));
             });
@@ -137,12 +139,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Sửa đổi: Nút trái tim luôn hiển thị, kể cả khi đã chết ---
+    // --- Sửa đổi: Nút trái tim và nút disable luôn hiển thị ---
     const createPlayerRow = (player, playerState, liveStatus, isFinished) => {
         const row = document.createElement('div');
         row.className = 'player-row';
         row.dataset.playerId = player.id;
         if (!playerState.isAlive) row.classList.add('status-dead');
+        if (playerState.isDisabled) row.classList.add('status-disabled');
         if (liveStatus) {
             if (liveStatus.isInDanger) row.classList.add('status-danger');
             if (liveStatus.isProtected) row.classList.add('status-protected');
@@ -155,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
             for (const actionKey in group.actions) {
                 const action = group.actions[actionKey];
                 const remainingUses = player.actionUses[actionKey];
-                const isDisabled = remainingUses === 0;
+                const isDisabled = remainingUses === 0 || playerState.isDisabled;
                 const label = isDisabled ? `${action.label} (hết lượt)` : action.label;
                 optionsHTML += `<option value="${actionKey}" ${isDisabled ? 'disabled' : ''}>${label}</option>`;
             }
@@ -173,7 +176,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         actionListHTML += '</div>';
-        // Luôn render player-status-controls (nút trái tim), kể cả khi đã chết
         row.innerHTML = `
             <div class="player-header">
                 <div class="player-info">
@@ -182,8 +184,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="player-status-controls">
                     <button class="status-btn life ${playerState.isAlive ? 'alive' : 'dead'}" title="Sống/Chết"><i class="fas fa-heart"></i></button>
+                    <button class="status-btn disable ${playerState.isDisabled ? 'disabled' : 'enabled'}" title="${playerState.isDisabled ? 'Bật lại chức năng' : 'Vô hiệu hóa'}"><i class="fas fa-user-slash"></i></button>
                 </div>
-                ${(playerState.isAlive && !isFinished && nightStates[activeNightIndex]) ? actionControlsHTML : ''}
+                ${(playerState.isAlive && !isFinished && nightStates[activeNightIndex] && !playerState.isDisabled) ? actionControlsHTML : ''}
             </div>
             ${actionListHTML}
         `;
@@ -211,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert(`Vui lòng kết thúc Đêm ${nightStates.length} trước khi thêm đêm mới.`);
                 return;
             }
-            const prevStatus = lastNight ? calculateNightStatus(lastNight).finalStatus : Object.fromEntries(roomPlayers.map(p => [p.id, { isAlive: p.isAlive }]));
+            const prevStatus = lastNight ? calculateNightStatus(lastNight).finalStatus : Object.fromEntries(roomPlayers.map(p => [p.id, { isAlive: p.isAlive, isDisabled: false }]));
             const initialStatusForNewNight = JSON.parse(JSON.stringify(prevStatus));
             nightStates.push({
                 actions: [],
@@ -275,6 +278,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } else if (target.closest('.status-btn.life')) {
                     nightState.playersStatus[actorId].isAlive = !nightState.playersStatus[actorId].isAlive;
+                    render();
+                } else if (target.closest('.status-btn.disable')) {
+                    nightState.playersStatus[actorId].isDisabled = !nightState.playersStatus[actorId].isDisabled;
                     render();
                 }
             }
