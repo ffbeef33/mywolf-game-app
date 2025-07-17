@@ -101,10 +101,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const { liveStatuses, deadPlayerNames } = calculateNightStatus(nightState);
         interactionTable.innerHTML = '';
 
-        // **SỬA LỖI: Gom nhóm người chơi một cách linh hoạt**
         const groupedPlayers = roomPlayers.reduce((acc, player) => {
-            // **QUAN TRỌNG: Mã nguồn đang tìm trường `faction` trong dữ liệu của bạn.**
-            // Nếu không có, người chơi sẽ thuộc nhóm "Chưa phân loại".
+            // **SỬA LỖI:** Đọc `player.faction` một cách linh hoạt.
             const faction = player.faction || 'Chưa phân loại'; 
             if (!acc[faction]) {
                 acc[faction] = [];
@@ -113,13 +111,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return acc;
         }, {});
 
-        // **SỬA LỖI: Tự động sắp xếp các phe, ưu tiên phe Sói**
         const sortedFactions = Object.keys(groupedPlayers).sort((a, b) => {
             const aIsWolf = a.toLowerCase().includes('sói');
             const bIsWolf = b.toLowerCase().includes('sói');
-            if (aIsWolf && !bIsWolf) return -1; // a (Sói) lên trước
-            if (!aIsWolf && bIsWolf) return 1;  // b (Sói) lên trước
-            return a.localeCompare(b); // Sắp xếp các phe còn lại theo ABC
+            if (aIsWolf && !bIsWolf) return -1;
+            if (!aIsWolf && bIsWolf) return 1;
+            return a.localeCompare(b);
         });
 
         sortedFactions.forEach(factionName => {
@@ -127,7 +124,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const header = document.createElement('div');
             header.className = 'faction-header';
             
-            // Thêm class để tô màu
             if (factionName.toLowerCase().includes('sói')) {
                 header.classList.add('faction-wolf');
             } else if (factionName.toLowerCase().includes('trung lập')) {
@@ -330,7 +326,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const playersData = snapshot.val();
             if (playersData) {
                 roomPlayers = Object.keys(playersData).map(key => {
-                    const player = { id: key, ...playersData[key], actionUses: {} };
+                    const originalData = playersData[key];
+                    // **SỬA LỖI:** Chuẩn hóa trường faction
+                    const player = { 
+                        id: key, 
+                        ...originalData, 
+                        // Tìm 'faction' hoặc 'Faction' và gán vào một trường cố định
+                        faction: originalData.faction || originalData.Faction, 
+                        actionUses: {} 
+                    };
                     for (const actionKey in ALL_ACTIONS) {
                         player.actionUses[actionKey] = ALL_ACTIONS[actionKey].uses;
                     }
