@@ -67,7 +67,6 @@ button:hover { filter: brightness(1.1); }
 .player-row.status-dead .action-controls,
 .player-row.status-dead .player-status-controls { display: none; }
 
-/* TRẠNG THÁI MÀU TỨC THÌ */
 .player-row.status-danger { background-color: rgba(231, 76, 60, 0.2); }
 .player-row.status-protected { background-color: rgba(46, 204, 113, 0.2); }
 .player-row.status-dead-calculated {
@@ -100,6 +99,17 @@ button:hover { filter: brightness(1.1); }
     border: 1px solid var(--border-color); color: var(--light-text);
     border-radius: 5px; font-size: 0.9rem; flex: 1 1 120px;
 }
+/* Style cho nhóm chức năng */
+.optgroup-wolf {
+    color: var(--danger-color);
+    font-style: italic;
+    font-weight: bold;
+}
+/* Style cho chức năng đã hết lượt */
+option:disabled {
+    color: #666;
+}
+
 .add-action-btn { padding: 8px 12px; flex-shrink: 0; }
 .action-list { width: 100%; padding-left: 15px; margin-top: 15px; }
 .action-item {
