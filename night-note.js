@@ -137,6 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // --- Sửa đổi: Nút trái tim luôn hiển thị, kể cả khi đã chết ---
     const createPlayerRow = (player, playerState, liveStatus, isFinished) => {
         const row = document.createElement('div');
         row.className = 'player-row';
@@ -172,7 +173,20 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         actionListHTML += '</div>';
-        row.innerHTML = `<div class="player-header"><div class="player-info"><div class="player-name">${player.name}</div><div class="player-role">${player.roleName || 'Chưa có vai'}</div></div><div class="player-status-controls"><button class="status-btn life ${playerState.isAlive ? 'alive' : 'dead'}" title="Sống/Chết"><i class="fas fa-heart"></i></button></div>${playerState.isAlive && !isFinished && nightStates[activeNightIndex] ? actionControlsHTML : ''}</div>${actionListHTML}`;
+        // Luôn render player-status-controls (nút trái tim), kể cả khi đã chết
+        row.innerHTML = `
+            <div class="player-header">
+                <div class="player-info">
+                    <div class="player-name">${player.name}</div>
+                    <div class="player-role">${player.roleName || 'Chưa có vai'}</div>
+                </div>
+                <div class="player-status-controls">
+                    <button class="status-btn life ${playerState.isAlive ? 'alive' : 'dead'}" title="Sống/Chết"><i class="fas fa-heart"></i></button>
+                </div>
+                ${(playerState.isAlive && !isFinished && nightStates[activeNightIndex]) ? actionControlsHTML : ''}
+            </div>
+            ${actionListHTML}
+        `;
         return row;
     };
 
@@ -198,14 +212,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             const prevStatus = lastNight ? calculateNightStatus(lastNight).finalStatus : Object.fromEntries(roomPlayers.map(p => [p.id, { isAlive: p.isAlive }]));
-            
-            // **SỬA LỖI: TẠO BẢN SAO LƯU TRẠNG THÁI**
             const initialStatusForNewNight = JSON.parse(JSON.stringify(prevStatus));
-
             nightStates.push({
                 actions: [],
-                playersStatus: prevStatus, // Trạng thái sẽ bị thay đổi
-                initialPlayersStatus: initialStatusForNewNight, // Trạng thái ban đầu để reset
+                playersStatus: prevStatus,
+                initialPlayersStatus: initialStatusForNewNight,
                 isFinished: false
             });
             activeNightIndex = nightStates.length - 1;
@@ -227,7 +238,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 nightState.actions = [];
                 nightState.isFinished = false;
-                // **SỬA LỖI: KHÔI PHỤC LẠI TRẠNG THÁI SỐNG/CHẾT BAN ĐẦU**
                 nightState.playersStatus = JSON.parse(JSON.stringify(nightState.initialPlayersStatus));
                 render();
             }
