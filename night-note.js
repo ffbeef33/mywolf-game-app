@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- State ---
     let roomPlayers = [];
-    let allRolesData = []; // **BIẾN MỚI: LƯU DỮ LIỆU TỪ SHEET ROLES**
+    let allRolesData = {}; // **BIẾN MỚI: LƯU DỮ LIỆU TỪ SHEET ROLES**
     let nightStates = [];
     let activeNightIndex = 0;
     let nextActionId = 0;
@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }, {});
         } catch (error) {
             console.error("Lỗi nghiêm trọng khi tải dữ liệu vai trò:", error);
-            interactionTable.innerHTML = `<p class="error">Lỗi: Không thể tải dữ liệu vai trò từ Google Sheet. Vui lòng kiểm tra lại.</p>`;
+            interactionTable.innerHTML = `<p style="color:red;">Lỗi: Không thể tải dữ liệu vai trò từ Google Sheet. Vui lòng kiểm tra lại.</p>`;
         }
     };
 
@@ -257,6 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Handlers ---
     const handleEvents = (e) => {
         const target = e.target;
+        if (!nightStates[activeNightIndex] && !target.closest('#add-night-btn')) return;
         const nightState = nightStates[activeNightIndex];
 
         if (target.closest('.night-tab')) {
