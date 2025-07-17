@@ -101,9 +101,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const { liveStatuses, deadPlayerNames } = calculateNightStatus(nightState);
         interactionTable.innerHTML = '';
 
-        // Group players by faction from their data
+        // **SỬA LỖI: Gom nhóm người chơi một cách linh hoạt**
         const groupedPlayers = roomPlayers.reduce((acc, player) => {
-            const faction = player.faction || 'Chưa phân loại'; // Default group if faction is missing
+            // **QUAN TRỌNG: Mã nguồn đang tìm trường `faction` trong dữ liệu của bạn.**
+            // Nếu không có, người chơi sẽ thuộc nhóm "Chưa phân loại".
+            const faction = player.faction || 'Chưa phân loại'; 
             if (!acc[faction]) {
                 acc[faction] = [];
             }
@@ -111,27 +113,34 @@ document.addEventListener('DOMContentLoaded', () => {
             return acc;
         }, {});
 
-        const factionOrder = ['Bầy Sói', 'Phe Sói', 'Phe Dân', 'Phe trung lập', 'Chưa phân loại'];
+        // **SỬA LỖI: Tự động sắp xếp các phe, ưu tiên phe Sói**
+        const sortedFactions = Object.keys(groupedPlayers).sort((a, b) => {
+            const aIsWolf = a.toLowerCase().includes('sói');
+            const bIsWolf = b.toLowerCase().includes('sói');
+            if (aIsWolf && !bIsWolf) return -1; // a (Sói) lên trước
+            if (!aIsWolf && bIsWolf) return 1;  // b (Sói) lên trước
+            return a.localeCompare(b); // Sắp xếp các phe còn lại theo ABC
+        });
 
-        factionOrder.forEach(factionName => {
+        sortedFactions.forEach(factionName => {
             const playersInFaction = groupedPlayers[factionName];
-            if (playersInFaction && playersInFaction.length > 0) {
-                const header = document.createElement('div');
-                header.className = 'faction-header';
-                if (factionName.includes('Sói')) {
-                    header.classList.add('faction-wolf');
-                } else if (factionName.includes('trung lập')) {
-                    header.classList.add('faction-neutral');
-                }
-                header.textContent = factionName;
-                interactionTable.appendChild(header);
-
-                playersInFaction.sort((a,b) => a.name.localeCompare(b.name)).forEach(player => {
-                    const playerState = nightState.playersStatus[player.id];
-                    if (!playerState) return;
-                    interactionTable.appendChild(createPlayerRow(player, playerState, liveStatuses[player.id], nightState.isFinished));
-                });
+            const header = document.createElement('div');
+            header.className = 'faction-header';
+            
+            // Thêm class để tô màu
+            if (factionName.toLowerCase().includes('sói')) {
+                header.classList.add('faction-wolf');
+            } else if (factionName.toLowerCase().includes('trung lập')) {
+                header.classList.add('faction-neutral');
             }
+            header.textContent = factionName;
+            interactionTable.appendChild(header);
+
+            playersInFaction.sort((a,b) => a.name.localeCompare(b.name)).forEach(player => {
+                const playerState = nightState.playersStatus[player.id];
+                if (!playerState) return;
+                interactionTable.appendChild(createPlayerRow(player, playerState, liveStatuses[player.id], nightState.isFinished));
+            });
         });
 
         renderNightTabs();
