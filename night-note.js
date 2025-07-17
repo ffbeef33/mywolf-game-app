@@ -48,9 +48,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- State ---
     let roomPlayers = [];
+    let allRolesData = []; // **BIẾN MỚI: LƯU DỮ LIỆU TỪ SHEET ROLES**
     let nightStates = [];
     let activeNightIndex = 0;
     let nextActionId = 0;
+
+    // **HÀM MỚI: TẢI DỮ LIỆU ROLES TỪ GOOGLE SHEET (GIỐNG HỆT player.js)**
+    const fetchAllRolesData = async () => {
+        try {
+            const response = await fetch(`/api/sheets?sheetName=Roles`);
+            if (!response.ok) throw new Error('Không thể tải dữ liệu vai trò.');
+            const rawData = await response.json();
+            // Tạo bản đồ tra cứu từ Role -> Faction
+            allRolesData = rawData.reduce((acc, role) => {
+                const roleName = (role.Role || '').trim();
+                const faction = (role.Faction || 'Chưa phân loại').trim();
+                if (roleName) {
+                    acc[roleName] = faction;
+                }
+                return acc;
+            }, {});
+        } catch (error) {
+            console.error("Lỗi nghiêm trọng khi tải dữ liệu vai trò:", error);
+            interactionTable.innerHTML = `<p class="error">Lỗi: Không thể tải dữ liệu vai trò từ Google Sheet. Vui lòng kiểm tra lại.</p>`;
+        }
+    };
 
     // --- Logic ---
     const calculateNightStatus = (nightState) => {
@@ -102,7 +124,6 @@ document.addEventListener('DOMContentLoaded', () => {
         interactionTable.innerHTML = '';
 
         const groupedPlayers = roomPlayers.reduce((acc, player) => {
-            // **SỬA LỖI:** Đọc `player.faction` một cách linh hoạt.
             const faction = player.faction || 'Chưa phân loại'; 
             if (!acc[faction]) {
                 acc[faction] = [];
@@ -319,20 +340,26 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     // --- Initialization ---
-    const initialize = (roomId) => {
+    const initialize = async (roomId) => {
         roomIdDisplay.textContent = roomId;
+        // **BƯỚC 1: Tải dữ liệu phe phái TRƯỚC TIÊN**
+        await fetchAllRolesData();
+
+        // **BƯỚC 2: Tải dữ liệu người chơi từ Firebase**
         const roomRef = database.ref(`rooms/${roomId}/players`);
         roomRef.once('value', (snapshot) => {
             const playersData = snapshot.val();
             if (playersData) {
                 roomPlayers = Object.keys(playersData).map(key => {
                     const originalData = playersData[key];
-                    // **SỬA LỖI:** Chuẩn hóa trường faction
+                    const roleName = (originalData.roleName || '').trim();
+                    
+                    // **BƯỚC 3: Kết hợp dữ liệu**
                     const player = { 
                         id: key, 
                         ...originalData, 
-                        // Tìm 'faction' hoặc 'Faction' và gán vào một trường cố định
-                        faction: originalData.faction || originalData.Faction, 
+                        // Dùng bản đồ tra cứu `allRolesData` để lấy phe phái
+                        faction: allRolesData[roleName] || 'Chưa phân loại', 
                         actionUses: {} 
                     };
                     for (const actionKey in ALL_ACTIONS) {
@@ -344,13 +371,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.addEventListener('click', handleEvents);
                 const initialStatus = Object.fromEntries(roomPlayers.map(p => [p.id, { isAlive: true }]));
                 nightStates.push({ actions: [], playersStatus: initialStatus, isFinished: false });
-                render();
+                render(); // Bây giờ `render` đã có đủ dữ liệu để phân loại
             } else {
-                interactionTable.innerHTML = '<p>Không tìm thấy dữ liệu người chơi.</p>';
+                interactionTable.innerHTML = '<p>Không tìm thấy dữ liệu người chơi trong phòng này.</p>';
             }
         }, (error) => {
             console.error(error);
-            interactionTable.innerHTML = '<p>Lỗi khi tải dữ liệu phòng.</p>';
+            interactionTable.innerHTML = '<p>Lỗi khi tải dữ liệu phòng từ Firebase.</p>';
         });
     };
 
@@ -358,6 +385,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (roomId) {
         initialize(roomId);
     } else {
-        document.body.innerHTML = '<h1>Lỗi: Không tìm thấy ID phòng.</h1>';
+        document.body.innerHTML = '<h1>Lỗi: Không tìm thấy ID phòng trong URL.</h1>';
     }
 });
