@@ -9,6 +9,7 @@
     --danger-color: #e74c3c;
     --safe-color: #2ecc71;
     --protect-color: #3498db;
+    --neutral-color: #f1c40f; /* Màu cho phe trung lập */
     --font-main: 'Roboto', sans-serif;
     --font-display: 'Montserrat', sans-serif;
     --border-radius: 12px;
@@ -75,6 +76,10 @@ button:hover { filter: brightness(1.1); }
 .faction-header.faction-wolf {
     color: var(--danger-color);
     border-bottom-color: var(--danger-color);
+}
+.faction-header.faction-neutral {
+    color: var(--neutral-color);
+    border-bottom-color: var(--neutral-color);
 }
 
 .player-row {

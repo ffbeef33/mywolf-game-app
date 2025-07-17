@@ -53,17 +53,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let nextActionId = 0;
 
     // --- Logic ---
-    const getPlayerFaction = (player) => {
-        const roleName = player.roleName || '';
-        if (roleName.toLowerCase().includes('sói') || roleName.toLowerCase().includes('wolf')) {
-            return 'Bầy Sói';
-        }
-        if (roleName.toLowerCase().includes('thứ 3') || roleName.toLowerCase().includes('con rơi')) {
-            return 'Phe Thứ Ba';
-        }
-        return 'Phe Dân';
-    };
-
     const calculateNightStatus = (nightState) => {
         const statuses = {};
         const finalStatus = JSON.parse(JSON.stringify(nightState.playersStatus));
@@ -112,9 +101,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const { liveStatuses, deadPlayerNames } = calculateNightStatus(nightState);
         interactionTable.innerHTML = '';
 
-        // Group players by faction
+        // Group players by faction from their data
         const groupedPlayers = roomPlayers.reduce((acc, player) => {
-            const faction = getPlayerFaction(player);
+            const faction = player.faction || 'Chưa phân loại'; // Default group if faction is missing
             if (!acc[faction]) {
                 acc[faction] = [];
             }
@@ -122,15 +111,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return acc;
         }, {});
 
-        const factionOrder = ['Bầy Sói', 'Phe Dân', 'Phe Thứ Ba'];
+        const factionOrder = ['Bầy Sói', 'Phe Sói', 'Phe Dân', 'Phe trung lập', 'Chưa phân loại'];
 
         factionOrder.forEach(factionName => {
             const playersInFaction = groupedPlayers[factionName];
             if (playersInFaction && playersInFaction.length > 0) {
                 const header = document.createElement('div');
                 header.className = 'faction-header';
-                if (factionName === 'Bầy Sói') {
+                if (factionName.includes('Sói')) {
                     header.classList.add('faction-wolf');
+                } else if (factionName.includes('trung lập')) {
+                    header.classList.add('faction-neutral');
                 }
                 header.textContent = factionName;
                 interactionTable.appendChild(header);
