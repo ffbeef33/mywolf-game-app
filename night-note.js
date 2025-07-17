@@ -40,12 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error('Không thể tải dữ liệu vai trò.');
             const rawData = await response.json();
             allRolesData = rawData.reduce((acc, role) => {
-                // **SỬA LỖI GỐC RỄ: DÙNG 'RoleName' THAY VÌ 'Role' ĐỂ ĐỒNG BỘ VỚI CÁC FILE KHÁC**
                 const roleName = (role.RoleName || '').trim();
-                const faction = (role.Faction || 'Chưa phân loại').trim();
-                if (roleName) {
-                    acc[roleName] = faction;
-                }
+                if (roleName) acc[roleName] = (role.Faction || 'Chưa phân loại').trim();
                 return acc;
             }, {});
         } catch (error) {
@@ -157,7 +153,10 @@ document.addEventListener('DOMContentLoaded', () => {
             optionsHTML += `<optgroup label="${groupName}" class="${group.className}">`;
             for (const actionKey in group.actions) {
                 const action = group.actions[actionKey];
-                optionsHTML += `<option value="${actionKey}">${action.label}</option>`;
+                const remainingUses = player.actionUses[actionKey];
+                const isDisabled = remainingUses === 0;
+                const label = isDisabled ? `${action.label} (hết lượt)` : action.label;
+                optionsHTML += `<option value="${actionKey}" ${isDisabled ? 'disabled' : ''}>${label}</option>`;
             }
             optionsHTML += `</optgroup>`;
         }
@@ -211,6 +210,13 @@ document.addEventListener('DOMContentLoaded', () => {
             render();
         } else if (target.closest('#reset-night-btn')) {
             if (confirm(`Bạn có chắc muốn làm mới mọi hành động trong Đêm ${activeNightIndex + 1}?`)) {
+                // **SỬA LỖI: KHÔI PHỤC LẠI SỐ LƯỢT DÙNG**
+                nightState.actions.forEach(actionToReset => {
+                    const player = roomPlayers.find(p => p.id === actionToReset.actorId);
+                    if (player && typeof player.actionUses[actionToReset.action] === 'number') {
+                        player.actionUses[actionToReset.action]++;
+                    }
+                });
                 nightState.actions = [];
                 nightState.isFinished = false;
                 render();
@@ -224,18 +230,31 @@ document.addEventListener('DOMContentLoaded', () => {
             const row = target.closest('.player-row');
             if (row && !nightState.isFinished) {
                 const actorId = row.dataset.playerId;
+                const actor = roomPlayers.find(p => p.id === actorId);
                 if (target.closest('.add-action-btn')) {
                     const actionKey = row.querySelector('.action-select').value;
                     const targetId = row.querySelector('.target-select').value;
                     if (actionKey && targetId) {
+                        // **SỬA LỖI: TRỪ ĐI SỐ LƯỢT DÙNG**
+                        if (typeof actor.actionUses[actionKey] === 'number') {
+                            actor.actionUses[actionKey]--;
+                        }
                         nightState.actions.push({ id: nextActionId++, actorId, action: actionKey, targetId });
                         render();
                     }
                 } else if (target.closest('.remove-action-btn')) {
                     const actionId = parseInt(target.closest('.action-item').dataset.actionId, 10);
                     const actionIndex = nightState.actions.findIndex(a => a.id === actionId);
-                    if (actionIndex > -1) nightState.actions.splice(actionIndex, 1);
-                    render();
+                    if (actionIndex > -1) {
+                        // **SỬA LỖI: KHÔI PHỤC LẠI SỐ LƯỢT DÙNG KHI XÓA**
+                        const actionToRestore = nightState.actions[actionIndex];
+                        const player = roomPlayers.find(p => p.id === actionToRestore.actorId);
+                        if (player && typeof player.actionUses[actionToRestore.action] === 'number') {
+                            player.actionUses[actionToRestore.action]++;
+                        }
+                        nightState.actions.splice(actionIndex, 1);
+                        render();
+                    }
                 } else if (target.closest('.status-btn.life')) {
                     nightState.playersStatus[actorId].isAlive = !nightState.playersStatus[actorId].isAlive;
                     render();
@@ -255,7 +274,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 roomPlayers = Object.keys(playersData).map(key => {
                     const originalData = playersData[key];
                     const roleName = (originalData.roleName || '').trim();
-                    return { id: key, ...originalData, faction: allRolesData[roleName] || 'Chưa phân loại' };
+                    const player = { id: key, ...originalData, faction: allRolesData[roleName] || 'Chưa phân loại', actionUses: {} };
+                    for (const actionKey in ALL_ACTIONS) {
+                        player.actionUses[actionKey] = ALL_ACTIONS[actionKey].uses;
+                    }
+                    return player;
                 });
                 document.addEventListener('click', handleEvents);
                 render();
