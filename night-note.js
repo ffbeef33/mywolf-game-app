@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Sửa đổi: Nút trái tim và nút disable luôn hiển thị ---
+    // --- Cập nhật: Nút vô hiệu và sống/chết luôn hiển thị, label VÔ HIỆU nằm cạnh nút ---
     const createPlayerRow = (player, playerState, liveStatus, isFinished) => {
         const row = document.createElement('div');
         row.className = 'player-row';
@@ -185,6 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="player-status-controls">
                     <button class="status-btn life ${playerState.isAlive ? 'alive' : 'dead'}" title="Sống/Chết"><i class="fas fa-heart"></i></button>
                     <button class="status-btn disable ${playerState.isDisabled ? 'disabled' : 'enabled'}" title="${playerState.isDisabled ? 'Bật lại chức năng' : 'Vô hiệu hóa'}"><i class="fas fa-user-slash"></i></button>
+                    ${playerState.isDisabled ? '<span class="disable-label">VÔ HIỆU</span>' : ''}
                 </div>
                 ${(playerState.isAlive && !isFinished && nightStates[activeNightIndex] && !playerState.isDisabled) ? actionControlsHTML : ''}
             </div>

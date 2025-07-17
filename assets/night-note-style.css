@@ -12,6 +12,9 @@
     --neutral-color: #f1c40f; /* Màu cho phe trung lập */
     --disable-color: #ffc107; /* Màu vàng đậm cho disable */
     --disable-bg: #3d3300;   /* Nền vàng nâu cho disable */
+    --alive-glow: #33ff99;
+    --dead-glow: #ff5252;
+    --disable-glow: #ffe066;
     --font-main: 'Roboto', sans-serif;
     --font-display: 'Montserrat', sans-serif;
     --border-radius: 12px;
@@ -99,12 +102,12 @@ button:hover { filter: brightness(1.1); }
     opacity: 1 !important;
 }
 
-/* Vô hiệu hóa người chơi - HIỆU ỨNG MỚI */
+/* Vô hiệu hóa người chơi - hiệu ứng mới, label không che nút */
 .player-row.status-disabled {
     border-left: 6px solid var(--disable-color);
     background-color: var(--disable-bg) !important;
-    box-shadow: 0 0 10px 0 var(--disable-color);
-    opacity: 0.9;
+    box-shadow: 0 0 10px 0 var(--disable-glow);
+    opacity: 0.97;
     filter: none;
     position: relative;
 }
@@ -113,50 +116,103 @@ button:hover { filter: brightness(1.1); }
     color: var(--disable-color) !important;
     text-shadow: 0 0 3px #000;
 }
-.player-row.status-disabled .player-header::after {
-    content: "VÔ HIỆU";
-    position: absolute;
-    right: 10px;
-    top: 10px;
+.player-row .disable-label {
+    display: inline-block;
     background: var(--disable-color);
     color: #222;
-    font-size: 0.8rem;
-    padding: 2px 8px;
-    border-radius: 6px;
+    font-size: 0.85rem;
+    font-family: var(--font-display);
+    padding: 2px 9px 2px 9px;
+    border-radius: 8px;
     font-weight: 700;
-    z-index: 2;
+    margin-left: 4px;
+    vertical-align: middle;
+    box-shadow: 0 0 10px 2px var(--disable-glow);
+    border: 2px solid #fff7c0;
     letter-spacing: 1px;
-    opacity: 0.85;
-    border: 1.5px solid #fff7c0;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
 }
 
-/* Nút trạng thái vô hiệu hóa - NỔI BẬT HƠN */
+/* Nút trạng thái vô hiệu hóa - nổi bật */
 .status-btn.disable {
     color: var(--disable-color);
     background: #232000;
     border-radius: 50%;
     border: 2px solid var(--disable-color);
     margin-left: 3px;
-    box-shadow: 0 0 0 1.5px #fff7c0;
-    font-size: 1.25rem;
+    box-shadow: 0 0 0 2.5px #fff7c0, 0 0 12px 0 var(--disable-glow);
+    font-size: 1.3rem;
     position: relative;
+    z-index: 2;
+    transition: filter 0.2s, box-shadow 0.2s;
 }
 .status-btn.disable.disabled {
     background: var(--disable-color);
     color: #222 !important;
     border: 2px solid #fff7c0;
-    box-shadow: 0 0 7px 2.5px var(--disable-color);
+    box-shadow: 0 0 12px 3px var(--disable-glow);
     animation: disablePulse 1.2s infinite alternate;
 }
 @keyframes disablePulse {
-    0% { box-shadow: 0 0 7px 2.5px var(--disable-color); }
-    100% { box-shadow: 0 0 13px 4px #fff7c0; }
+    0% { box-shadow: 0 0 12px 3px var(--disable-glow); }
+    100% { box-shadow: 0 0 18px 5px #fff7c0; }
 }
 
-/* Nút trái tim giữ nguyên */
-.status-btn.alive { color: var(--safe-color); }
-.status-btn.dead { color: var(--danger-color); }
+/* Nút trái tim xanh nổi bật */
+.status-btn.life {
+    background: #10291b;
+    border-radius: 50%;
+    border: 2px solid var(--safe-color);
+    margin-left: 3px;
+    font-size: 1.3rem;
+    position: relative;
+    box-shadow: 0 0 0 2.5px #b9ffd8, 0 0 6px 2px var(--alive-glow);
+    z-index: 2;
+    transition: filter 0.2s, box-shadow 0.2s;
+}
+.status-btn.life.alive {
+    color: var(--safe-color);
+    background: #10291b;
+    box-shadow: 0 0 15px 3px var(--alive-glow), 0 0 0 2.5px #b9ffd8;
+    animation: alivePulse 1.2s infinite alternate;
+}
+.status-btn.life.dead {
+    color: var(--danger-color);
+    background: #3c1010;
+    border-color: var(--danger-color);
+    box-shadow: 0 0 12px 3px var(--dead-glow), 0 0 0 2.5px #ffc2c2;
+    animation: deadPulse 1.2s infinite alternate;
+}
+@keyframes alivePulse {
+    0% { box-shadow: 0 0 15px 3px var(--alive-glow), 0 0 0 2.5px #b9ffd8; }
+    100% { box-shadow: 0 0 24px 6px #66ffc2, 0 0 0 4px #b9ffd8; }
+}
+@keyframes deadPulse {
+    0% { box-shadow: 0 0 12px 3px var(--dead-glow), 0 0 0 2.5px #ffc2c2; }
+    100% { box-shadow: 0 0 24px 8px #ffb6b6, 0 0 0 4px #ffc2c2; }
+}
 
+/* Luôn hiện player-status-controls kể cả khi đã chết/disable */
+.player-row.status-dead .player-status-controls,
+.player-row.status-disabled .player-status-controls {
+    display: flex !important;
+    opacity: 1 !important;
+}
+
+.player-status-controls { 
+    flex-shrink: 0; display: flex; gap: 7px;
+    z-index: 2;
+    position: relative;
+}
+.player-header {
+    display: flex; flex-wrap: wrap; align-items: center;
+    width: 100%; gap: 10px; position: relative;
+}
+
+/* Các trạng thái khác giữ nguyên */
 .player-row.status-danger { background-color: rgba(231, 76, 60, 0.2); }
 .player-row.status-protected { background-color: rgba(46, 204, 113, 0.2); }
 .player-row.status-dead-calculated {
@@ -165,14 +221,9 @@ button:hover { filter: brightness(1.1); }
 }
 .player-row.status-dead-calculated .player-name { text-decoration: line-through; }
 
-.player-header {
-    display: flex; flex-wrap: wrap; align-items: center;
-    width: 100%; gap: 10px; position: relative;
-}
 .player-info { flex: 1 1 150px; }
 .player-info .player-name { font-size: 1.2rem; font-weight: 700; }
 .player-info .player-role { font-size: 0.9rem; opacity: 0.7; }
-.player-status-controls { flex-shrink: 0; display: flex; gap: 5px; }
 .status-btn {
     font-size: 1.2rem; background: none; border: none;
     padding: 5px; cursor: pointer; color: var(--light-text);
