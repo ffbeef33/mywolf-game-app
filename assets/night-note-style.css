@@ -18,6 +18,16 @@
     --font-main: 'Roboto', 'Segoe UI', 'Arial', sans-serif;
     --font-display: 'Montserrat', 'Segoe UI', 'Arial', sans-serif;
     --border-radius: 12px;
+
+    /* Màu tương tác đêm */
+    --action-protect-bg: #1d3350;
+    --action-protect: #58a6ff;
+    --action-save-bg: #163d22;
+    --action-save: #2ecc71;
+    --action-disable-bg: #fff7c0;
+    --action-disable: #ffd33d;
+    --action-danger-bg: #3c1010;
+    --action-danger: #f85149;
 }
 body {
     font-family: var(--font-main);
@@ -79,6 +89,7 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     background-color: #c73c3c !important;
 }
 
+/* --- Faction Header --- */
 .faction-header {
     width: 100%;
     padding: 8px 10px;
@@ -102,6 +113,7 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     border-bottom-color: var(--neutral-color);
 }
 
+/* --- Player Row --- */
 .player-row {
     display: flex; flex-direction: column; align-items: flex-start;
     padding: 15px 10px; border-bottom: 1px solid var(--border-color);
@@ -216,8 +228,29 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     display: flex; flex-wrap: wrap; align-items: center;
     width: 100%; gap: 10px; position: relative;
 }
-.player-row.status-danger { background-color: rgba(248, 81, 73, 0.18); }
-.player-row.status-protected { background-color: rgba(88, 166, 255, 0.14); }
+
+/* --- Hiển thị trạng thái tương tác đêm --- */
+.player-row.status-protected {
+    background-color: var(--action-protect-bg) !important;
+    box-shadow: 0 0 6px 3px var(--action-protect);
+    border-left: 5px solid var(--action-protect);
+}
+.player-row.status-saved {
+    background-color: var(--action-save-bg) !important;
+    box-shadow: 0 0 6px 3px var(--action-save);
+    border-left: 5px solid var(--action-save);
+}
+.player-row.status-disabled {
+    background-color: var(--action-disable-bg) !important;
+    box-shadow: 0 0 6px 3px var(--action-disable);
+    border-left: 5px solid var(--action-disable);
+}
+.player-row.status-danger {
+    background-color: var(--action-danger-bg) !important;
+    box-shadow: 0 0 6px 3px var(--action-danger);
+    border-left: 5px solid var(--action-danger);
+}
+
 .player-row.status-dead-calculated {
     background-color: rgba(248, 81, 73, 0.34) !important;
     border: 1px solid var(--danger-color);

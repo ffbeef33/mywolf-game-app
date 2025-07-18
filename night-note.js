@@ -59,7 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Logic ---
     const calculateNightStatus = (nightState) => {
         if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [] };
-        // Đảm bảo nightState.actions là mảng
         if (!Array.isArray(nightState.actions)) nightState.actions = [];
         const statuses = {};
         const finalStatus = JSON.parse(JSON.stringify(nightState.playersStatus));
@@ -97,21 +96,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const render = () => {
         interactionTable.innerHTML = '';
         const nightState = nightStates[activeNightIndex];
-        // Nếu nightState không tồn tại, hiển thị thông báo và return
         if (!nightState) {
             nightResultsDiv.innerHTML = '<p>Chưa có đêm nào bắt đầu.</p>';
             nightTabsContainer.innerHTML = '';
             return;
         }
         const { liveStatuses } = calculateNightStatus(nightState);
-
         const groupedPlayers = roomPlayers.reduce((acc, player) => {
             const faction = player.faction || 'Chưa phân loại';
             if (!acc[faction]) acc[faction] = [];
             acc[faction].push(player);
             return acc;
         }, {});
-
         const sortedFactions = Object.keys(groupedPlayers).sort((a, b) => {
             const aIsWolf = a.toLowerCase().includes('sói');
             const bIsWolf = b.toLowerCase().includes('sói');
@@ -171,18 +167,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Cập nhật: Nút vô hiệu và sống/chết luôn hiển thị, label VÔ HIỆU nằm cạnh nút ---
+    // --- Cập nhật: Màu sắc tương tác trạng thái đêm ---
     const createPlayerRow = (player, playerState, liveStatus, isFinished) => {
         const row = document.createElement('div');
         row.className = 'player-row';
         row.dataset.playerId = player.id;
+
+        // Trạng thái cơ bản
         if (!playerState.isAlive) row.classList.add('status-dead');
         if (playerState.isDisabled) row.classList.add('status-disabled');
+
+        // Trạng thái tương tác đêm (ưu tiên: bảo vệ, cứu, vô hiệu, nguy hiểm)
         if (liveStatus) {
-            if (liveStatus.isInDanger) row.classList.add('status-danger');
-            if (liveStatus.isProtected) row.classList.add('status-protected');
-            if (isFinished && liveStatus.isDead) row.classList.add('status-dead-calculated');
+            // Nếu bảo vệ thì ưu tiên hiển thị màu xanh dương
+            if (liveStatus.isProtected) {
+                row.classList.add('status-protected');
+            }
+            // Nếu được cứu thì ưu tiên màu xanh lá (nếu không bảo vệ)
+            else if (liveStatus.isHealed) {
+                row.classList.add('status-saved');
+            }
+            // Nếu bị vô hiệu thì màu vàng (ưu tiên sau bảo vệ/cứu)
+            if (playerState.isDisabled) {
+                row.classList.add('status-disabled');
+            }
+            // Nếu đang nguy hiểm (bị giết chưa được bảo vệ/cứu) thì màu đỏ
+            if (liveStatus.isInDanger && !liveStatus.isProtected && !liveStatus.isHealed) {
+                row.classList.add('status-danger');
+            }
+            // Nếu đã chết (sau khi kết thúc đêm), thêm hiệu ứng đã chết
+            if (isFinished && liveStatus.isDead) {
+                row.classList.add('status-dead-calculated');
+            }
         }
+
         let optionsHTML = '';
         for (const groupName in ACTIONS_CONFIG) {
             const group = ACTIONS_CONFIG[groupName];
@@ -332,7 +350,6 @@ document.addEventListener('DOMContentLoaded', () => {
         roomId = _roomId;
         roomIdDisplay.textContent = roomId;
         await fetchAllRolesData();
-        // Đọc nightNotes từ Firebase (nếu có)
         database.ref(`rooms/${roomId}/nightNotes`).once('value', (snapshot) => {
             const notes = snapshot.val();
             if (notes && Array.isArray(notes)) {
