@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let nightStates = [];
     let activeNightIndex = 0;
     let nextActionId = 0;
+    let roomId = null;
 
     // --- Data Fetching ---
     const fetchAllRolesData = async () => {
@@ -50,6 +51,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // --- SAVE NIGHT NOTE TO FIREBASE ---
+    function saveNightNotes() {
+        if (roomId) database.ref(`rooms/${roomId}/nightNotes`).set(nightStates);
+    }
+
     // --- Logic ---
     const calculateNightStatus = (nightState) => {
         if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [] };
@@ -58,7 +64,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const alivePlayerIds = Object.keys(finalStatus).filter(pId => finalStatus[pId].isAlive);
         alivePlayerIds.forEach(pId => { statuses[pId] = { damage: 0, isProtected: false, isHealed: false, hasArmor: false, isInDanger: false, isDead: false }; });
         nightState.actions.forEach(({ action, targetId, actorId }) => {
-            // Nếu actor bị disable, action không tác dụng
             if (nightState.playersStatus[actorId]?.isDisabled) return;
             if (!statuses[targetId]) return;
             const config = ALL_ACTIONS[action];
@@ -85,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         return { liveStatuses: statuses, finalStatus, deadPlayerNames };
     };
-    
+
     // --- Rendering ---
     const render = () => {
         interactionTable.innerHTML = '';
@@ -98,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
             acc[faction].push(player);
             return acc;
         }, {});
-        
+
         const sortedFactions = Object.keys(groupedPlayers).sort((a, b) => {
             const aIsWolf = a.toLowerCase().includes('sói');
             const bIsWolf = b.toLowerCase().includes('sói');
@@ -115,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (factionName.toLowerCase().includes('trung lập')) header.classList.add('faction-neutral');
             header.textContent = factionName;
             interactionTable.appendChild(header);
-            
+
             playersInFaction.sort((a, b) => a.name.localeCompare(b.name)).forEach(player => {
                 const playerState = nightState ? nightState.playersStatus[player.id] : { isAlive: player.isAlive, isDisabled: false };
                 const lStatus = nightState ? liveStatuses[player.id] : null;
@@ -124,7 +129,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         renderNightTabs();
-        
+
+        // Thêm nút xóa night note cho quản trò
+        let deleteBtn = document.getElementById('delete-nightnote-btn');
+        if (!deleteBtn) {
+            deleteBtn = document.createElement('button');
+            deleteBtn.id = "delete-nightnote-btn";
+            deleteBtn.className = "btn-danger";
+            deleteBtn.textContent = "Xóa Night Note";
+            deleteBtn.style.marginBottom = "10px";
+            interactionTable.parentNode.insertBefore(deleteBtn, interactionTable);
+            deleteBtn.addEventListener('click', function() {
+                if (confirm('Bạn có chắc chắn muốn xóa toàn bộ night note không?')) {
+                    nightStates = [];
+                    activeNightIndex = 0;
+                    saveNightNotes();
+                    render();
+                }
+            });
+        }
+
         if (nightState) {
             const { deadPlayerNames } = calculateNightStatus(nightState);
             if (nightState.isFinished) {
@@ -224,6 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 isFinished: false
             });
             activeNightIndex = nightStates.length - 1;
+            saveNightNotes();
             render();
             return;
         }
@@ -243,11 +268,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 nightState.actions = [];
                 nightState.isFinished = false;
                 nightState.playersStatus = JSON.parse(JSON.stringify(nightState.initialPlayersStatus));
+                saveNightNotes();
                 render();
             }
         } else if (target.closest('#end-night-btn')) {
             if (!nightState.isFinished && confirm(`Bạn có chắc muốn kết thúc Đêm ${activeNightIndex + 1}?`)) {
                 nightState.isFinished = true;
+                saveNightNotes();
                 render();
             }
         } else {
@@ -263,6 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             actor.actionUses[actionKey]--;
                         }
                         nightState.actions.push({ id: nextActionId++, actorId, action: actionKey, targetId });
+                        saveNightNotes();
                         render();
                     }
                 } else if (target.closest('.remove-action-btn')) {
@@ -275,50 +303,62 @@ document.addEventListener('DOMContentLoaded', () => {
                             player.actionUses[actionToRestore.action]++;
                         }
                         nightState.actions.splice(actionIndex, 1);
+                        saveNightNotes();
                         render();
                     }
                 } else if (target.closest('.status-btn.life')) {
                     nightState.playersStatus[actorId].isAlive = !nightState.playersStatus[actorId].isAlive;
+                    saveNightNotes();
                     render();
                 } else if (target.closest('.status-btn.disable')) {
                     nightState.playersStatus[actorId].isDisabled = !nightState.playersStatus[actorId].isDisabled;
+                    saveNightNotes();
                     render();
                 }
             }
         }
     };
-    
+
     // --- Initialization ---
-    const initialize = async (roomId) => {
+    const initialize = async (_roomId) => {
+        roomId = _roomId;
         roomIdDisplay.textContent = roomId;
         await fetchAllRolesData();
-        const roomRef = database.ref(`rooms/${roomId}/players`);
-        roomRef.once('value', (snapshot) => {
-            const playersData = snapshot.val();
-            if (playersData) {
-                roomPlayers = Object.keys(playersData).map(key => {
-                    const originalData = playersData[key];
-                    const roleName = (originalData.roleName || '').trim();
-                    const player = { id: key, ...originalData, faction: allRolesData[roleName] || 'Chưa phân loại', actionUses: {} };
-                    for (const actionKey in ALL_ACTIONS) {
-                        player.actionUses[actionKey] = ALL_ACTIONS[actionKey].uses;
-                    }
-                    return player;
-                });
-                document.addEventListener('click', handleEvents);
-                render();
-            } else {
-                interactionTable.innerHTML = '<p>Không tìm thấy dữ liệu người chơi trong phòng này.</p>';
+        // Đọc nightNotes từ Firebase (nếu có)
+        database.ref(`rooms/${roomId}/nightNotes`).once('value', (snapshot) => {
+            const notes = snapshot.val();
+            if (notes && Array.isArray(notes)) {
+                nightStates = notes;
             }
-        }, (error) => {
-            console.error(error);
-            interactionTable.innerHTML = '<p>Lỗi khi tải dữ liệu phòng từ Firebase.</p>';
+        }).then(() => {
+            const roomRef = database.ref(`rooms/${roomId}/players`);
+            roomRef.once('value', (snapshot) => {
+                const playersData = snapshot.val();
+                if (playersData) {
+                    roomPlayers = Object.keys(playersData).map(key => {
+                        const originalData = playersData[key];
+                        const roleName = (originalData.roleName || '').trim();
+                        const player = { id: key, ...originalData, faction: allRolesData[roleName] || 'Chưa phân loại', actionUses: {} };
+                        for (const actionKey in ALL_ACTIONS) {
+                            player.actionUses[actionKey] = ALL_ACTIONS[actionKey].uses;
+                        }
+                        return player;
+                    });
+                    document.addEventListener('click', handleEvents);
+                    render();
+                } else {
+                    interactionTable.innerHTML = '<p>Không tìm thấy dữ liệu người chơi trong phòng này.</p>';
+                }
+            }, (error) => {
+                console.error(error);
+                interactionTable.innerHTML = '<p>Lỗi khi tải dữ liệu phòng từ Firebase.</p>';
+            });
         });
     };
 
-    const roomId = new URLSearchParams(window.location.search).get('roomId');
-    if (roomId) {
-        initialize(roomId);
+    const urlRoomId = new URLSearchParams(window.location.search).get('roomId');
+    if (urlRoomId) {
+        initialize(urlRoomId);
     } else {
         document.body.innerHTML = '<h1>Lỗi: Không tìm thấy ID phòng trong URL.</h1>';
     }

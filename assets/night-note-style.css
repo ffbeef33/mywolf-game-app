@@ -1,18 +1,17 @@
 :root {
-    /* Chủ đạo giống giao diện GitHub Copilot dark */
-    --primary-bg: #0d1117;          /* Nền chính */
-    --secondary-bg: #161b22;        /* Nền card & vùng phụ */
-    --card-bg: #161b22;             /* Card, modal */
-    --text-color: #58a6ff;          /* Màu chữ chính - xanh dương Copilot */
-    --light-text: #c9d1d9;          /* Màu chữ phụ */
-    --button-bg: #238636;           /* Nút xanh lá nổi bật */
-    --border-color: #30363d;        /* Viền xám */
-    --danger-color: #f85149;        /* Đỏ cảnh báo */
-    --safe-color: #238636;          /* Xanh lá nổi bật */
-    --protect-color: #58a6ff;       /* Xanh dương bảo vệ */
-    --neutral-color: #d29922;       /* Vàng trung lập */
-    --disable-color: #ffd33d;       /* Vàng disable */
-    --disable-bg: #2b2a1e;          /* Nền vàng nâu cho disable */
+    --primary-bg: #0d1117;
+    --secondary-bg: #161b22;
+    --card-bg: #161b22;
+    --text-color: #58a6ff;
+    --light-text: #c9d1d9;
+    --button-bg: #238636;
+    --border-color: #30363d;
+    --danger-color: #f85149;
+    --safe-color: #238636;
+    --protect-color: #58a6ff;
+    --neutral-color: #d29922;
+    --disable-color: #ffd33d;
+    --disable-bg: #2b2a1e;
     --alive-glow: #58a6ff;
     --dead-glow: #f85149;
     --disable-glow: #ffd33d;
@@ -63,8 +62,14 @@ button {
 button:hover { filter: brightness(1.1); background-color: #2ea043; }
 .btn-end-night { background-color: var(--protect-color); }
 #reset-night-btn { background-color: #484f58; }
+.btn-danger {
+    background-color: var(--danger-color) !important;
+    color: #fff !important;
+}
+.btn-danger:hover {
+    background-color: #c73c3c !important;
+}
 
-/* TIÊU ĐỀ PHE PHÁI */
 .faction-header {
     width: 100%;
     padding: 8px 10px;
@@ -95,16 +100,12 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     background: transparent;
 }
 .player-row:last-child { border-bottom: none; }
-/* Sửa đổi: Vẫn làm mờ dòng khi chết nhưng KHÔNG ẩn .player-status-controls */
 .player-row.status-dead { opacity: 0.4; background-color: #161b22; }
 .player-row.status-dead .action-controls { display: none; }
-/* Ghi đè: Luôn hiện player-status-controls kể cả khi đã chết */
 .player-row.status-dead .player-status-controls { 
     display: flex !important; 
     opacity: 1 !important;
 }
-
-/* Vô hiệu hóa người chơi - hiệu ứng mới, label không che nút */
 .player-row.status-disabled {
     border-left: 6px solid var(--disable-color);
     background-color: var(--disable-bg) !important;
@@ -137,8 +138,6 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     z-index: 1;
     pointer-events: none;
 }
-
-/* Nút trạng thái vô hiệu hóa - nổi bật */
 .status-btn.disable {
     color: var(--disable-color);
     background: #232000;
@@ -162,8 +161,6 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     0% { box-shadow: 0 0 12px 3px var(--disable-glow); }
     100% { box-shadow: 0 0 18px 5px #fff7c0; }
 }
-
-/* Nút trái tim xanh nổi bật */
 .status-btn.life {
     background: #10291b;
     border-radius: 50%;
@@ -196,14 +193,11 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     0% { box-shadow: 0 0 12px 3px var(--dead-glow), 0 0 0 2.5px #f85149; }
     100% { box-shadow: 0 0 24px 8px #ffb6b6, 0 0 0 4px #f85149; }
 }
-
-/* Luôn hiện player-status-controls kể cả khi đã chết/disable */
 .player-row.status-dead .player-status-controls,
 .player-row.status-disabled .player-status-controls {
     display: flex !important;
     opacity: 1 !important;
 }
-
 .player-status-controls { 
     flex-shrink: 0; display: flex; gap: 7px;
     z-index: 2;
@@ -213,8 +207,6 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     display: flex; flex-wrap: wrap; align-items: center;
     width: 100%; gap: 10px; position: relative;
 }
-
-/* Các trạng thái khác giữ nguyên */
 .player-row.status-danger { background-color: rgba(248, 81, 73, 0.18); }
 .player-row.status-protected { background-color: rgba(88, 166, 255, 0.14); }
 .player-row.status-dead-calculated {
@@ -222,7 +214,6 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     border: 1px solid var(--danger-color);
 }
 .player-row.status-dead-calculated .player-name { text-decoration: line-through; }
-
 .player-info { flex: 1 1 150px; }
 .player-info .player-name { font-size: 1.2rem; font-weight: 700; }
 .player-info .player-role { font-size: 0.9rem; opacity: 0.7; }
@@ -247,7 +238,6 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
 option:disabled {
     color: #666;
 }
-
 .add-action-btn { padding: 8px 12px; flex-shrink: 0; }
 .action-list { width: 100%; padding-left: 15px; margin-top: 15px; }
 .action-item {
