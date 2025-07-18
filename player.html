@@ -7,14 +7,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <!-- THÊM MỚI: Thư viện icon Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="assets/player-style.css">
 </head>
 <body>
     <div class="container">
-        <!-- KHU VỰC ĐĂNG NHẬP -->
-        <section id="login-section" class="card">
+        <!-- KHU VỰC ĐĂNG NHẬP (Chỉ hiện nếu chưa có session) -->
+        <section id="login-section" class="card hidden">
             <header class="card-header">
                 <h1><span aria-hidden="true">🐺</span> Vào Game</h1>
             </header>
@@ -22,7 +21,6 @@
                 <label for="password-input">Mật Khẩu Của Bạn</label>
                 <input type="password" id="password-input" placeholder="Nhập mật khẩu đã đăng ký...">
             </div>
-            <!-- Đã đổi nút thành Vào Game, bỏ "Tìm và Vào Game" -->
             <button id="login-btn">Vào Game</button>
             <p id="login-error" class="error-message"></p>
         </section>
@@ -40,7 +38,6 @@
                     <div id="waiting-section" class="game-card waiting-card">
                         <div class="spinner"></div>
                         <h2>Đang chờ Quản Trò...</h2>
-                        <!-- Thêm đoạn thông báo chờ động -->
                         <p class="waiting-message">Đang chờ quản trò tạo phòng và thêm bạn vào phòng...</p>
                         <p>Vai trò của bạn sẽ sớm được tiết lộ.</p>
                     </div>
@@ -62,7 +59,6 @@
                                 <p>Chạm để khám phá vai trò</p>
                             </div>
                             <div class="card-back">
-                                <!-- THÊM MỚI: Vị trí cho icon phe -->
                                 <i id="role-icon" class="role-icon"></i>
                                 <h2 id="role-name">Tên Vai Trò</h2>
                                 <p id="role-faction" class="role-faction"></p>
@@ -92,6 +88,21 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script>
+    // Tự động ẩn login-section nếu đã có session
+    document.addEventListener('DOMContentLoaded', function() {
+        var username = sessionStorage.getItem('mywolf_username');
+        var loginSection = document.getElementById('login-section');
+        var gameSection = document.getElementById('game-section');
+        if (username) {
+            loginSection.classList.add('hidden');
+            gameSection.classList.remove('hidden');
+        } else {
+            loginSection.classList.remove('hidden');
+            gameSection.classList.add('hidden');
+        }
+    });
+    </script>
     <script src="player.js"></script>
 </body>
 </html>
