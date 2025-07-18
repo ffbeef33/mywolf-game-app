@@ -1,7 +1,6 @@
 // =================================================================
-// === player.js - PHIÊN BẢN NÂNG CẤP GIAO DIỆN VỚI ICON & MÀU MỚI ===
-console.log("ĐANG CHẠY player.js PHIÊN BẢN ICON & MÀU MỚI!");
-// =================================================================
+// === player.js - FIX: BỎ GIAO DIỆN TÌM VÀ VÀO GAME, ĐĂNG NHẬP VÀO THẲNG CHẾ ĐỘ CHỜ PHÒNG ===
+console.log("ĐANG CHẠY player.js PHIÊN BẢN FIX FLOW ĐĂNG NHẬP!");
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Firebase Configuration ---
@@ -41,7 +40,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let roomListener = null;
     let pickTimerInterval = null;
-    let searchInterval = null;
     let currentRoomId = null;
     let allRolesData = [];
 
@@ -75,23 +73,35 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password })
+                body: JSON.stringify({ password, action: 'login' })
             });
             const userData = await response.json();
             if (!userData.success) throw new Error(userData.message || 'Mật khẩu không hợp lệ.');
             
             sessionStorage.setItem('mywolf_username', userData.username);
-            startPeriodicRoomSearch(userData.username);
+            loginSection.classList.add('hidden');
+            gameSection.classList.remove('hidden');
+            playerNameDisplay.textContent = userData.username;
+            showSection(waitingSection);
+            waitingSection.querySelector('.waiting-message').textContent = "Đang chờ quản trò tạo phòng và thêm bạn vào phòng...";
+            listenForRoomCreated(userData.username);
 
         } catch (error) {
-            goBackToLogin(error.message);
+            loginError.textContent = error.message || 'Đăng nhập thất bại.';
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Vào Game';
         }
     };
 
     const checkSessionAndAutoLogin = () => {
         const username = sessionStorage.getItem('mywolf_username');
         if (username) {
-            startPeriodicRoomSearch(username);
+            loginSection.classList.add('hidden');
+            gameSection.classList.remove('hidden');
+            playerNameDisplay.textContent = username;
+            showSection(waitingSection);
+            waitingSection.querySelector('.waiting-message').textContent = "Đang chờ quản trò tạo phòng và thêm bạn vào phòng...";
+            listenForRoomCreated(username);
         } else {
             loginSection.classList.remove('hidden');
             gameSection.classList.add('hidden');
@@ -102,54 +112,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const cleanup = () => {
         if (roomListener && currentRoomId) database.ref(`rooms/${currentRoomId}`).off('value', roomListener);
         if (pickTimerInterval) clearInterval(pickTimerInterval);
-        if (searchInterval) clearInterval(searchInterval);
-        roomListener = pickTimerInterval = searchInterval = currentRoomId = null;
+        roomListener = pickTimerInterval = currentRoomId = null;
     };
 
-    const goBackToLogin = (message) => {
+    function listenForRoomCreated(username) {
         cleanup();
-        gameSection.classList.add('hidden');
-        loginSection.classList.remove('hidden');
-        loginError.textContent = message;
-        passwordInput.value = '';
-        loginBtn.disabled = false;
-        loginBtn.textContent = 'Tìm và Vào Game';
-    };
-
-    const startPeriodicRoomSearch = (username) => {
-        cleanup();
-        loginSection.classList.add('hidden');
-        gameSection.classList.remove('hidden');
-        playerNameDisplay.textContent = username;
-        showSection(waitingSection);
-        rolesInGameDisplay.classList.add('hidden');
-
-        const scanForRoom = async () => {
-            try {
-                const roomsRef = database.ref('rooms');
-                const snapshot = await roomsRef.get();
-                const allRooms = snapshot.val();
-                let foundRoomId = null;
-                if (allRooms) {
-                    for (const roomId in allRooms) {
-                        if (allRooms[roomId].players && Object.values(allRooms[roomId].players).some(p => p.name === username)) {
-                            foundRoomId = roomId;
-                            break;
-                        }
+        // Lắng nghe khi có phòng chứa username
+        const roomsRef = database.ref('rooms');
+        roomsRef.on('value', function(snapshot) {
+            const allRooms = snapshot.val();
+            let foundRoomId = null;
+            if (allRooms) {
+                for (const roomId in allRooms) {
+                    if (allRooms[roomId].players && Object.values(allRooms[roomId].players).some(p => p.name === username)) {
+                        foundRoomId = roomId;
+                        break;
                     }
                 }
-                if (foundRoomId) {
-                    clearInterval(searchInterval);
-                    searchInterval = null;
-                    attachListenerToSpecificRoom(username, foundRoomId);
-                }
-            } catch (error) {
-                console.error("Lỗi khi quét phòng:", error);
             }
-        };
-        scanForRoom();
-        searchInterval = setInterval(scanForRoom, 5000);
-    };
+            if (foundRoomId) {
+                roomsRef.off(); // Dừng lắng nghe tổng thể khi đã vào phòng
+                attachListenerToSpecificRoom(username, foundRoomId);
+            }
+        });
+    }
 
     function attachListenerToSpecificRoom(username, roomId) {
         currentRoomId = roomId;
@@ -159,11 +145,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (roomData) {
                 updateGameState(username, roomId, roomData);
             } else {
-                startPeriodicRoomSearch(username);
+                showSection(waitingSection);
+                waitingSection.querySelector('.waiting-message').textContent = "Phòng đã bị xóa, vui lòng liên hệ quản trò!";
             }
         }, (error) => {
             console.error("Firebase listener error:", error);
-            goBackToLogin('Mất kết nối với phòng chơi.');
+            showSection(waitingSection);
+            waitingSection.querySelector('.waiting-message').textContent = "Mất kết nối với phòng chơi.";
         });
     }
 
@@ -173,7 +161,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const myPlayer = Object.values(roomData.players).find(p => p.name === username);
         if (!myPlayer) {
-            startPeriodicRoomSearch(username);
+            showSection(waitingSection);
+            waitingSection.querySelector('.waiting-message').textContent = "Bạn đã bị loại khỏi phòng hoặc chưa được thêm vào phòng!";
             return;
         }
 
@@ -186,6 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
             handlePlayerPickState(username, roomId, roomData.playerPickState);
         } else {
             showSection(waitingSection);
+            waitingSection.querySelector('.waiting-message').textContent = "Chờ quản trò bắt đầu chia vai...";
         }
     }
     
@@ -251,7 +241,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const factionTitle = document.createElement('h4');
                 factionTitle.className = 'faction-title';
-                // THÊM MỚI: Chèn icon vào tiêu đề phe
                 factionTitle.innerHTML = `<i class="${factionIcon}"></i> ${faction}`;
                 factionBox.appendChild(factionTitle);
 
@@ -342,8 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
             iconClass = 'fa-solid fa-person-circle-question';
         }
         
-        roleIconEl.className = `role-icon ${iconClass}`; // Gán lại class cho icon
-        // Lấy màu từ CSS variable và gán cho icon
+        roleIconEl.className = `role-icon ${iconClass}`;
         const factionColorVar = `--${roleFactionEl.classList[1]}-color`;
         roleIconEl.style.color = getComputedStyle(document.documentElement).getPropertyValue(factionColorVar);
     }
