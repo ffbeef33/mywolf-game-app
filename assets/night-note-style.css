@@ -28,6 +28,8 @@
     --action-disable: #ffd33d;
     --action-danger-bg: #3c1010;
     --action-danger: #f85149;
+    --wolf-header-border: #f85149;
+    --wolf-header-bg: #1d3350;
 }
 body {
     font-family: var(--font-main);
@@ -92,26 +94,27 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
 /* --- Faction Header --- */
 .faction-header {
     width: 100%;
-    padding: 8px 10px;
-    margin-top: 20px;
+    padding: 10px 14px;
+    margin-top: 28px;
     background-color: var(--card-bg);
     border-bottom: 2px solid var(--border-color);
     font-family: var(--font-display);
-    font-size: 1.2rem;
+    font-size: 1.22rem;
     font-weight: 700;
     color: var(--light-text);
-}
-.faction-header:first-child {
-    margin-top: 0;
+    letter-spacing: 0.5px;
+    border-radius: 9px 9px 0 0;
 }
 .faction-header.faction-wolf {
     color: var(--danger-color);
-    border-bottom-color: var(--danger-color);
+    border-bottom-color: var(--wolf-header-border);
+    background: linear-gradient(90deg, var(--wolf-header-bg) 60%, var(--card-bg) 100%);
 }
 .faction-header.faction-neutral {
     color: var(--neutral-color);
     border-bottom-color: var(--neutral-color);
 }
+.faction-header + .faction-header { margin-top: 32px; }
 
 /* --- Player Row --- */
 .player-row {
@@ -368,127 +371,6 @@ option:disabled {
 }
 
 /* --- TỐI ƯU PHẦN CHUYỂN PHE --- */
-.change-faction-btn {
-    background: linear-gradient(135deg, #23272f 70%, #484f58 100%);
-    color: #fff;
-    border: none;
-    border-radius: 7px;
-    padding: 6px 16px;
-    font-size: 1rem;
-    font-family: var(--font-main);
-    font-weight: 600;
-    margin-left: 10px;
-    margin-top: 2px;
-    box-shadow: 0 1px 6px 0 #181a2055;
-    cursor: pointer;
-    transition: background 0.16s, box-shadow 0.18s;
-    outline: none;
-}
-.change-faction-btn:hover, .change-faction-btn:focus {
-    background: linear-gradient(135deg, #484f58 80%, #23272f 100%);
-    box-shadow: 0 0 0 2px var(--protect-color), 0 1px 8px 0 #181a2050;
-}
-
-.player-faction-select {
-    background: #1a1d22;
-    color: #b5cdfb;
-    border: 1px solid #30363d;
-    border-radius: 8px;
-    font-size: 0.97rem;
-    font-family: var(--font-main);
-    margin-left: 10px;
-    padding: 6px 14px;
-    margin-top: 2px;
-    box-shadow: 0 1px 6px 0 #2223;
-    outline: none;
-    transition: border 0.16s, box-shadow 0.18s;
-}
-.player-faction-select:focus {
-    border-color: var(--text-color);
-    box-shadow: 0 0 0 2px var(--text-color), 0 1px 8px 0 #181a2050;
-}
-.player-faction-select option {
-    background: #21262c;
-    color: #c9d1d9;
-}
-
-/* --- TỐI ƯU PHẦN BẦY SÓI CẮN --- */
-.wolf-bite-group-row {
-    background: linear-gradient(135deg, #1d3350 70%, #161b22 100%);
-    border-radius: 13px;
-    border: 2px solid var(--danger-color);
-    box-shadow: 0 2px 16px 0 #2225;
-    margin-bottom: 20px;
-    padding: 16px 12px 18px 12px;
-}
-.wolf-bite-controls {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 14px;
-    margin-top: 8px;
-    margin-bottom: 12px;
-}
-.wolf-bite-controls label {
-    font-size: 1.08rem;
-    font-family: var(--font-display);
-    color: var(--danger-color);
-    font-weight: 700;
-    margin-right: 8px;
-    letter-spacing: 0.5px;
-}
-.wolf-bite-target-select {
-    min-width: 140px;
-    max-width: 260px;
-    background: #21262c;
-    color: #b5cdfb;
-    border: 2px solid #30363d;
-    border-radius: 9px;
-    font-size: 1.02rem;
-    font-family: var(--font-main);
-    padding: 8px 12px;
-    box-shadow: 0 1px 8px 0 #2223;
-    outline: none;
-    transition: border 0.16s, box-shadow 0.18s;
-}
-.wolf-bite-target-select:focus {
-    border-color: var(--danger-color);
-    box-shadow: 0 0 0 2px var(--danger-color), 0 1px 12px 0 #181a2050;
-}
-.wolf-bite-group-btn {
-    background: linear-gradient(135deg, #f85149 68%, #b6212a 100%);
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    padding: 8px 20px;
-    font-size: 1.07rem;
-    font-family: var(--font-main);
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.16s, box-shadow 0.18s;
-    box-shadow: 0 1px 8px 0 #f8514930;
-    outline: none;
-}
-.wolf-bite-group-btn:hover, .wolf-bite-group-btn:focus {
-    background: linear-gradient(135deg, #b6212a 85%, #f85149 100%);
-    box-shadow: 0 0 0 2px var(--danger-color), 0 1px 12px 0 #f8514940;
-}
-.wolf-bite-group-list {
-    margin-top: 14px;
-    padding-left: 6px;
-}
-.wolf-bite-group-list .action-item {
-    background: #182235;
-    border-radius: 7px;
-    margin-bottom: 6px;
-    padding: 7px 12px;
-    box-shadow: 0 1px 4px 0 #18223555;
-    border-left: 3px solid var(--danger-color);
-    font-weight: 500;
-    color: #f85149;
-    font-size: 1.02rem;
-    transition: background 0.18s, color 0.18s;
-}
 .change-faction-btn {
     background: linear-gradient(135deg, #23272f 70%, #484f58 100%);
     color: #fff;
