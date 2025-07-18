@@ -25,20 +25,25 @@ document.addEventListener('DOMContentLoaded', () => {
         "Bầy Sói",
         "Phe Sói",
         "Phe Dân",
-        "Phe trung lập", // Sử dụng đúng như sheet (chữ thường)
+        "Phe trung lập",
         "Chức năng khác",
         "Chưa phân loại"
     ];
+
+    // <<< THAY ĐỔI 1: GOM "Bầy Sói" và "Phe Sói" vào chung một nhóm hiển thị >>>
     const FACTION_GROUPS = [
-        { display: 'Bầy Sói', factions: ['Bầy Sói'] },
-        { display: 'Phe Sói', factions: ['Phe Sói'] },
+        { display: 'Phe Sói', factions: ['Bầy Sói', 'Phe Sói'] },
         { display: 'Phe Dân', factions: ['Phe Dân'] },
         { display: 'Phe trung lập', factions: ['Phe trung lập'] },
         { display: 'Khác', factions: ['Chức năng khác', 'Chưa phân loại'] }
     ];
+
+    // <<< THAY ĐỔI 2: Cập nhật ACTIONS_CONFIG để đầy đủ và dễ mở rộng hơn >>>
     const ACTIONS_CONFIG = {
         "Bầy Sói": { className: "optgroup-wolf", actions: { 'wolf_bite_group': { label: 'Sói cắn (nhiều mục tiêu)', type: 'damage', uses: Infinity } } },
+        "Phe Sói": { className: "optgroup-wolf", actions: {} }, // Cho các vai Sói khác không thuộc Bầy
         "Phe Dân": { className: "", actions: { 'protect': { label: 'Bảo vệ', type: 'defense', uses: Infinity }, 'save': { label: 'Cứu', type: 'defense', uses: 1 } } },
+        "Phe trung lập": { className: "", actions: {} },
         "Chức năng khác": { className: "", actions: { 'villager_dmg': { label: 'ST Dân', type: 'damage', uses: 1 }, 'other_dmg': { label: 'ST Khác', type: 'damage', uses: Infinity }, 'armor': { label: 'Giáp', type: 'defense', uses: 1 } } }
     };
     const ALL_ACTIONS = Object.values(ACTIONS_CONFIG).reduce((acc, group) => ({ ...acc, ...group.actions }), {});
@@ -108,12 +113,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return { liveStatuses: statuses, finalStatus, deadPlayerNames };
     };
 
-    // --- Action Summary: gom sói cắn + chuyển phe ---
     function buildNightActionSummary(nightState) {
         if (!nightState || !Array.isArray(nightState.actions)) return "<em>Chưa có hành động nào trong đêm này.</em>";
         let result = "";
 
-        // Gom hành động sói cắn
         const wolfBiteActions = nightState.actions.filter(a => a.action === 'wolf_bite_group');
         if (wolfBiteActions.length) {
             const targets = wolfBiteActions.map(a => {
@@ -123,7 +126,6 @@ document.addEventListener('DOMContentLoaded', () => {
             result += `<div class="night-action-summary-item"><strong style="color:#f85149;">Bầy Sói</strong> chọn cắn: ${targets.join(', ')}</div>`;
         }
 
-        // Các hành động khác
         nightState.actions.filter(a => a.action !== 'wolf_bite_group').forEach(({ action, targetId, actorId }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
             const target = roomPlayers.find(p => p.id === targetId);
@@ -135,7 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
             result += `<div class="night-action-summary-item">${text}</div>`;
         });
 
-        // Ghi lại chuyển phe
         if (Array.isArray(nightState.factionChanges)) {
             nightState.factionChanges.forEach(change => {
                 const player = roomPlayers.find(p => p.id === change.playerId);
@@ -162,27 +163,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const { liveStatuses } = calculateNightStatus(nightState);
 
-        // --- Render player table theo nhóm ---
         FACTION_GROUPS.forEach(group => {
             const groupPlayers = roomPlayers.filter(p => group.factions.includes(p.faction));
             if (groupPlayers.length === 0) return;
             const header = document.createElement('div');
             header.className = 'faction-header';
-            if (group.display === 'Bầy Sói' || group.display === 'Phe Sói') header.classList.add('faction-wolf');
+            if (group.display === 'Phe Sói') header.classList.add('faction-wolf');
             if (group.display === 'Phe trung lập') header.classList.add('faction-neutral');
             if (group.display === 'Khác') header.classList.add('faction-other');
             header.textContent = group.display;
             interactionTable.appendChild(header);
 
-            // Nếu là nhóm "Khác" thì thêm khoảng cách tách biệt
             if (group.display === 'Khác') {
                 const separator = document.createElement('div');
                 separator.className = 'faction-separator';
                 interactionTable.appendChild(separator);
             }
 
-            // Chỉ Bầy Sói có dòng hành động cắn chung
-            if (group.display === 'Bầy Sói') {
+            // <<< THAY ĐỔI 3: Sửa điều kiện hiển thị ô "Sói cắn" >>>
+            // Thay vì `group.display === 'Bầy Sói'`, kiểm tra xem nhóm có chứa phe 'Bầy Sói' không.
+            if (group.factions.includes('Bầy Sói')) {
                 const wolfRow = document.createElement('div');
                 wolfRow.className = 'player-row wolf-bite-group-row';
                 wolfRow.innerHTML = `
@@ -220,34 +220,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderNightTabs();
 
-        // --- Night action summary ---
         if (!nightActionSummaryDiv) {
             nightActionSummaryDiv = document.createElement('div');
             nightActionSummaryDiv.id = "night-action-summary";
-            nightActionSummaryDiv.style.margin = "15px 0 0 0";
-            nightActionSummaryDiv.style.padding = "12px";
-            nightActionSummaryDiv.style.background = "#21262c";
-            nightActionSummaryDiv.style.borderRadius = "10px";
-            nightActionSummaryDiv.style.fontSize = "1rem";
-            nightActionSummaryDiv.style.boxShadow = "0 0 6px #2223";
             nightResultsDiv.parentNode.insertBefore(nightActionSummaryDiv, nightResultsDiv.nextSibling);
         }
         nightActionSummaryDiv.style.display = "block";
         nightActionSummaryDiv.innerHTML = `<div style="font-weight:700; color:#58a6ff; margin-bottom:8px;">Tất cả hành động trong đêm:</div>${buildNightActionSummary(nightState)}`;
 
-        // --- GM Note ---
         if (!gmNoteArea) {
             gmNoteArea = document.createElement('textarea');
             gmNoteArea.id = "gm-night-note";
             gmNoteArea.rows = 2;
-            gmNoteArea.style.width = "100%";
-            gmNoteArea.style.margin = "12px 0 5px 0";
-            gmNoteArea.style.padding = "8px";
-            gmNoteArea.style.background = "#21262c";
-            gmNoteArea.style.border = "1px solid #30363d";
-            gmNoteArea.style.borderRadius = "8px";
-            gmNoteArea.style.fontSize = "1rem";
-            gmNoteArea.style.color = "#c9d1d9";
             gmNoteArea.placeholder = "Ghi chú của quản trò cho đêm này...";
             nightResultsDiv.parentNode.insertBefore(gmNoteArea, nightActionSummaryDiv.nextSibling);
         }
@@ -256,7 +240,6 @@ document.addEventListener('DOMContentLoaded', () => {
             gmNoteBtn.id = "save-gm-night-note-btn";
             gmNoteBtn.textContent = "Lưu ghi chú đêm";
             gmNoteBtn.className = "btn-end-night";
-            gmNoteBtn.style.marginBottom = "12px";
             gmNoteArea.parentNode.insertBefore(gmNoteBtn, gmNoteArea.nextSibling);
             gmNoteBtn.onclick = function() {
                 nightStates[activeNightIndex].gmNote = gmNoteArea.value;
@@ -269,7 +252,6 @@ document.addEventListener('DOMContentLoaded', () => {
         gmNoteBtn.style.display = "inline-block";
         gmNoteArea.value = nightState.gmNote || "";
 
-        // --- Nút xóa night note ---
         let deleteBtn = document.getElementById('delete-nightnote-btn');
         if (!deleteBtn) {
             deleteBtn = document.createElement('button');
@@ -287,8 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-
-        // --- Kết quả đêm ---
+        
         if (nightState) {
             const { deadPlayerNames } = calculateNightStatus(nightState);
             if (nightState.isFinished) {
@@ -302,7 +283,6 @@ document.addEventListener('DOMContentLoaded', () => {
             nightResultsDiv.innerHTML = '<p>Chưa có đêm nào bắt đầu.</p>';
         }
 
-        // --- Event cho wolf-bite-group-btn ---
         document.querySelectorAll('.wolf-bite-group-btn').forEach(btn => {
             btn.onclick = function() {
                 const wolfRow = btn.closest('.wolf-bite-group-row');
@@ -321,8 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 render();
             };
         });
-
-        // --- Event xóa hành động sói cắn ---
+        
         document.querySelectorAll('.wolf-bite-group-list .remove-action-btn').forEach(btn => {
             btn.onclick = function(e) {
                 const actionId = parseInt(btn.closest('.action-item').dataset.actionId, 10);
@@ -338,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // --- Màu sắc trạng thái đêm + Button chuyển phe ---
+    // <<< THAY ĐỔI 4: Sửa lại hoàn toàn hàm createPlayerRow để phân tách menu hành động >>>
     function createPlayerRow(player, playerState, liveStatus, isFinished) {
         const row = document.createElement('div');
         row.className = 'player-row';
@@ -353,17 +332,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isFinished && liveStatus.isDead) row.classList.add('status-dead-calculated');
         }
 
-        // Button chuyển phe
-        let factionSelectHTML = `<select class="player-faction-select" style="background:#21262c; color:#c9d1d9; border-radius:7px; margin-left:8px;">${FACTIONS.map(f => `<option value="${f}"${player.faction===f?' selected':''}>${f}</option>`).join('')}</select>`;
-        let changeFactionBtnHTML = `<button class="change-faction-btn" style="margin-left:8px; background:#484f58; color:#fff; border-radius:6px; padding:4px 8px; font-size:0.96rem;">Chuyển phe</button>`;
+        const factionSelectHTML = `<select class="player-faction-select" style="display:none;">${FACTIONS.map(f => `<option value="${f}"${player.faction===f?' selected':''}>${f}</option>`).join('')}</select>`;
+        const changeFactionBtnHTML = `<button class="change-faction-btn">Chuyển phe</button>`;
 
         let optionsHTML = '';
-        for (const groupName in ACTIONS_CONFIG) {
-            if (groupName === "Bầy Sói") continue;
-            const group = ACTIONS_CONFIG[groupName];
-            optionsHTML += `<optgroup label="${groupName}" class="${group.className}">`;
-            for (const actionKey in group.actions) {
-                const action = group.actions[actionKey];
+        const playerActionGroup = ACTIONS_CONFIG[player.faction];
+        if (playerActionGroup && Object.keys(playerActionGroup.actions).length > 0) {
+            optionsHTML += `<optgroup label="Hành động ${player.faction}" class="${playerActionGroup.className || ''}">`;
+            for (const actionKey in playerActionGroup.actions) {
+                const action = playerActionGroup.actions[actionKey];
                 const remainingUses = player.actionUses[actionKey];
                 const isDisabled = remainingUses === 0 || playerState.isDisabled;
                 const label = isDisabled ? `${action.label} (hết lượt)` : action.label;
@@ -371,69 +348,100 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             optionsHTML += `</optgroup>`;
         }
+        
         const livingPlayers = roomPlayers.filter(p => (nightStates[activeNightIndex] ? nightStates[activeNightIndex].playersStatus[p.id]?.isAlive : p.isAlive));
-        const actionControlsHTML = `<div class="action-controls"><select class="action-select"><option value="">-- Chọn hành động --</option>${optionsHTML}</select><select class="target-select"><option value="">-- Chọn mục tiêu --</option>${livingPlayers.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}</select><button class="add-action-btn" title="Thêm hành động"><i class="fas fa-plus"></i></button></div>`;
+        const showActionControls = playerState.isAlive && !isFinished && !playerState.isDisabled && optionsHTML !== '' && player.faction !== 'Bầy Sói';
+        
+        const actionControlsHTML = `
+            <div class="action-controls">
+                <select class="action-select"><option value="">-- Chọn hành động --</option>${optionsHTML}</select>
+                <select class="target-select"><option value="">-- Chọn mục tiêu --</option>${livingPlayers.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}</select>
+                <button class="add-action-btn" title="Thêm hành động"><i class="fas fa-plus"></i></button>
+            </div>`;
+
         let actionListHTML = '<div class="action-list">';
         if (nightStates[activeNightIndex] && Array.isArray(nightStates[activeNightIndex].actions)) {
             nightStates[activeNightIndex].actions.forEach(action => {
                 if (action.actorId === player.id) {
                     const target = roomPlayers.find(p => p.id === action.targetId);
-                    actionListHTML += `<div class="action-item" data-action-id="${action.id}"><i class="fas fa-arrow-right"></i><span class="action-type-${ALL_ACTIONS[action.action]?.type||'custom'}">${ALL_ACTIONS[action.action]?.label||action.action}</span><span class="target-name">${target?.name || 'Không rõ'}</span><button class="remove-action-btn" title="Xóa">&times;</button></div>`;
+                    const actionLabel = ALL_ACTIONS[action.action]?.label || action.action;
+                    const actionType = ALL_ACTIONS[action.action]?.type || 'custom';
+                    actionListHTML += `
+                        <div class="action-item" data-action-id="${action.id}">
+                            <i class="fas fa-arrow-right"></i>
+                            <span class="action-type-${actionType}">${actionLabel}</span>
+                            <span class="target-name">${target?.name || 'Không rõ'}</span>
+                            <button class="remove-action-btn" title="Xóa">&times;</button>
+                        </div>`;
                 }
             });
         }
         actionListHTML += '</div>';
+
         row.innerHTML = `
             <div class="player-header">
                 <div class="player-info">
                     <div class="player-name">${player.name}</div>
-                    <div class="player-role">${player.roleName || 'Chưa có vai'}</div>
-                    ${changeFactionBtnHTML}
-                    ${factionSelectHTML}
+                    <div class="player-role">${player.roleName || 'Chưa có vai'} <span style="font-style:italic; opacity:0.8;">(${player.faction})</span></div>
+                    <div>
+                         ${changeFactionBtnHTML}
+                         ${factionSelectHTML}
+                    </div>
                 </div>
                 <div class="player-status-controls">
                     <button class="status-btn life ${playerState.isAlive ? 'alive' : 'dead'}" title="Sống/Chết"><i class="fas fa-heart"></i></button>
                     <button class="status-btn disable ${playerState.isDisabled ? 'disabled' : 'enabled'}" title="${playerState.isDisabled ? 'Bật lại chức năng' : 'Vô hiệu hóa'}"><i class="fas fa-user-slash"></i></button>
                     ${playerState.isDisabled ? '<span class="disable-label">VÔ HIỆU</span>' : ''}
                 </div>
-                ${(playerState.isAlive && !isFinished && nightStates[activeNightIndex] && !playerState.isDisabled && player.faction !== 'Bầy Sói') ? actionControlsHTML : ''}
+                ${showActionControls ? actionControlsHTML : ''}
             </div>
             ${actionListHTML}
         `;
-
-        // Event chuyển phe
+        
         setTimeout(() => {
-            const btn = row.querySelector('.change-faction-btn');
-            const select = row.querySelector('.player-faction-select');
-            btn.onclick = function() {
-                select.style.display = 'inline-block';
-                select.focus();
-            };
-            select.onchange = function() {
-                // Ghi lại chuyển phe vào nightState
-                const oldFaction = player.faction;
-                player.faction = select.value;
-                if (!Array.isArray(nightStates[activeNightIndex].factionChanges)) {
-                    nightStates[activeNightIndex].factionChanges = [];
-                }
-                nightStates[activeNightIndex].factionChanges.push({
-                    playerId: player.id,
-                    oldFaction: oldFaction,
-                    newFaction: select.value
-                });
-                saveNightNotes();
-                render();
-            };
-        }, 10);
+            const changeFactionBtn = row.querySelector('.change-faction-btn');
+            const factionSelect = row.querySelector('.player-faction-select');
+            
+            if (changeFactionBtn) {
+                changeFactionBtn.onclick = function() {
+                    factionSelect.style.display = 'inline-block';
+                    changeFactionBtn.style.display = 'none';
+                    factionSelect.focus();
+                };
+            }
+            
+            if (factionSelect) {
+                const handleFactionChange = function() {
+                    const oldFaction = player.faction;
+                    const newFaction = factionSelect.value;
+                    
+                    const playerToUpdate = roomPlayers.find(p => p.id === player.id);
+                    if(playerToUpdate) playerToUpdate.faction = newFaction;
 
-        // Event xóa hành động của người chơi
-        setTimeout(() => {
+                    if (!Array.isArray(nightStates[activeNightIndex].factionChanges)) {
+                        nightStates[activeNightIndex].factionChanges = [];
+                    }
+                    nightStates[activeNightIndex].factionChanges.push({
+                        playerId: player.id, oldFaction: oldFaction, newFaction: newFaction
+                    });
+
+                    saveNightNotes();
+                    render();
+                };
+                factionSelect.onchange = handleFactionChange;
+                factionSelect.onblur = function() { 
+                    factionSelect.style.display = 'none';
+                    changeFactionBtn.style.display = 'inline-block';
+                };
+            }
+
             row.querySelectorAll('.remove-action-btn').forEach(btn => {
                 btn.onclick = function(e) {
                     const actionId = parseInt(btn.closest('.action-item').dataset.actionId, 10);
-                    const actionIndex = nightStates[activeNightIndex].actions.findIndex(a => a.id === actionId);
+                    const nightState = nightStates[activeNightIndex];
+                    const actionIndex = nightState.actions.findIndex(a => a.id === actionId);
                     if (actionIndex > -1) {
-                        nightStates[activeNightIndex].actions.splice(actionIndex, 1);
+                        nightState.actions.splice(actionIndex, 1);
                         saveNightNotes();
                         render();
                     }
@@ -442,7 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }, 10);
-
+        
         return row;
     }
 
@@ -458,7 +466,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // --- Event Handlers ---
     const handleEvents = (e) => {
         const target = e.target;
         if (target.closest('#add-night-btn')) {
@@ -556,6 +563,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const notes = snapshot.val();
             if (notes && Array.isArray(notes)) {
                 nightStates = notes;
+                nextActionId = Math.max(0, ...notes.flatMap(n => n.actions || []).map(a => a.id)) + 1;
             }
         }).then(() => {
             const roomRef = database.ref(`rooms/${roomId}/players`);
