@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
         "Bầy Sói",
         "Phe Sói",
         "Phe Dân",
-        "Phe Trung Lập",
+        "Phe trung lập", // Sử dụng đúng như sheet (chữ thường)
         "Chức năng khác",
         "Chưa phân loại"
     ];
@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { display: 'Bầy Sói', factions: ['Bầy Sói'] },
         { display: 'Phe Sói', factions: ['Phe Sói'] },
         { display: 'Phe Dân', factions: ['Phe Dân'] },
-        { display: 'Phe Trung Lập', factions: ['Phe Trung Lập'] },
+        { display: 'Phe trung lập', factions: ['Phe trung lập'] },
         { display: 'Khác', factions: ['Chức năng khác', 'Chưa phân loại'] }
     ];
     const ACTIONS_CONFIG = {
@@ -169,9 +169,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const header = document.createElement('div');
             header.className = 'faction-header';
             if (group.display === 'Bầy Sói' || group.display === 'Phe Sói') header.classList.add('faction-wolf');
-            if (group.display === 'Phe Trung Lập') header.classList.add('faction-neutral');
+            if (group.display === 'Phe trung lập') header.classList.add('faction-neutral');
+            if (group.display === 'Khác') header.classList.add('faction-other');
             header.textContent = group.display;
             interactionTable.appendChild(header);
+
+            // Nếu là nhóm "Khác" thì thêm khoảng cách tách biệt
+            if (group.display === 'Khác') {
+                const separator = document.createElement('div');
+                separator.className = 'faction-separator';
+                interactionTable.appendChild(separator);
+            }
 
             // Chỉ Bầy Sói có dòng hành động cắn chung
             if (group.display === 'Bầy Sói') {
