@@ -59,6 +59,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Logic ---
     const calculateNightStatus = (nightState) => {
         if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [] };
+        // Đảm bảo nightState.actions là mảng
+        if (!Array.isArray(nightState.actions)) nightState.actions = [];
         const statuses = {};
         const finalStatus = JSON.parse(JSON.stringify(nightState.playersStatus));
         const alivePlayerIds = Object.keys(finalStatus).filter(pId => finalStatus[pId].isAlive);
@@ -95,6 +97,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const render = () => {
         interactionTable.innerHTML = '';
         const nightState = nightStates[activeNightIndex];
+        // Nếu nightState không tồn tại, hiển thị thông báo và return
+        if (!nightState) {
+            nightResultsDiv.innerHTML = '<p>Chưa có đêm nào bắt đầu.</p>';
+            nightTabsContainer.innerHTML = '';
+            return;
+        }
         const { liveStatuses } = calculateNightStatus(nightState);
 
         const groupedPlayers = roomPlayers.reduce((acc, player) => {
@@ -191,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const livingPlayers = roomPlayers.filter(p => (nightStates[activeNightIndex] ? nightStates[activeNightIndex].playersStatus[p.id]?.isAlive : p.isAlive));
         const actionControlsHTML = `<div class="action-controls"><select class="action-select"><option value="">-- Chọn hành động --</option>${optionsHTML}</select><select class="target-select"><option value="">-- Chọn mục tiêu --</option>${livingPlayers.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}</select><button class="add-action-btn" title="Thêm hành động"><i class="fas fa-plus"></i></button></div>`;
         let actionListHTML = '<div class="action-list">';
-        if (nightStates[activeNightIndex]) {
+        if (nightStates[activeNightIndex] && Array.isArray(nightStates[activeNightIndex].actions)) {
             nightStates[activeNightIndex].actions.forEach(action => {
                 if (action.actorId === player.id) {
                     const target = roomPlayers.find(p => p.id === action.targetId);

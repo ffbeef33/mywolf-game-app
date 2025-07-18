@@ -65,6 +65,15 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
 .btn-danger {
     background-color: var(--danger-color) !important;
     color: #fff !important;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-right: 8px;
+    margin-bottom: 4px;
+    transition: background 0.2s;
 }
 .btn-danger:hover {
     background-color: #c73c3c !important;
