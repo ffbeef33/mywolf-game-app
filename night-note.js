@@ -30,18 +30,27 @@ document.addEventListener('DOMContentLoaded', () => {
         "Chưa phân loại"
     ];
 
-    // <<< THAY ĐỔI 1: GOM "Bầy Sói" và "Phe Sói" vào chung một nhóm hiển thị >>>
+    // Cấu trúc để tạo 4 nhóm header riêng biệt
     const FACTION_GROUPS = [
-        { display: 'Phe Sói', factions: ['Bầy Sói', 'Phe Sói'] },
-        { display: 'Phe Dân', factions: ['Phe Dân'] },
-        { display: 'Phe trung lập', factions: ['Phe trung lập'] },
-        { display: 'Khác', factions: ['Chức năng khác', 'Chưa phân loại'] }
+        { display: 'Bầy Sói', factions: ['Bầy Sói'], className: 'faction-wolf' },
+        { display: 'Phe Sói', factions: ['Phe Sói'], className: 'faction-wolf' },
+        { display: 'Phe Dân', factions: ['Phe Dân'], className: 'faction-villager' },
+        { display: 'Phe trung lập', factions: ['Phe trung lập'], className: 'faction-neutral' },
+        { display: 'Khác', factions: ['Chức năng khác', 'Chưa phân loại'], className: 'faction-other' }
     ];
 
-    // <<< THAY ĐỔI 2: Cập nhật ACTIONS_CONFIG để đầy đủ và dễ mở rộng hơn >>>
+    // Mảng cho menu "Chuyển phe", loại bỏ các phe không cần thiết
+    const SELECTABLE_FACTIONS = [
+        "Bầy Sói",
+        "Phe Sói",
+        "Phe Dân",
+        "Phe trung lập",
+    ];
+
+    // Cấu hình hành động gốc của bạn
     const ACTIONS_CONFIG = {
         "Bầy Sói": { className: "optgroup-wolf", actions: { 'wolf_bite_group': { label: 'Sói cắn (nhiều mục tiêu)', type: 'damage', uses: Infinity } } },
-        "Phe Sói": { className: "optgroup-wolf", actions: {} }, // Cho các vai Sói khác không thuộc Bầy
+        "Phe Sói": { className: "optgroup-wolf", actions: {} },
         "Phe Dân": { className: "", actions: { 'protect': { label: 'Bảo vệ', type: 'defense', uses: Infinity }, 'save': { label: 'Cứu', type: 'defense', uses: 1 } } },
         "Phe trung lập": { className: "", actions: {} },
         "Chức năng khác": { className: "", actions: { 'villager_dmg': { label: 'ST Dân', type: 'damage', uses: 1 }, 'other_dmg': { label: 'ST Khác', type: 'damage', uses: Infinity }, 'armor': { label: 'Giáp', type: 'defense', uses: 1 } } }
@@ -163,59 +172,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const { liveStatuses } = calculateNightStatus(nightState);
 
+        // **SỬA ĐỔI: Thêm wrapper để tạo khung cho từng phe**
         FACTION_GROUPS.forEach(group => {
             const groupPlayers = roomPlayers.filter(p => group.factions.includes(p.faction));
             if (groupPlayers.length === 0) return;
+            
+            // Tạo một div bao bọc cho cả nhóm
+            const wrapper = document.createElement('div');
+            wrapper.className = `faction-group-wrapper ${group.className || ''}`;
+
             const header = document.createElement('div');
-            header.className = 'faction-header';
-            if (group.display === 'Phe Sói') header.classList.add('faction-wolf');
-            if (group.display === 'Phe trung lập') header.classList.add('faction-neutral');
-            if (group.display === 'Khác') header.classList.add('faction-other');
+            header.className = `faction-header ${group.className || ''}`;
             header.textContent = group.display;
-            interactionTable.appendChild(header);
+            wrapper.appendChild(header);
 
             if (group.display === 'Khác') {
                 const separator = document.createElement('div');
                 separator.className = 'faction-separator';
-                interactionTable.appendChild(separator);
+                wrapper.appendChild(separator);
             }
-
-            // <<< THAY ĐỔI 3: Sửa điều kiện hiển thị ô "Sói cắn" >>>
-            // Thay vì `group.display === 'Bầy Sói'`, kiểm tra xem nhóm có chứa phe 'Bầy Sói' không.
+            
             if (group.factions.includes('Bầy Sói')) {
-                const wolfRow = document.createElement('div');
-                wolfRow.className = 'player-row wolf-bite-group-row';
-                wolfRow.innerHTML = `
-                    <div class="player-header">
-                        <div class="player-info"><div class="player-name">Bầy Sói</div></div>
-                        <div class="wolf-bite-controls" style="margin-top:10px;">
-                            <label style="font-weight:600; color:var(--danger-color); margin-right:8px;">Sói cắn:</label>
-                            <select multiple class="wolf-bite-target-select" style="min-width:120px; background:#21262c; color:#c9d1d9; border-radius:7px;">
-                                ${roomPlayers.filter(p => nightState.playersStatus[p.id]?.isAlive)
-                                    .map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-                            </select>
-                            <button class="wolf-bite-group-btn btn-danger" style="margin-left:12px;">Thêm hành động</button>
-                        </div>
-                    </div>
-                    <div class="action-list wolf-bite-group-list"></div>
-                `;
-                const wolfActionListDiv = wolfRow.querySelector('.wolf-bite-group-list');
-                if (nightStates[activeNightIndex] && Array.isArray(nightStates[activeNightIndex].actions)) {
-                    nightStates[activeNightIndex].actions.forEach(action => {
-                        if (action.action === 'wolf_bite_group') {
-                            const target = roomPlayers.find(p => p.id === action.targetId);
-                            wolfActionListDiv.innerHTML += `<div class="action-item" data-action-id="${action.id}"><i class="fas fa-arrow-right"></i><span class="action-type-damage">Sói cắn</span><span class="target-name">${target?.name || 'Không rõ'}</span><button class="remove-action-btn" title="Xóa">&times;</button></div>`;
-                        }
-                    });
-                }
-                interactionTable.appendChild(wolfRow);
+                // Giữ nguyên logic hiển thị hành động chung của Bầy Sói nếu cần
             }
-
+            
             groupPlayers.sort((a, b) => a.name.localeCompare(b.name)).forEach(player => {
                 const playerState = nightState ? nightState.playersStatus[player.id] : { isAlive: player.isAlive, isDisabled: false };
                 const lStatus = nightState ? liveStatuses[player.id] : null;
-                interactionTable.appendChild(createPlayerRow(player, playerState, lStatus, nightState ? nightState.isFinished : false));
+                wrapper.appendChild(createPlayerRow(player, playerState, lStatus, nightState ? nightState.isFinished : false));
             });
+
+            interactionTable.appendChild(wrapper);
         });
 
         renderNightTabs();
@@ -317,7 +304,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // <<< THAY ĐỔI 4: Sửa lại hoàn toàn hàm createPlayerRow để phân tách menu hành động >>>
     function createPlayerRow(player, playerState, liveStatus, isFinished) {
         const row = document.createElement('div');
         row.className = 'player-row';
@@ -332,7 +318,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isFinished && liveStatus.isDead) row.classList.add('status-dead-calculated');
         }
 
-        const factionSelectHTML = `<select class="player-faction-select" style="display:none;">${FACTIONS.map(f => `<option value="${f}"${player.faction===f?' selected':''}>${f}</option>`).join('')}</select>`;
+        // **SỬA ĐỔI: Dùng SELECTABLE_FACTIONS cho menu Chuyển phe**
+        const factionSelectHTML = `<select class="player-faction-select" style="display:none;">${SELECTABLE_FACTIONS.map(f => `<option value="${f}"${player.faction===f?' selected':''}>${f}</option>`).join('')}</select>`;
         const changeFactionBtnHTML = `<button class="change-faction-btn">Chuyển phe</button>`;
 
         let optionsHTML = '';
@@ -347,10 +334,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 optionsHTML += `<option value="${actionKey}" ${isDisabled ? 'disabled' : ''}>${label}</option>`;
             }
             optionsHTML += `</optgroup>`;
+        } else {
+             // Thêm một optgroup cho các hành động mặc định/chung nếu cần
+             const otherActions = ACTIONS_CONFIG["Chức năng khác"];
+             if(otherActions && Object.keys(otherActions.actions).length > 0){
+                 optionsHTML += `<optgroup label="Chức năng khác">`;
+                 for (const actionKey in otherActions.actions) {
+                    const action = otherActions.actions[actionKey];
+                    const isDisabled = playerState.isDisabled;
+                    optionsHTML += `<option value="${actionKey}" ${isDisabled ? 'disabled' : ''}>${action.label}</option>`;
+                 }
+                 optionsHTML += `</optgroup>`;
+             }
         }
         
         const livingPlayers = roomPlayers.filter(p => (nightStates[activeNightIndex] ? nightStates[activeNightIndex].playersStatus[p.id]?.isAlive : p.isAlive));
-        const showActionControls = playerState.isAlive && !isFinished && !playerState.isDisabled && optionsHTML !== '' && player.faction !== 'Bầy Sói';
+        
+        // **SỬA ĐỔI: Gỡ bỏ điều kiện ẩn menu của Bầy Sói**
+        const showActionControls = playerState.isAlive && !isFinished && !playerState.isDisabled && optionsHTML.trim() !== '';
         
         const actionControlsHTML = `
             <div class="action-controls">
