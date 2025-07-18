@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Cập nhật: Màu sắc tương tác trạng thái đêm ---
+    // --- Cập nhật: Màu sắc tương tác trạng thái đêm (FIX cho bảo vệ, cứu, vô hiệu, nguy hiểm) ---
     const createPlayerRow = (player, playerState, liveStatus, isFinished) => {
         const row = document.createElement('div');
         row.className = 'player-row';
@@ -175,23 +175,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Trạng thái cơ bản
         if (!playerState.isAlive) row.classList.add('status-dead');
+        // Nếu bị vô hiệu, luôn add status-disabled (màu vàng)
         if (playerState.isDisabled) row.classList.add('status-disabled');
 
-        // Trạng thái tương tác đêm (ưu tiên: bảo vệ, cứu, vô hiệu, nguy hiểm)
+        // Trạng thái tương tác đêm với ưu tiên: bảo vệ > cứu > nguy hiểm > vô hiệu
         if (liveStatus) {
-            // Nếu bảo vệ thì ưu tiên hiển thị màu xanh dương
+            // Nếu bị bảo vệ, ưu tiên màu xanh dương
             if (liveStatus.isProtected) {
                 row.classList.add('status-protected');
             }
-            // Nếu được cứu thì ưu tiên màu xanh lá (nếu không bảo vệ)
-            else if (liveStatus.isHealed) {
+            // Nếu được cứu (không bị bảo vệ), ưu tiên màu xanh lá
+            if (liveStatus.isHealed && !liveStatus.isProtected) {
                 row.classList.add('status-saved');
             }
-            // Nếu bị vô hiệu thì màu vàng (ưu tiên sau bảo vệ/cứu)
-            if (playerState.isDisabled) {
-                row.classList.add('status-disabled');
-            }
-            // Nếu đang nguy hiểm (bị giết chưa được bảo vệ/cứu) thì màu đỏ
+            // Nếu bị nguy hiểm mà không bảo vệ/cứu, màu đỏ
             if (liveStatus.isInDanger && !liveStatus.isProtected && !liveStatus.isHealed) {
                 row.classList.add('status-danger');
             }
