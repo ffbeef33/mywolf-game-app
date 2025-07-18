@@ -573,6 +573,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const nightState = nightStates[activeNightIndex];
         if (!nightState) return;
+
+        // <<< SỬA LỖI: Đảm bảo nightState.actions luôn là một mảng >>>
+        if (!Array.isArray(nightState.actions)) {
+            nightState.actions = [];
+        }
+
         if (target.closest('.night-tab')) {
             activeNightIndex = parseInt(target.closest('.night-tab').dataset.index, 10);
             render();
