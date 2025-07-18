@@ -310,3 +310,20 @@ option:disabled {
     animation: spin 1s linear infinite; margin: 20px auto;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* --- Sửa màu ghi chú quản trò --- */
+#gm-night-note {
+    width: 100%;
+    margin: 12px 0 5px 0;
+    padding: 8px;
+    background: #21262c;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    font-size: 1rem;
+    color: var(--light-text); /* màu chữ sáng */
+    font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+}
+#gm-night-note::placeholder {
+    color: #8b949e;
+    opacity: 1;
+}
