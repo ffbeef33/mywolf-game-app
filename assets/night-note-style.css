@@ -1,22 +1,23 @@
 :root {
-    --primary-bg: #1a1a2e;
-    --secondary-bg: #16213e;
-    --card-bg: #0f3460;
-    --text-color: #e94560;
-    --light-text: #dcdcdc;
-    --button-bg: #e94560;
-    --border-color: #3a4b6f;
-    --danger-color: #e74c3c;
-    --safe-color: #2ecc71;
-    --protect-color: #3498db;
-    --neutral-color: #f1c40f; /* Màu cho phe trung lập */
-    --disable-color: #ffc107; /* Màu vàng đậm cho disable */
-    --disable-bg: #3d3300;   /* Nền vàng nâu cho disable */
-    --alive-glow: #33ff99;
-    --dead-glow: #ff5252;
-    --disable-glow: #ffe066;
-    --font-main: 'Roboto', sans-serif;
-    --font-display: 'Montserrat', sans-serif;
+    /* Chủ đạo giống giao diện GitHub Copilot dark */
+    --primary-bg: #0d1117;          /* Nền chính */
+    --secondary-bg: #161b22;        /* Nền card & vùng phụ */
+    --card-bg: #161b22;             /* Card, modal */
+    --text-color: #58a6ff;          /* Màu chữ chính - xanh dương Copilot */
+    --light-text: #c9d1d9;          /* Màu chữ phụ */
+    --button-bg: #238636;           /* Nút xanh lá nổi bật */
+    --border-color: #30363d;        /* Viền xám */
+    --danger-color: #f85149;        /* Đỏ cảnh báo */
+    --safe-color: #238636;          /* Xanh lá nổi bật */
+    --protect-color: #58a6ff;       /* Xanh dương bảo vệ */
+    --neutral-color: #d29922;       /* Vàng trung lập */
+    --disable-color: #ffd33d;       /* Vàng disable */
+    --disable-bg: #2b2a1e;          /* Nền vàng nâu cho disable */
+    --alive-glow: #58a6ff;
+    --dead-glow: #f85149;
+    --disable-glow: #ffd33d;
+    --font-main: 'Roboto', 'Segoe UI', 'Arial', sans-serif;
+    --font-display: 'Montserrat', 'Segoe UI', 'Arial', sans-serif;
     --border-radius: 12px;
 }
 body {
@@ -32,7 +33,7 @@ body {
     margin: 0 auto;
 }
 .card {
-    background-color: var(--secondary-bg);
+    background-color: var(--card-bg);
     padding: 15px;
     border-radius: var(--border-radius);
     margin-bottom: 20px;
@@ -57,11 +58,11 @@ button {
     padding: 10px 15px; border: none; border-radius: 8px;
     background-color: var(--button-bg); color: white;
     font-size: 1rem; font-weight: 700; cursor: pointer;
-    transition: filter 0.2s;
+    transition: filter 0.2s, background-color 0.2s;
 }
-button:hover { filter: brightness(1.1); }
+button:hover { filter: brightness(1.1); background-color: #2ea043; }
 .btn-end-night { background-color: var(--protect-color); }
-#reset-night-btn { background-color: #7f8c8d; }
+#reset-night-btn { background-color: #484f58; }
 
 /* TIÊU ĐỀ PHE PHÁI */
 .faction-header {
@@ -91,10 +92,11 @@ button:hover { filter: brightness(1.1); }
     display: flex; flex-direction: column; align-items: flex-start;
     padding: 15px 10px; border-bottom: 1px solid var(--border-color);
     transition: background-color 0.3s;
+    background: transparent;
 }
 .player-row:last-child { border-bottom: none; }
 /* Sửa đổi: Vẫn làm mờ dòng khi chết nhưng KHÔNG ẩn .player-status-controls */
-.player-row.status-dead { opacity: 0.4; background-color: #333; }
+.player-row.status-dead { opacity: 0.4; background-color: #161b22; }
 .player-row.status-dead .action-controls { display: none; }
 /* Ghi đè: Luôn hiện player-status-controls kể cả khi đã chết */
 .player-row.status-dead .player-status-controls { 
@@ -169,30 +171,30 @@ button:hover { filter: brightness(1.1); }
     margin-left: 3px;
     font-size: 1.3rem;
     position: relative;
-    box-shadow: 0 0 0 2.5px #b9ffd8, 0 0 6px 2px var(--alive-glow);
+    box-shadow: 0 0 0 2.5px #58a6ff, 0 0 6px 2px var(--alive-glow);
     z-index: 2;
     transition: filter 0.2s, box-shadow 0.2s;
 }
 .status-btn.life.alive {
     color: var(--safe-color);
     background: #10291b;
-    box-shadow: 0 0 15px 3px var(--alive-glow), 0 0 0 2.5px #b9ffd8;
+    box-shadow: 0 0 15px 3px var(--alive-glow), 0 0 0 2.5px #58a6ff;
     animation: alivePulse 1.2s infinite alternate;
 }
 .status-btn.life.dead {
     color: var(--danger-color);
     background: #3c1010;
     border-color: var(--danger-color);
-    box-shadow: 0 0 12px 3px var(--dead-glow), 0 0 0 2.5px #ffc2c2;
+    box-shadow: 0 0 12px 3px var(--dead-glow), 0 0 0 2.5px #f85149;
     animation: deadPulse 1.2s infinite alternate;
 }
 @keyframes alivePulse {
-    0% { box-shadow: 0 0 15px 3px var(--alive-glow), 0 0 0 2.5px #b9ffd8; }
-    100% { box-shadow: 0 0 24px 6px #66ffc2, 0 0 0 4px #b9ffd8; }
+    0% { box-shadow: 0 0 15px 3px var(--alive-glow), 0 0 0 2.5px #58a6ff; }
+    100% { box-shadow: 0 0 24px 6px #3794ff, 0 0 0 4px #58a6ff; }
 }
 @keyframes deadPulse {
-    0% { box-shadow: 0 0 12px 3px var(--dead-glow), 0 0 0 2.5px #ffc2c2; }
-    100% { box-shadow: 0 0 24px 8px #ffb6b6, 0 0 0 4px #ffc2c2; }
+    0% { box-shadow: 0 0 12px 3px var(--dead-glow), 0 0 0 2.5px #f85149; }
+    100% { box-shadow: 0 0 24px 8px #ffb6b6, 0 0 0 4px #f85149; }
 }
 
 /* Luôn hiện player-status-controls kể cả khi đã chết/disable */
@@ -213,10 +215,10 @@ button:hover { filter: brightness(1.1); }
 }
 
 /* Các trạng thái khác giữ nguyên */
-.player-row.status-danger { background-color: rgba(231, 76, 60, 0.2); }
-.player-row.status-protected { background-color: rgba(46, 204, 113, 0.2); }
+.player-row.status-danger { background-color: rgba(248, 81, 73, 0.18); }
+.player-row.status-protected { background-color: rgba(88, 166, 255, 0.14); }
 .player-row.status-dead-calculated {
-    background-color: rgba(192, 57, 43, 0.5) !important;
+    background-color: rgba(248, 81, 73, 0.34) !important;
     border: 1px solid var(--danger-color);
 }
 .player-row.status-dead-calculated .player-name { text-decoration: line-through; }
@@ -268,7 +270,7 @@ option:disabled {
 .night-tabs-container h3 { margin: 0; font-size: 1.2rem; color: var(--light-text); flex-shrink: 0; }
 #night-tabs { display: flex; gap: 10px; }
 .night-tab { background-color: var(--card-bg); border: 1px solid var(--border-color); }
-.night-tab.active { background-color: var(--text-color); border-color: var(--text-color); }
+.night-tab.active { background-color: var(--text-color); border-color: var(--text-color); color: #fff; }
 .btn-add-night { background-color: var(--safe-color); margin-left: auto; }
 .loading-spinner {
     width: 40px; height: 40px; border: 4px solid #444;

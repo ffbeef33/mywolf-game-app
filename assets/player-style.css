@@ -1,21 +1,22 @@
 :root {
-    --primary-bg: #1a1a2e;
-    --secondary-bg: #16213e;
-    --card-bg: #0f3460;
-    --text-color: #e94560;
-    --light-text: #dcdcdc;
-    --button-bg: #e94560;
-    --button-hover-bg: #f96d86;
-    --input-bg: #1f4068;
-    --border-color: #3a4b6f;
-    
-    /* THAY ĐỔI: Bộ màu mới cho các phe */
-    --wolf-color: #e74c3c; /* Đỏ đậm hơn */
-    --villager-color: #2ecc71; /* Xanh lá cây sáng */
-    --neutral-color: #f1c40f; /* Vàng sáng */
-    
-    --font-main: 'Roboto', sans-serif;
-    --font-display: 'Montserrat', sans-serif;
+    /* Chủ đạo GitHub Copilot dark */
+    --primary-bg: #0d1117;
+    --secondary-bg: #161b22;
+    --card-bg: #161b22;
+    --text-color: #58a6ff;
+    --light-text: #c9d1d9;
+    --button-bg: #238636;
+    --button-hover-bg: #2ea043;
+    --input-bg: #161b22;
+    --border-color: #30363d;
+
+    /* Bộ màu mới cho các phe */
+    --wolf-color: #f85149;       /* Đỏ cảnh báo */
+    --villager-color: #238636;   /* Xanh lá nổi bật */
+    --neutral-color: #d29922;    /* Vàng trung lập */
+
+    --font-main: 'Roboto', 'Segoe UI', 'Arial', sans-serif;
+    --font-display: 'Montserrat', 'Segoe UI', 'Arial', sans-serif;
     --border-radius: 12px;
 }
 
@@ -43,11 +44,11 @@ body {
 
 /* --- SECTIONS & CARDS --- */
 section.card {
-    background-color: var(--secondary-bg);
+    background-color: var(--card-bg);
     padding: 30px;
     border-radius: var(--border-radius);
     border: 1px solid var(--border-color);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
 }
 .hidden {
     display: none !important;
@@ -162,10 +163,10 @@ button:disabled {
     font-style: italic;
     margin: 0 0 8px 0;
     padding: 8px;
-    background-color: rgba(15, 52, 96, 0.5);
+    background-color: #21262c;
     border-radius: 8px;
 }
-.faction-box { border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 16px; background-color: rgba(15, 52, 96, 0.5); text-align: center; transition: all 0.3s ease; }
+.faction-box { border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 16px; background-color: #161b22; text-align: center; transition: all 0.3s ease; }
 
 .faction-title { 
     font-family: var(--font-display);
@@ -175,7 +176,6 @@ button:disabled {
     padding-bottom: 8px; 
     border-bottom: 1px solid rgba(237, 242, 244, 0.2); 
     letter-spacing: 0.5px;
-    /* THÊM MỚI: Căn chỉnh icon và text */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -183,20 +183,20 @@ button:disabled {
 }
 .roles-list { display: flex; flex-direction: column; gap: 8px; }
 .in-game-role-item { margin: 0; font-size: 1rem; color: var(--light-text); cursor: pointer; transition: color 0.2s; }
-.in-game-role-item:hover { color: var(--button-hover-bg); }
+.in-game-role-item:hover { color: var(--text-color); }
 
 /* Áp dụng màu mới cho các box phe */
-.faction-box.faction-villager { background-color: rgba(46, 204, 113, 0.1); border-color: rgba(46, 204, 113, 0.7); }
+.faction-box.faction-villager { background-color: rgba(35, 134, 54, 0.12); border-color: rgba(35, 134, 54, 0.7); }
 .faction-box.faction-villager .faction-title { color: var(--villager-color); }
-.faction-box.faction-wolf { background-color: rgba(231, 76, 60, 0.1); border-color: rgba(231, 76, 60, 0.7); }
+.faction-box.faction-wolf { background-color: rgba(248, 81, 73, 0.12); border-color: rgba(248, 81, 73, 0.7); }
 .faction-box.faction-wolf .faction-title { color: var(--wolf-color); }
-.faction-box.faction-neutral { background-color: rgba(241, 196, 15, 0.1); border-color: rgba(241, 196, 15, 0.7); }
+.faction-box.faction-neutral { background-color: rgba(210, 153, 34, 0.12); border-color: rgba(210, 153, 34, 0.7); }
 .faction-box.faction-neutral .faction-title { color: var(--neutral-color); }
 
 /* --- MODAL MÔ TẢ VAI TRÒ --- */
-.modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0, 0, 0, 0.8); display: flex; justify-content: center; align-items: center; animation: fadeIn 0.3s; }
+.modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(13,17,23,0.92); display: flex; justify-content: center; align-items: center; animation: fadeIn 0.3s; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-.modal-content { background-color: var(--secondary-bg); padding: 30px; border: 1px solid var(--border-color); width: 90%; max-width: 450px; border-radius: var(--border-radius); position: relative; box-shadow: 0 8px 30px rgba(0,0,0,0.5); text-align: left; }
+.modal-content { background-color: var(--card-bg); padding: 30px; border: 1px solid var(--border-color); width: 90%; max-width: 450px; border-radius: var(--border-radius); position: relative; box-shadow: 0 8px 30px rgba(0,0,0,0.5); text-align: left; }
 .close-modal-btn { color: var(--light-text); position: absolute; top: 10px; right: 20px; font-size: 32px; font-weight: bold; cursor: pointer; transition: color 0.2s; }
 .close-modal-btn:hover { color: var(--text-color); }
 

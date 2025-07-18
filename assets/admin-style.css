@@ -2,25 +2,26 @@
    1. Biến toàn cục (Global Variables) & Thiết lập cơ bản (Base Setup)
    ========================================================================== */
 :root {
-  --primary-bg: #1a1a2e;
-  --secondary-bg: #16213e;
-  --card-bg: #0f3460;
-  --text-color: #e94560;
-  --light-text: #dcdcdc;
-  --button-bg: #e94560;
-  --button-hover-bg: #f96d86;
-  --danger-bg: #c0392b;
-  --danger-hover-bg: #e74c3c;
-  --secondary-button-bg: #5a6a8a;
-  --secondary-button-hover-bg: #7b8aab;
-  --border-color: #3a4b6f;
-  --success-color: #2ecc71;
-  --save-color: #27ae60;
-  --save-hover-color: #2ecc71;
+  /* Chủ đạo theo GitHub Copilot dark */
+  --primary-bg: #0d1117;
+  --secondary-bg: #161b22;
+  --card-bg: #161b22;
+  --text-color: #58a6ff;
+  --light-text: #c9d1d9;
+  --button-bg: #238636;
+  --button-hover-bg: #2ea043;
+  --danger-bg: #f85149;
+  --danger-hover-bg: #c73c3c;
+  --secondary-button-bg: #21262c;
+  --secondary-button-hover-bg: #30363d;
+  --border-color: #30363d;
+  --success-color: #2ea043;
+  --save-color: #238636;
+  --save-hover-color: #2ea043;
   --error-color: var(--danger-bg);
-  --skeleton-bg: #1f3a5c;
-  --special-color: #8e44ad; /* Thêm màu tím cho nút đặc biệt */
-  --special-hover-color: #9b59b6;
+  --skeleton-bg: #21262c;
+  --special-color: #8257e5; /* Tím Copilot */
+  --special-hover-color: #a371f7;
   --border-radius: 8px;
   --box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
   --transition-speed: 0.3s;
@@ -29,7 +30,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 body {
-  font-family: 'Montserrat', sans-serif;
+  font-family: 'Montserrat', 'Segoe UI', 'Arial', sans-serif;
   background-color: var(--primary-bg);
   color: var(--light-text);
   margin: 0;
@@ -50,7 +51,7 @@ body {
 }
 
 .card {
-  background-color: var(--secondary-bg);
+  background-color: var(--card-bg);
   border-radius: var(--border-radius);
   padding: 25px;
   margin-bottom: 30px;
@@ -148,7 +149,7 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 
 .player-item, .role-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); transition: all 0.2s ease-in-out; }
 .player-item:last-child, .role-item:last-child { border-bottom: none; }
-.player-item.kicked, .role-item.removed { text-decoration: line-through; opacity: 0.5; color: var(--danger-bg) !important; background-color: rgba(231, 76, 60, 0.1); }
+.player-item.kicked, .role-item.removed { text-decoration: line-through; opacity: 0.5; color: var(--danger-bg) !important; background-color: rgba(248, 81, 73, 0.12); }
 
 .kick-btn, .remove-role-btn { background-color: var(--danger-bg); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 14px; font-weight: bold; cursor: pointer; flex-shrink: 0; padding: 0; line-height: 24px; text-align: center; }
 .kick-btn:hover, .remove-role-btn:hover { background-color: var(--danger-hover-bg); }
@@ -162,10 +163,10 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .pending-additions li::before { content: '+ '; font-weight: bold; }
 
 /* --- Modal Styles --- */
-.modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; animation: fadeIn 0.3s; }
+.modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(13, 17, 23, 0.92); display: flex; justify-content: center; align-items: center; animation: fadeIn 0.3s; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .modal.hidden { display: none; }
-.modal-content { background-color: var(--secondary-bg); padding: 30px; border: 1px solid var(--border-color); width: 90%; max-width: 500px; border-radius: var(--border-radius); position: relative; box-shadow: var(--box-shadow); }
+.modal-content { background-color: var(--card-bg); padding: 30px; border: 1px solid var(--border-color); width: 90%; max-width: 500px; border-radius: var(--border-radius); position: relative; box-shadow: var(--box-shadow); }
 .close-modal-btn { color: var(--light-text); position: absolute; top: 15px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer; }
 .close-modal-btn:hover { color: var(--text-color); }
 .modal-list { margin-bottom: 20px; }

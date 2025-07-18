@@ -1,18 +1,19 @@
 :root {
-    --primary-bg: #1a1a2e;
-    --secondary-bg: #16213e;
-    --card-bg: #0f3460;
-    --text-color: #e94560;
-    --light-text: #dcdcdc;
-    --button-bg: #e94560;
-    --button-hover-bg: #f96d86;
-    --input-bg: #1f4068;
-    --border-color: #e94560;
-    --success-color: #2ecc71; /* Thêm màu cho thông báo thành công */
+    /* Chủ đạo Copilot/GitHub dark */
+    --primary-bg: #0d1117;
+    --secondary-bg: #161b22;
+    --card-bg: #161b22;
+    --text-color: #58a6ff;
+    --light-text: #c9d1d9;
+    --button-bg: #238636;
+    --button-hover-bg: #2ea043;
+    --input-bg: #21262c;
+    --border-color: #30363d;
+    --success-color: #2ea043;
 }
 
 body {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', 'Segoe UI', 'Arial', sans-serif;
     background-color: var(--primary-bg);
     color: var(--light-text);
     display: flex;
@@ -20,14 +21,14 @@ body {
     align-items: center;
     min-height: 100vh;
     margin: 0;
-    text-align: center; /* Căn giữa nội dung trong body */
+    text-align: center;
 }
 
 .container {
     width: 100%;
     max-width: 500px;
     padding: 20px;
-    background-color: var(--secondary-bg); /* Chuyển nền vào container */
+    background-color: var(--secondary-bg);
     border-radius: 15px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     border: 1px solid var(--border-color);
@@ -95,7 +96,6 @@ body {
     opacity: 0.3;
 }
 
-/* THÊM MỚI: Style cho thông báo và chuyển đổi form */
 .error-message, .message {
     font-weight: 500;
     min-height: 20px;
@@ -104,7 +104,7 @@ body {
 }
 
 .error-message {
-    color: #ff4d4d;
+    color: #f85149;
 }
 
 .message {
