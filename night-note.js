@@ -17,6 +17,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const interactionTable = document.getElementById('player-interaction-table');
     const nightResultsDiv = document.getElementById('night-results');
     const nightTabsContainer = document.getElementById('night-tabs');
+    // NEW: Đêm ghi chú quản trò
+    let gmNoteArea, gmNoteBtn;
+    // NEW: Ghi lại hành động trong đêm
+    let nightActionSummaryDiv;
 
     // --- Config ---
     const ACTIONS_CONFIG = {
@@ -92,6 +96,23 @@ document.addEventListener('DOMContentLoaded', () => {
         return { liveStatuses: statuses, finalStatus, deadPlayerNames };
     };
 
+    // --- Helper: Tóm tắt hành động đêm ---
+    function buildNightActionSummary(nightState) {
+        if (!nightState || !Array.isArray(nightState.actions) || nightState.actions.length === 0) return "<em>Chưa có hành động nào trong đêm này.</em>";
+        let result = "";
+        nightState.actions.forEach(({ action, targetId, actorId }) => {
+            const actor = roomPlayers.find(p => p.id === actorId);
+            const target = roomPlayers.find(p => p.id === targetId);
+            let actorName = actor ? actor.name : "???";
+            let actorRole = actor && actor.roleName ? actor.roleName : "";
+            let targetName = target ? target.name : "???";
+            let targetRole = target && target.roleName ? target.roleName : "";
+            let text = `${actorName}${actorRole ? " ("+actorRole+")" : ""} chọn ${ALL_ACTIONS[action].label} ${targetName}${targetRole ? " ("+targetRole+")" : ""}`;
+            result += `<div class="night-action-summary-item">${text}</div>`;
+        });
+        return result;
+    }
+
     // --- Rendering ---
     const render = () => {
         interactionTable.innerHTML = '';
@@ -99,9 +120,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!nightState) {
             nightResultsDiv.innerHTML = '<p>Chưa có đêm nào bắt đầu.</p>';
             nightTabsContainer.innerHTML = '';
+            // NEW: Ẩn ghi chú quản trò nếu chưa có đêm
+            if (gmNoteArea) gmNoteArea.style.display = "none";
+            if (gmNoteBtn) gmNoteBtn.style.display = "none";
+            if (nightActionSummaryDiv) nightActionSummaryDiv.style.display = "none";
             return;
         }
         const { liveStatuses } = calculateNightStatus(nightState);
+
+        // --- Render player table ---
         const groupedPlayers = roomPlayers.reduce((acc, player) => {
             const faction = player.faction || 'Chưa phân loại';
             if (!acc[faction]) acc[faction] = [];
@@ -134,7 +161,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderNightTabs();
 
-        // Thêm nút xóa night note cho quản trò
+        // --- Night action summary (NEW) ---
+        if (!nightActionSummaryDiv) {
+            nightActionSummaryDiv = document.createElement('div');
+            nightActionSummaryDiv.id = "night-action-summary";
+            nightActionSummaryDiv.style.margin = "15px 0 0 0";
+            nightActionSummaryDiv.style.padding = "12px";
+            nightActionSummaryDiv.style.background = "#21262c";
+            nightActionSummaryDiv.style.borderRadius = "10px";
+            nightActionSummaryDiv.style.fontSize = "1rem";
+            nightActionSummaryDiv.style.boxShadow = "0 0 6px #2223";
+            nightResultsDiv.parentNode.insertBefore(nightActionSummaryDiv, nightResultsDiv.nextSibling);
+        }
+        nightActionSummaryDiv.style.display = "block";
+        nightActionSummaryDiv.innerHTML = `<div style="font-weight:700; color:#58a6ff; margin-bottom:8px;">Tất cả hành động trong đêm:</div>${buildNightActionSummary(nightState)}`;
+
+        // --- GM Note (NEW) ---
+        if (!gmNoteArea) {
+            gmNoteArea = document.createElement('textarea');
+            gmNoteArea.id = "gm-night-note";
+            gmNoteArea.rows = 2;
+            gmNoteArea.style.width = "100%";
+            gmNoteArea.style.margin = "12px 0 5px 0";
+            gmNoteArea.style.padding = "8px";
+            gmNoteArea.style.background = "#21262c";
+            gmNoteArea.style.border = "1px solid #30363d";
+            gmNoteArea.style.borderRadius = "8px";
+            gmNoteArea.style.fontSize = "1rem";
+            gmNoteArea.placeholder = "Ghi chú của quản trò cho đêm này...";
+            nightResultsDiv.parentNode.insertBefore(gmNoteArea, nightActionSummaryDiv.nextSibling);
+        }
+        if (!gmNoteBtn) {
+            gmNoteBtn = document.createElement('button');
+            gmNoteBtn.id = "save-gm-night-note-btn";
+            gmNoteBtn.textContent = "Lưu ghi chú đêm";
+            gmNoteBtn.className = "btn-end-night";
+            gmNoteBtn.style.marginBottom = "12px";
+            gmNoteArea.parentNode.insertBefore(gmNoteBtn, gmNoteArea.nextSibling);
+            gmNoteBtn.onclick = function() {
+                nightStates[activeNightIndex].gmNote = gmNoteArea.value;
+                saveNightNotes();
+                gmNoteBtn.textContent = "Đã lưu!";
+                setTimeout(()=>gmNoteBtn.textContent="Lưu ghi chú đêm",1000);
+            }
+        }
+        gmNoteArea.style.display = "block";
+        gmNoteBtn.style.display = "inline-block";
+        // Khôi phục ghi chú từ dữ liệu
+        gmNoteArea.value = nightState.gmNote || "";
+
+        // --- Nút xóa night note ---
         let deleteBtn = document.getElementById('delete-nightnote-btn');
         if (!deleteBtn) {
             deleteBtn = document.createElement('button');
@@ -153,6 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // --- Kết quả đêm ---
         if (nightState) {
             const { deadPlayerNames } = calculateNightStatus(nightState);
             if (nightState.isFinished) {
@@ -167,35 +244,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Cập nhật: Màu sắc tương tác trạng thái đêm (FIX cho bảo vệ, cứu, vô hiệu, nguy hiểm) ---
+    // --- Màu sắc trạng thái đêm ---
     const createPlayerRow = (player, playerState, liveStatus, isFinished) => {
         const row = document.createElement('div');
         row.className = 'player-row';
         row.dataset.playerId = player.id;
 
-        // Trạng thái cơ bản
         if (!playerState.isAlive) row.classList.add('status-dead');
-        // Nếu bị vô hiệu, luôn add status-disabled (màu vàng)
         if (playerState.isDisabled) row.classList.add('status-disabled');
-
-        // Trạng thái tương tác đêm với ưu tiên: bảo vệ > cứu > nguy hiểm > vô hiệu
         if (liveStatus) {
-            // Nếu bị bảo vệ, ưu tiên màu xanh dương
-            if (liveStatus.isProtected) {
-                row.classList.add('status-protected');
-            }
-            // Nếu được cứu (không bị bảo vệ), ưu tiên màu xanh lá
-            if (liveStatus.isHealed && !liveStatus.isProtected) {
-                row.classList.add('status-saved');
-            }
-            // Nếu bị nguy hiểm mà không bảo vệ/cứu, màu đỏ
-            if (liveStatus.isInDanger && !liveStatus.isProtected && !liveStatus.isHealed) {
-                row.classList.add('status-danger');
-            }
-            // Nếu đã chết (sau khi kết thúc đêm), thêm hiệu ứng đã chết
-            if (isFinished && liveStatus.isDead) {
-                row.classList.add('status-dead-calculated');
-            }
+            if (liveStatus.isProtected) row.classList.add('status-protected');
+            if (liveStatus.isHealed && !liveStatus.isProtected) row.classList.add('status-saved');
+            if (liveStatus.isInDanger && !liveStatus.isProtected && !liveStatus.isHealed) row.classList.add('status-danger');
+            if (isFinished && liveStatus.isDead) row.classList.add('status-dead-calculated');
         }
 
         let optionsHTML = '';
@@ -268,7 +329,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 actions: [],
                 playersStatus: prevStatus,
                 initialPlayersStatus: initialStatusForNewNight,
-                isFinished: false
+                isFinished: false,
+                gmNote: ""
             });
             activeNightIndex = nightStates.length - 1;
             saveNightNotes();
