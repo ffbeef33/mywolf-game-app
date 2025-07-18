@@ -138,6 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Logic ---
+    // <<< SỬA LỖI 2: Nâng cấp hàm calculateNightStatus để xử lý "disable" và các Kind khác >>>
     const calculateNightStatus = (nightState) => {
         if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [] };
         
@@ -170,9 +171,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetStatus = liveStatuses[targetId];
             if (!targetStatus) return;
 
+            // Xử lý Vô hiệu hóa
             if (actor.kind === 'disable') {
                 targetStatus.isDisabled = true;
             }
+            // Xử lý Bảo vệ
             else if (actor.kind === 'shield') {
                 targetStatus.isProtected = true;
             }
@@ -184,6 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetStatus = liveStatuses[targetId];
             if (!targetStatus) return;
 
+            // Xử lý cắn chung
             if (actorId === 'wolf_group') { 
                 targetStatus.damage++;
                 return;
@@ -191,6 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!actor || liveStatuses[actorId]?.isDisabled) return;
             
+            // Xử lý giết cá nhân
             if (actor.kind.includes('kill')) {
                 targetStatus.damage++;
             }
@@ -330,7 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             groupPlayers.sort((a, b) => a.name.localeCompare(b.name)).forEach(player => {
                 const playerState = nightState.playersStatus[player.id];
-                const lStatus = liveStatuses[player.id];
+                const lStatus = liveStatuses ? liveStatuses[player.id] : null;
                 wrapper.appendChild(createPlayerRow(player, playerState, lStatus, nightState.isFinished));
             });
 
@@ -573,8 +578,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const nightState = nightStates[activeNightIndex];
         if (!nightState) return;
-
-        // <<< SỬA LỖI: Đảm bảo nightState.actions luôn là một mảng >>>
+        
         if (!Array.isArray(nightState.actions)) {
             nightState.actions = [];
         }
@@ -582,7 +586,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target.closest('.night-tab')) {
             activeNightIndex = parseInt(target.closest('.night-tab').dataset.index, 10);
             render();
-        } else if (target.closest('#reset-night-btn')) {
+        } 
+        // <<< SỬA LỖI 1: Thêm sự kiện cho nút "Sói cắn chung" >>>
+        else if (target.closest('.wolf-bite-group-btn')) {
+            const wolfRow = target.closest('.wolf-bite-group-row');
+            const select = wolfRow.querySelector('.wolf-bite-target-select');
+            const selectedIds = Array.from(select.selectedOptions).map(opt => opt.value);
+            if (selectedIds.length === 0) return;
+
+            selectedIds.forEach(targetId => {
+                nightState.actions.push({
+                    id: nextActionId++,
+                    actorId: 'wolf_group',
+                    action: 'wolf_bite_group',
+                    targetId: targetId
+                });
+            });
+            saveNightNotes();
+            render();
+        }
+        else if (target.closest('#reset-night-btn')) {
             if (confirm(`Bạn có chắc muốn làm mới mọi hành động và trạng thái Sống/Chết trong Đêm ${activeNightIndex + 1}?`)) {
                 nightState.actions = [];
                 nightState.isFinished = false;
