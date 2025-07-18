@@ -17,10 +17,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const interactionTable = document.getElementById('player-interaction-table');
     const nightResultsDiv = document.getElementById('night-results');
     const nightTabsContainer = document.getElementById('night-tabs');
-    let gmNoteArea, gmNoteBtn, nightActionSummaryDiv;
+    let gmNoteArea, gmNoteBtn;
+    let nightActionSummaryDiv;
 
     // --- Config ---
-    const FACTIONS = ["Bầy Sói", "Phe Sói", "Phe Dân", "Phe trung lập", "Chức năng khác", "Chưa phân loại"];
+    const FACTIONS = [
+        "Bầy Sói",
+        "Phe Sói",
+        "Phe Dân",
+        "Phe trung lập",
+        "Chức năng khác",
+        "Chưa phân loại"
+    ];
+
     const FACTION_GROUPS = [
         { display: 'Bầy Sói', factions: ['Bầy Sói'], className: 'faction-wolf' },
         { display: 'Phe Sói', factions: ['Phe Sói'], className: 'faction-wolf' },
@@ -28,25 +37,30 @@ document.addEventListener('DOMContentLoaded', () => {
         { display: 'Phe trung lập', factions: ['Phe trung lập'], className: 'faction-neutral' },
         { display: 'Khác', factions: ['Chức năng khác', 'Chưa phân loại'], className: 'faction-other' }
     ];
-    const SELECTABLE_FACTIONS = ["Bầy Sói", "Phe Sói", "Phe Dân", "Phe trung lập"];
 
-    // Cấu hình hành động theo VAI TRÒ
-    const ROLE_ACTIONS_CONFIG = {
-        // --- Ví dụ cho các vai trò có hành động ---
-        "Bảo vệ": { actions: { 'protect': { label: 'Bảo vệ', type: 'defense', uses: Infinity } } },
-        "Tiên tri": { actions: { 'seer_check': { label: 'Soi', type: 'info', uses: Infinity } } },
-        "Phù thủy": { actions: { 'potion_heal': { label: 'Cứu', type: 'defense', uses: 1 }, 'potion_kill': { label: 'Giết', type: 'damage', uses: 1 } } },
-        // "Sói sát thủ": { actions: { 'assassinate': { label: 'Ám sát', type: 'damage', uses: 1 } } },
-        // Thêm các vai trò khác có hành động ở đây
+    const SELECTABLE_FACTIONS = [
+        "Bầy Sói",
+        "Phe Sói",
+        "Phe Dân",
+        "Phe trung lập",
+    ];
+
+    const ACTIONS_CONFIG = {
+        "Bầy Sói": { className: "optgroup-wolf", actions: { 'wolf_bite_group': { label: 'Sói cắn (nhiều mục tiêu)', type: 'damage', uses: Infinity } } },
+        "Phe Sói": { className: "optgroup-wolf", actions: {} },
+        "Phe Dân": { className: "", actions: { 'protect': { label: 'Bảo vệ', type: 'defense', uses: Infinity }, 'save': { label: 'Cứu', type: 'defense', uses: 1 } } },
+        "Phe trung lập": { className: "", actions: {} },
+        "Chức năng khác": { className: "", actions: { 'villager_dmg': { label: 'ST Dân', type: 'damage', uses: 1 }, 'other_dmg': { label: 'ST Khác', type: 'damage', uses: Infinity }, 'armor': { label: 'Giáp', type: 'defense', uses: 1 } } }
     };
-    // Tạo một danh sách tổng hợp tất cả các hành động có thể có
-    const ALL_ACTIONS = Object.values(ROLE_ACTIONS_CONFIG).reduce((acc, role) => ({ ...acc, ...role.actions }), {});
-    // Thêm hành động cắn chung của bầy sói vào để có label
-    ALL_ACTIONS['wolf_bite_group'] = { label: 'Sói cắn', type: 'damage' };
-
+    const ALL_ACTIONS = Object.values(ACTIONS_CONFIG).reduce((acc, group) => ({ ...acc, ...group.actions }), {});
 
     // --- State ---
-    let roomPlayers = [], allRolesData = {}, nightStates = [], activeNightIndex = 0, nextActionId = 0, roomId = null;
+    let roomPlayers = [];
+    let allRolesData = {};
+    let nightStates = [];
+    let activeNightIndex = 0;
+    let nextActionId = 0;
+    let roomId = null;
 
     // --- Data Fetching ---
     const fetchAllRolesData = async () => {
@@ -81,8 +95,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (actorId !== 'wolf_group' && nightState.playersStatus[actorId]?.isDisabled) return;
             if (!statuses[targetId]) return;
             const config = ALL_ACTIONS[action];
-            if (config?.type === 'damage') statuses[targetId].damage++;
-            else if (config?.type === 'defense') {
+            if (config?.type === 'damage') {
+                statuses[targetId].damage++;
+            } else if (config?.type === 'defense') {
                 if (action === 'protect') statuses[targetId].isProtected = true;
                 if (action === 'save') statuses[targetId].isHealed = true;
                 if (action === 'armor') statuses[targetId].hasArmor = true;
@@ -158,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
         FACTION_GROUPS.forEach(group => {
             const groupPlayers = roomPlayers.filter(p => group.factions.includes(p.faction));
             if (groupPlayers.length === 0) return;
-
+            
             const wrapper = document.createElement('div');
             wrapper.className = `faction-group-wrapper ${group.className || ''}`;
 
@@ -166,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
             header.className = `faction-header ${group.className || ''}`;
             header.textContent = group.display;
             wrapper.appendChild(header);
-            
+
             if (group.factions.includes('Bầy Sói')) {
                 const wolfRow = document.createElement('div');
                 wolfRow.className = 'player-row wolf-bite-group-row';
@@ -269,45 +284,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             nightResultsDiv.innerHTML = '<p>Chưa có đêm nào bắt đầu.</p>';
         }
-
-        document.querySelectorAll('.wolf-bite-group-btn').forEach(btn => {
-            btn.onclick = function() {
-                const wolfRow = btn.closest('.wolf-bite-group-row');
-                const select = wolfRow.querySelector('.wolf-bite-target-select');
-                const selectedIds = Array.from(select.selectedOptions).map(opt => opt.value);
-                if (selectedIds.length === 0) return;
-                selectedIds.forEach(targetId => {
-                    nightStates[activeNightIndex].actions.push({
-                        id: nextActionId++,
-                        actorId: 'wolf_group',
-                        action: 'wolf_bite_group',
-                        targetId: targetId
-                    });
-                });
-                saveNightNotes();
-                render();
-            };
-        });
-        
-        document.querySelectorAll('.wolf-bite-group-list .remove-action-btn').forEach(btn => {
-            btn.onclick = function(e) {
-                const actionId = parseInt(btn.closest('.action-item').dataset.actionId, 10);
-                const actionIndex = nightStates[activeNightIndex].actions.findIndex(a => a.id === actionId);
-                if (actionIndex > -1) {
-                    nightStates[activeNightIndex].actions.splice(actionIndex, 1);
-                    saveNightNotes();
-                    render();
-                }
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        });
     };
 
     function createPlayerRow(player, playerState, liveStatus, isFinished) {
         const row = document.createElement('div');
         row.className = 'player-row';
         row.dataset.playerId = player.id;
+
         if (!playerState.isAlive) row.classList.add('status-dead');
         if (playerState.isDisabled) row.classList.add('status-disabled');
         if (liveStatus) {
@@ -321,19 +304,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const changeFactionBtnHTML = `<button class="change-faction-btn">Chuyển phe</button>`;
 
         let optionsHTML = '';
-        const playerRoleActionConfig = ROLE_ACTIONS_CONFIG[player.roleName];
-        
-        if (playerRoleActionConfig && Object.keys(playerRoleActionConfig.actions).length > 0) {
-            optionsHTML += `<optgroup label="Hành động ${player.roleName}">`;
-            for (const actionKey in playerRoleActionConfig.actions) {
-                const action = playerRoleActionConfig.actions[actionKey];
-                const isDisabled = playerState.isDisabled;
-                optionsHTML += `<option value="${actionKey}" ${isDisabled ? 'disabled' : ''}>${action.label}</option>`;
-            }
+        const playerFaction = player.faction;
+        const playerRole = player.roleName;
+
+        // Xử lý các vai trò đặc biệt có hành động riêng
+        if (playerRole === 'Bảo vệ') {
+            const group = ACTIONS_CONFIG["Phe Dân"];
+            optionsHTML += `<optgroup label="Hành động ${playerRole}" class="${group.className}">`;
+            optionsHTML += `<option value="protect">Bảo vệ</option>`;
             optionsHTML += `</optgroup>`;
         }
+        else if (playerRole === 'Sói sát thủ') { // Ví dụ cho Sói có hành động riêng
+             optionsHTML += `<optgroup label="Hành động ${playerRole}" class="optgroup-wolf">`;
+             optionsHTML += `<option value="assassinate">Ám sát</option>`;
+             optionsHTML += `</optgroup>`;
+        }
+        // Thêm các điều kiện 'else if' cho các vai trò đặc biệt khác ở đây
+        // Những vai trò không có trong các điều kiện này (như Sói thường) sẽ không có menu hành động
         
-        const livingPlayers = roomPlayers.filter(p => (nightStates[activeNightIndex] ? nightStates[activeNightIndex].playersStatus[p.id]?.isAlive : p.isAlive));
+        const livingPlayers = roomPlayers.filter(p => nightStates[activeNightIndex]?.playersStatus[p.id]?.isAlive);
         const showActionControls = playerState.isAlive && !isFinished && !playerState.isDisabled && optionsHTML.trim() !== '';
         
         const actionControlsHTML = `
@@ -349,16 +338,13 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="player-header">
                 <div class="player-info">
                     <div class="player-name">${player.name}</div>
-                    <div class="player-role">${player.roleName || 'Chưa có vai'} <span style="font-style:italic; opacity:0.8;">(${player.faction})</span></div>
-                    <div>
-                         ${changeFactionBtnHTML}
-                         ${factionSelectHTML}
-                    </div>
+                    <div class="player-role">${playerRole || 'Chưa có vai'} <span style="font-style:italic; opacity:0.8;">(${playerFaction})</span></div>
+                    <div>${changeFactionBtnHTML}${factionSelectHTML}</div>
                 </div>
                 <div class="player-status-controls">
-                     <button class="status-btn life ${playerState.isAlive ? 'alive' : 'dead'}" title="Sống/Chết"><i class="fas fa-heart"></i></button>
-                     <button class="status-btn disable ${playerState.isDisabled ? 'disabled' : 'enabled'}" title="${playerState.isDisabled ? 'Bật lại chức năng' : 'Vô hiệu hóa'}"><i class="fas fa-user-slash"></i></button>
-                     ${playerState.isDisabled ? '<span class="disable-label">VÔ HIỆU</span>' : ''}
+                    <button class="status-btn life ${playerState.isAlive ? 'alive' : 'dead'}" title="Sống/Chết"><i class="fas fa-heart"></i></button>
+                    <button class="status-btn disable ${playerState.isDisabled ? 'disabled' : 'enabled'}" title="${playerState.isDisabled ? 'Bật lại chức năng' : 'Vô hiệu hóa'}"><i class="fas fa-user-slash"></i></button>
+                    ${playerState.isDisabled ? '<span class="disable-label">VÔ HIỆU</span>' : ''}
                 </div>
                 ${showActionControls ? actionControlsHTML : ''}
             </div>
@@ -422,9 +408,10 @@ document.addEventListener('DOMContentLoaded', () => {
             nightState.actions.forEach(action => {
                 if (action.actorId === playerId) {
                     const target = roomPlayers.find(p => p.id === action.targetId);
-                    const actionConfig = ALL_ACTIONS[action.action] || {};
-                    const actionLabel = actionConfig.label || action.action;
-                    const actionType = actionConfig.type || 'custom';
+                    // Lấy thông tin hành động từ config gốc để hiển thị label
+                    const actionConfig = ACTIONS_CONFIG[action.faction] ? ACTIONS_CONFIG[action.faction].actions[action.action] : null;
+                    const actionLabel = actionConfig?.label || action.action;
+                    const actionType = actionConfig?.type || 'custom';
                     html += `
                         <div class="action-item" data-action-id="${action.id}">
                             <i class="fas fa-arrow-right"></i>
@@ -458,7 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert(`Vui lòng kết thúc Đêm ${nightStates.length} trước khi thêm đêm mới.`);
                 return;
             }
-            const prevStatus = lastNight ? calculateNightStatus(lastNight).finalStatus : Object.fromEntries(roomPlayers.map(p => [p.id, { isAlive: p.isAlive, isDisabled: false }]));
+            const prevStatus = lastNight ? calculateNightStatus(lastNight).finalStatus : Object.fromEntries(roomPlayers.map(p => [p.id, { isAlive: true, isDisabled: false }]));
             const initialStatusForNewNight = JSON.parse(JSON.stringify(prevStatus));
             nightStates.push({
                 actions: [],
@@ -479,12 +466,6 @@ document.addEventListener('DOMContentLoaded', () => {
             render();
         } else if (target.closest('#reset-night-btn')) {
             if (confirm(`Bạn có chắc muốn làm mới mọi hành động và trạng thái Sống/Chết trong Đêm ${activeNightIndex + 1}?`)) {
-                nightState.actions.forEach(actionToReset => {
-                    const player = roomPlayers.find(p => p.id === actionToReset.actorId);
-                    if (player && typeof player.actionUses[actionToReset.action] === 'number') {
-                        player.actionUses[actionToReset.action]++;
-                    }
-                });
                 nightState.actions = [];
                 nightState.isFinished = false;
                 nightState.playersStatus = JSON.parse(JSON.stringify(nightState.initialPlayersStatus));
@@ -504,8 +485,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (target.closest('.add-action-btn')) {
                     const actionKey = row.querySelector('.action-select').value;
                     const targetId = row.querySelector('.target-select').value;
-                    if (actionKey && targetId) {
-                        nightState.actions.push({ id: nextActionId++, actorId, action: actionKey, targetId });
+                    const actor = roomPlayers.find(p => p.id === actorId);
+                    if (actionKey && targetId && actor) {
+                        nightState.actions.push({ id: nextActionId++, actorId, action: actionKey, targetId, faction: actor.faction });
                         saveNightNotes();
                         render();
                     }
@@ -548,7 +530,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 nightStates = notes;
                 nextActionId = Math.max(0, ...notes.flatMap(n => n.actions || []).map(a => a.id)) + 1;
             } else if (roomPlayers.length > 0 && nightStates.length === 0) {
-                 // Tự động tạo đêm 1 nếu chưa có
                  const initialStatus = Object.fromEntries(roomPlayers.map(p => [p.id, { isAlive: p.isAlive, isDisabled: false }]));
                  nightStates.push({
                     actions: [],

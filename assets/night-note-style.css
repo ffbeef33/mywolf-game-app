@@ -89,30 +89,27 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     background-color: #c73c3c !important;
 }
 
-/* --- SỬA ĐỔI BẮT ĐẦU TỪ ĐÂY --- */
-
-/* 1. Thêm class để tạo khung riêng cho mỗi phe */
+/* --- SỬA ĐỔI: Thêm style để tạo khung riêng cho mỗi phe --- */
 .faction-group-wrapper {
     background-color: var(--secondary-bg);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     margin-bottom: 24px;
     padding: 0;
-    overflow: hidden; /* Để bo góc hoạt động đúng với các item con */
+    overflow: hidden;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
-/* Thêm border màu cho từng phe */
 .faction-group-wrapper.faction-wolf { border-color: var(--danger-color); }
 .faction-group-wrapper.faction-villager { border-color: var(--safe-color); }
 .faction-group-wrapper.faction-neutral { border-color: var(--neutral-color); }
 .faction-group-wrapper.faction-other { border-color: #666; }
 
 
-/* 2. Điều chỉnh Faction Header để nằm trong khung mới */
+/* --- Faction Header (Điều chỉnh để vừa với khung mới) --- */
 .faction-header {
     width: 100%;
     padding: 8px 10px;
-    margin-top: 0;  /* Bỏ margin-top vì đã có ở wrapper */
+    margin-top: 0; /* Bỏ margin-top vì đã có ở wrapper */
     background-color: var(--card-bg);
     border-bottom: 2px solid var(--border-color);
     font-family: var(--font-display);
@@ -122,7 +119,6 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     letter-spacing: 0.5px;
     border-radius: 0; /* Bỏ bo góc vì đã có ở wrapper */
 }
-
 /* Giữ nguyên các hiệu ứng gradient gốc của bạn */
 .faction-header.faction-wolf {
     color: var(--danger-color);
@@ -137,8 +133,8 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     color: #ffd33d;
     border-bottom-color: #ffd33d;
     background: linear-gradient(90deg, #2b2a1e 70%, var(--card-bg) 100%);
+    margin-top: 36px !important;
 }
-/* Bỏ margin giữa các header vì giờ đã có wrapper */
 .faction-header + .faction-header { margin-top: 0; }
 .faction-separator {
     height: 18px;
@@ -148,17 +144,17 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     display: block;
 }
 
-/* --- Player Row --- */
+/* --- Player Row (Điều chỉnh để vừa với khung mới) --- */
 .player-row {
     display: flex; flex-direction: column; align-items: flex-start;
     padding: 15px 10px; border-bottom: 1px solid var(--border-color);
     transition: background-color 0.3s;
     background: transparent;
 }
-/* 3. Bỏ border cho hàng cuối cùng trong mỗi khung */
 .faction-group-wrapper .player-row:last-child {
     border-bottom: none;
 }
+/* --- Tất cả hiệu ứng và style gốc còn lại được giữ nguyên --- */
 .player-row.status-dead { opacity: 0.4; background-color: #161b22; }
 .player-row.status-dead .action-controls { display: none; }
 .player-row.status-dead .player-status-controls { 
@@ -266,8 +262,6 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     display: flex; flex-wrap: wrap; align-items: center;
     width: 100%; gap: 10px; position: relative;
 }
-
-/* --- Hiển thị trạng thái tương tác đêm --- */
 .player-row.status-protected {
     background-color: var(--action-protect-bg) !important;
     box-shadow: 0 0 6px 3px var(--action-protect);
@@ -348,8 +342,6 @@ option:disabled {
     animation: spin 1s linear infinite; margin: 20px auto;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-
-/* --- Tối ưu phần ghi chú quản trò --- */
 #gm-night-note {
     width: 100%;
     margin: 12px 0 5px 0;
@@ -374,8 +366,6 @@ option:disabled {
     opacity: 1;
     font-style: italic;
 }
-
-/* --- Tối ưu phần tổng hợp hành động trong đêm --- */
 #night-action-summary {
     margin: 18px 0 0 0;
     padding: 14px 16px;
@@ -404,8 +394,6 @@ option:disabled {
 .night-action-summary-item:last-child {
     margin-bottom: 0;
 }
-
-/* --- TỐI ƯU PHẦN CHUYỂN PHE --- */
 .change-faction-btn {
     background: linear-gradient(135deg, #23272f 70%, #484f58 100%);
     color: #fff;
@@ -426,7 +414,6 @@ option:disabled {
     background: linear-gradient(135deg, #484f58 80%, #23272f 100%);
     box-shadow: 0 0 0 2px var(--protect-color), 0 1px 8px 0 #181a2050;
 }
-
 .player-faction-select {
     background: #1a1d22;
     color: #b5cdfb;
@@ -449,8 +436,6 @@ option:disabled {
     background: #21262c;
     color: #c9d1d9;
 }
-
-/* --- TỐI ƯU PHẦN BẦY SÓI CẮN --- */
 .wolf-bite-group-row {
     background: linear-gradient(135deg, #1d3350 70%, #161b22 100%);
     border-radius: 13px;
