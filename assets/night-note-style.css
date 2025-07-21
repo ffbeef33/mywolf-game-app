@@ -89,14 +89,14 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     background-color: #c73c3c !important;
 }
 
-/* --- SỬA ĐỔI: Thêm style để tạo khung riêng cho mỗi phe --- */
+/* --- Style để tạo khung riêng cho mỗi phe --- */
 .faction-group-wrapper {
     background-color: var(--secondary-bg);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     margin-bottom: 24px;
     padding: 0;
-    overflow: hidden;
+    overflow: hidden; 
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 .faction-group-wrapper.faction-wolf { border-color: var(--danger-color); }
@@ -105,11 +105,11 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
 .faction-group-wrapper.faction-other { border-color: #666; }
 
 
-/* --- Faction Header (Điều chỉnh để vừa với khung mới) --- */
+/* --- Faction Header --- */
 .faction-header {
     width: 100%;
     padding: 8px 10px;
-    margin-top: 0; /* Bỏ margin-top vì đã có ở wrapper */
+    margin-top: 0;
     background-color: var(--card-bg);
     border-bottom: 2px solid var(--border-color);
     font-family: var(--font-display);
@@ -117,9 +117,8 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     font-weight: 700;
     color: var(--light-text);
     letter-spacing: 0.5px;
-    border-radius: 0; /* Bỏ bo góc vì đã có ở wrapper */
+    border-radius: 0;
 }
-/* Giữ nguyên các hiệu ứng gradient gốc của bạn */
 .faction-header.faction-wolf {
     color: var(--danger-color);
     border-bottom-color: var(--danger-color);
@@ -144,7 +143,7 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     display: block;
 }
 
-/* --- Player Row (Điều chỉnh để vừa với khung mới) --- */
+/* --- Player Row --- */
 .player-row {
     display: flex; flex-direction: column; align-items: flex-start;
     padding: 15px 10px; border-bottom: 1px solid var(--border-color);
@@ -154,7 +153,6 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
 .faction-group-wrapper .player-row:last-child {
     border-bottom: none;
 }
-/* --- Tất cả hiệu ứng và style gốc còn lại được giữ nguyên --- */
 .player-row.status-dead { opacity: 0.4; background-color: #161b22; }
 .player-row.status-dead .action-controls { display: none; }
 .player-row.status-dead .player-status-controls { 
@@ -342,6 +340,30 @@ option:disabled {
     animation: spin 1s linear infinite; margin: 20px auto;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+#gm-info-log {
+    background-color: #162433;
+    border: 1px solid var(--protect-color);
+    margin-top: 20px;
+}
+#gm-info-log h4 {
+    color: var(--protect-color);
+    margin-top: 0;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--protect-color);
+    font-family: var(--font-display);
+}
+#gm-info-log ul {
+    margin: 0;
+    padding-left: 20px;
+}
+#gm-info-log li {
+    font-size: 1rem;
+    color: var(--light-text);
+    margin-bottom: 8px;
+}
+
 #gm-night-note {
     width: 100%;
     margin: 12px 0 5px 0;
