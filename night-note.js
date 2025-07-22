@@ -325,12 +325,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderNightTabs();
         
+        // <<< SỬA ĐỔI: Hiển thị kết quả tính toán ngay cả khi đêm chưa kết thúc >>>
+        if (deadPlayerNames.length > 0) {
+            nightResultsDiv.innerHTML = `<strong>Dự kiến chết:</strong> ${deadPlayerNames.map(name => `<span class="dead-player">${name}</span>`).join(', ')}`;
+        } else {
+             nightResultsDiv.innerHTML = '<p>Không có ai chết trong đêm nay.</p>';
+        }
         if (nightState.isFinished) {
             nightResultsDiv.innerHTML = deadPlayerNames.length > 0
-                ? `<strong>Đã chết:</strong> ${deadPlayerNames.map(name => `<span class="dead-player">${name}</span>`).join(', ')}`
-                : '<p>Không có ai chết trong đêm nay.</p>';
-        } else {
-            nightResultsDiv.innerHTML = '<p>Đang chờ kết quả...</p>';
+                    ? `<strong>Đã chết:</strong> ${deadPlayerNames.map(name => `<span class="dead-player">${name}</span>`).join(', ')}`
+                    : '<p>Không có ai chết trong đêm nay.</p>';
         }
 
         let gmInfoLogDiv = document.getElementById('gm-info-log');
@@ -341,7 +345,8 @@ document.addEventListener('DOMContentLoaded', () => {
             nightResultsDiv.parentNode.insertBefore(gmInfoLogDiv, nightResultsDiv.nextSibling);
         }
         
-        if (nightState.isFinished && infoResults && infoResults.length > 0) {
+        // <<< SỬA ĐỔI: Gỡ bỏ điều kiện isFinished để hiển thị kết quả kiểm tra ngay lập tức >>>
+        if (infoResults && infoResults.length > 0) {
             gmInfoLogDiv.style.display = 'block';
             gmInfoLogDiv.innerHTML = `<h4>Kết quả kiểm tra đêm nay:</h4><ul>${infoResults.map(res => `<li>${res}</li>`).join('')}</ul>`;
         } else {
