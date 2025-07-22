@@ -128,7 +128,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const liveStatuses = {}; 
         const infoResults = [];
 
-        // --- Giai đoạn 0: Khởi tạo ---
         Object.keys(initialStatus).forEach(pId => {
             if (initialStatus[pId].isAlive) {
                 const player = roomPlayers.find(p => p.id === pId);
@@ -141,7 +140,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // --- Giai đoạn 1: Vô hiệu hóa & Phòng thủ ---
         actions.forEach(({ actorId, targetId }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
             if (!actor || liveStatuses[actorId]?.isDisabled) return;
@@ -151,7 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (actor.kind === 'shield') { targetStatus.isProtected = true; }
         });
         
-        // --- Giai đoạn 2: Tấn công & Kiểm tra ---
         actions.forEach(({ actorId, targetId, action }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
             const target = roomPlayers.find(p => p.id === targetId);
@@ -186,7 +183,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // --- Giai đoạn 3: Cứu ---
         actions.forEach(({ actorId, targetId }) => {
              const actor = roomPlayers.find(p => p.id === actorId);
              if (!actor || liveStatuses[actorId]?.isDisabled) return;
@@ -197,7 +193,6 @@ document.addEventListener('DOMContentLoaded', () => {
              }
         });
 
-        // --- Giai đoạn 4: Tổng kết kết quả ---
         const deadPlayerNames = [];
         Object.keys(liveStatuses).forEach(pId => {
             const status = liveStatuses[pId];
@@ -264,11 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
         interactionTable.innerHTML = '';
         const nightState = nightStates[activeNightIndex];
         if (!nightState) {
-            nightResultsDiv.innerHTML = '<p>Chưa có đêm nào bắt đầu.</p>';
-            nightTabsContainer.innerHTML = '';
-            if (gmNoteArea) gmNoteArea.style.display = "none";
-            if (gmNoteBtn) gmNoteBtn.style.display = "none";
-            if (nightActionSummaryDiv) nightActionSummaryDiv.style.display = "none";
+            interactionTable.innerHTML = '<div class="loading-spinner"></div>';
             return;
         }
         const { liveStatuses, infoResults, deadPlayerNames } = calculateNightStatus(nightState);
@@ -317,7 +308,10 @@ document.addEventListener('DOMContentLoaded', () => {
             groupPlayers.sort((a, b) => a.name.localeCompare(b.name)).forEach(player => {
                 const playerState = nightState.playersStatus[player.id];
                 const lStatus = liveStatuses ? liveStatuses[player.id] : null;
-                wrapper.appendChild(createPlayerRow(player, playerState, lStatus, nightState.isFinished));
+                // An toàn hơn khi có kiểm tra playerState tồn tại
+                if (playerState) {
+                    wrapper.appendChild(createPlayerRow(player, playerState, lStatus, nightState.isFinished));
+                }
             });
 
             interactionTable.appendChild(wrapper);
@@ -325,7 +319,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderNightTabs();
         
-        // <<< SỬA ĐỔI: Hiển thị kết quả tính toán ngay cả khi đêm chưa kết thúc >>>
         if (deadPlayerNames.length > 0) {
             nightResultsDiv.innerHTML = `<strong>Dự kiến chết:</strong> ${deadPlayerNames.map(name => `<span class="dead-player">${name}</span>`).join(', ')}`;
         } else {
@@ -345,7 +338,6 @@ document.addEventListener('DOMContentLoaded', () => {
             nightResultsDiv.parentNode.insertBefore(gmInfoLogDiv, nightResultsDiv.nextSibling);
         }
         
-        // <<< SỬA ĐỔI: Gỡ bỏ điều kiện isFinished để hiển thị kết quả kiểm tra ngay lập tức >>>
         if (infoResults && infoResults.length > 0) {
             gmInfoLogDiv.style.display = 'block';
             gmInfoLogDiv.innerHTML = `<h4>Kết quả kiểm tra đêm nay:</h4><ul>${infoResults.map(res => `<li>${res}</li>`).join('')}</ul>`;
@@ -689,6 +681,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 activeNightIndex = 0;
                 saveNightNotes();
             }
+
+            // <<< SỬA LỖI: Thêm khối code đồng bộ trạng thái người chơi >>>
+            // Đảm bảo mọi người chơi trong phòng đều có một mục trạng thái trong mỗi đêm
+            roomPlayers.forEach(player => {
+                nightStates.forEach(night => {
+                    if (night.playersStatus && !night.playersStatus[player.id]) {
+                        // Người chơi này mới được thêm vào, tạo trạng thái mặc định cho họ
+                        night.playersStatus[player.id] = {
+                            isAlive: player.isAlive,
+                            isDisabled: false,
+                            armor: (player.kind === 'armor1') ? 2 : 1
+                        };
+                    }
+                });
+            });
+
             render();
         });
 
