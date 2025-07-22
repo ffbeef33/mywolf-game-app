@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Firebase ---
     const firebaseConfig = {
-        apiKey: "AIzaSyAYUuNxsYWI59ahvjKHZujKyTfi95DzNwU",
+        apiKey: "AIzaSyAYUuNxsYWI59ahvjKHZujKyTfi9E8DzNwU",
         authDomain: "mywolf-game.firebaseapp.com",
         databaseURL: "https://mywolf-game-default-rtdb.asia-southeast1.firebasedatabase.app",
         projectId: "mywolf-game",
@@ -61,7 +61,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     acc[roleName] = {
                         faction: (role.Faction || 'Chưa phân loại').trim(),
                         active: (role.Active || '0').trim(),
-                        kind: (role.Kind || 'empty').trim()
+                        kind: (role.Kind || 'empty').trim(),
+                        quantity: parseInt(role.Quantity, 10) || 1
                     };
                 }
                 return acc;
@@ -101,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (uses === '1') {
             let timesUsed = 0;
-            for (let i = 0; i <= currentNightIndex; i++) {
+            for (let i = 0; i < nightStates.length; i++) {
                 if (nightStates[i] && nightStates[i].actions) {
                     for (const action of nightStates[i].actions) {
                         if (action.actorId === player.id && action.action !== 'wolf_bite_group') {
@@ -308,7 +309,6 @@ document.addEventListener('DOMContentLoaded', () => {
             groupPlayers.sort((a, b) => a.name.localeCompare(b.name)).forEach(player => {
                 const playerState = nightState.playersStatus[player.id];
                 const lStatus = liveStatuses ? liveStatuses[player.id] : null;
-                // An toàn hơn khi có kiểm tra playerState tồn tại
                 if (playerState) {
                     wrapper.appendChild(createPlayerRow(player, playerState, lStatus, nightState.isFinished));
                 }
@@ -503,6 +503,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     e.stopPropagation();
                 }
             });
+
+            // --- Logic mới để xử lý Quantity ---
+            const nightState = nightStates[activeNightIndex];
+            if (showActionControls && nightState && Array.isArray(nightState.actions)) {
+                const actionsTakenThisTurn = nightState.actions.filter(a => a.actorId === player.id).length;
+                const quantityLimit = player.quantity || 1;
+
+                if (actionsTakenThisTurn >= quantityLimit) {
+                    const targetSelect = row.querySelector('.target-select');
+                    const addBtn = row.querySelector('.add-action-btn');
+                    if(targetSelect) targetSelect.disabled = true;
+                    if(addBtn) addBtn.disabled = true;
+                }
+            }
+
         }, 10);
         
         return row;
@@ -650,14 +665,15 @@ document.addEventListener('DOMContentLoaded', () => {
             roomPlayers = Object.keys(playersData).map(key => {
                 const originalData = playersData[key];
                 const roleName = (originalData.roleName || '').trim();
-                const roleInfo = allRolesData[roleName] || { faction: 'Chưa phân loại', active: '0', kind: 'empty' };
+                const roleInfo = allRolesData[roleName] || { faction: 'Chưa phân loại', active: '0', kind: 'empty', quantity: 1 };
                 
                 return { 
                     id: key, 
                     ...originalData, 
                     faction: roleInfo.faction,
                     activeRule: roleInfo.active,
-                    kind: roleInfo.kind
+                    kind: roleInfo.kind,
+                    quantity: roleInfo.quantity
                 };
             });
 
@@ -682,12 +698,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 saveNightNotes();
             }
 
-            // <<< SỬA LỖI: Thêm khối code đồng bộ trạng thái người chơi >>>
-            // Đảm bảo mọi người chơi trong phòng đều có một mục trạng thái trong mỗi đêm
             roomPlayers.forEach(player => {
                 nightStates.forEach(night => {
                     if (night.playersStatus && !night.playersStatus[player.id]) {
-                        // Người chơi này mới được thêm vào, tạo trạng thái mặc định cho họ
                         night.playersStatus[player.id] = {
                             isAlive: player.isAlive,
                             isDisabled: false,
