@@ -143,13 +143,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const liveStatuses = {}; 
         const infoResults = [];
 
-        // --- Giai đoạn 0: Khởi tạo ---
         Object.keys(initialStatus).forEach(pId => {
             if (initialStatus[pId].isAlive) {
                 liveStatuses[pId] = {
-                    damage: 0,
-                    isProtected: false,
-                    isSaved: false,
+                    damage: 0, isProtected: false, isSaved: false,
                     isDisabled: initialStatus[pId].isDisabled || false,
                     armor: initialStatus[pId].armor || 1,
                     isDoomed: initialStatus[pId].isDoomed || false,
@@ -162,7 +159,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // --- Giai đoạn 1: Các hiệu ứng thay đổi luồng & phòng thủ ưu tiên ---
         const damageRedirects = {}; 
         const counterWards = {};    
 
@@ -182,7 +178,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // --- Giai đoạn 2: Tấn công, Phản đòn & Kiểm tra ---
         actions.forEach(({ actorId, targetId, action }) => {
             let attackerId = actorId;
             let currentTargetId = targetId;
@@ -209,23 +204,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!finalTarget || !finalTargetStatus) return;
 
                 finalTargetStatus.damage++;
-                const damageDealt = true;
-
-                if (damageDealt) {
-                    if (finalTarget.kind === 'counter') {
-                        const attackerStatus = liveStatuses[attackerId];
-                        if (attackerStatus) attackerStatus.damage++;
-                    }
-                    if (finalTargetId !== currentTargetId) {
-                         const attackerStatus = liveStatuses[attackerId];
-                         if (attackerStatus) attackerStatus.damage++;
-                    }
-                    const ward = counterWards[finalTargetId];
-                    if (ward && !ward.triggered) {
-                        const attackerStatus = liveStatuses[attackerId];
-                        if (attackerStatus) attackerStatus.damage++;
-                        ward.triggered = true;
-                    }
+                
+                if (finalTarget.kind === 'counter') {
+                    if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
+                }
+                if (finalTargetId !== currentTargetId) {
+                     if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
+                }
+                const ward = counterWards[finalTargetId];
+                if (ward && !ward.triggered) {
+                    if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
+                    ward.triggered = true;
                 }
             }
             
@@ -248,7 +237,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // --- Giai đoạn 3: Cứu ---
         actions.forEach(({ actorId, targetId }) => {
              const actor = roomPlayers.find(p => p.id === actorId);
              if (!actor || liveStatuses[actorId]?.isDisabled) return;
@@ -258,7 +246,6 @@ document.addEventListener('DOMContentLoaded', () => {
              }
         });
 
-        // --- Giai đoạn 4: Tổng kết kết quả ---
         let deadPlayerIdsThisNight = new Set();
         Object.keys(liveStatuses).forEach(pId => {
             const status = liveStatuses[pId];
@@ -271,8 +258,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 status.armor -= damageAbsorbed;
                 effectiveDamage -= damageAbsorbed;
             }
-
+            
             if (effectiveDamage > 0 && !status.isSaved) {
+                status.isDead = true;
+            } else {
+                status.isDead = false;
+            }
+
+            if (status.isDead) {
                 if (player.kind === 'delaykill' && status.delayKillAvailable) {
                     finalStatus[pId].isDoomed = true;
                     finalStatus[pId].delayKillAvailable = false;
@@ -501,23 +494,22 @@ document.addEventListener('DOMContentLoaded', () => {
         row.className = 'player-row';
         row.dataset.playerId = player.id;
 
-        if (!playerState.isAlive) row.classList.add('status-dead');
-        if (playerState.isDisabled) row.classList.add('status-disabled');
-        if (liveStatus) {
+        if (!playerState.isAlive) {
+            row.classList.add('status-dead');
+        } else if (liveStatus) {
             if (liveStatus.isProtected) row.classList.add('status-protected');
-            if (liveStatus.isHealed && !liveStatus.isProtected) row.classList.add('status-saved');
-            if (liveStatus.isInDanger && !liveStatus.isProtected && !liveStatus.isHealed) row.classList.add('status-danger');
-            if (isFinished && liveStatus.isDead) row.classList.add('status-dead-calculated');
+            if (liveStatus.isSaved && !liveStatus.isProtected) row.classList.add('status-saved'); 
+            if (liveStatus.isDead && !liveStatus.isSaved && !liveStatus.isProtected) row.classList.add('status-danger');
         }
+        
+        if (playerState.isDisabled) row.classList.add('status-disabled');
 
         const factionSelectHTML = `<select class="player-faction-select" style="display:none;">${SELECTABLE_FACTIONS.map(f => `<option value="${f}"${player.faction===f?' selected':''}>${f}</option>`).join('')}</select>`;
         const changeFactionBtnHTML = `<button class="change-faction-btn">Chuyển phe</button>`;
 
         let optionsHTML = '';
-        
         if (isActionAvailable(player, activeNightIndex)) {
             const kinds = player.kind.split('_');
-            
             optionsHTML += `<optgroup label="Hành động ${player.roleName}">`;
             kinds.forEach(k => {
                 const actionInfo = KIND_TO_ACTION_MAP[k];
@@ -545,6 +537,20 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
 
         let actionListHTML = buildActionList(player.id, nightStates[activeNightIndex]);
+        
+        let statusIconsHTML = '<div class="status-icons">';
+        if (liveStatus) {
+            if (liveStatus.isProtected) {
+                statusIconsHTML += '<i class="fas fa-shield-alt icon-protected" title="Được bảo vệ"></i>';
+            }
+            if (liveStatus.isSaved) {
+                statusIconsHTML += '<i class="fas fa-heart icon-saved" title="Được cứu"></i>';
+            }
+            if (liveStatus.isDead && !liveStatus.isSaved && !liveStatus.isProtected) {
+                statusIconsHTML += '<i class="fas fa-skull-crossbones icon-danger" title="Dự kiến chết"></i>';
+            }
+        }
+        statusIconsHTML += '</div>';
 
         row.innerHTML = `
             <div class="player-header">
@@ -553,6 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="player-role">${player.roleName || 'Chưa có vai'} <span style="font-style:italic; opacity:0.8;">(${player.faction})</span></div>
                     <div>${changeFactionBtnHTML}${factionSelectHTML}</div>
                 </div>
+                ${statusIconsHTML}
                 <div class="player-status-controls">
                     <button class="status-btn life ${playerState.isAlive ? 'alive' : 'dead'}" title="Sống/Chết"><i class="fas fa-heart"></i></button>
                     <button class="status-btn disable ${playerState.isDisabled ? 'disabled' : 'enabled'}" title="${playerState.isDisabled ? 'Bật lại chức năng' : 'Vô hiệu hóa'}"><i class="fas fa-user-slash"></i></button>
@@ -669,17 +676,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert(`Vui lòng kết thúc Đêm ${nightStates.length} trước khi thêm đêm mới.`);
                 return;
             }
-            const prevStatus = lastNight ? calculateNightStatus(lastNight).finalStatus : Object.fromEntries(roomPlayers.map(p => [p.id, { 
-                isAlive: true, 
-                isDisabled: false, 
-                armor: (roomPlayers.find(rp => rp.id === p.id)?.kind === 'armor1' ? 2 : 1),
-                delayKillAvailable: (roomPlayers.find(rp => rp.id === p.id)?.kind === 'delaykill'),
-                isDoomed: false,
-                deathLinkTarget: null
-            }]));
+            const prevStatus = lastNight ? calculateNightStatus(lastNight).finalStatus : Object.fromEntries(roomPlayers.map(p => {
+                const player = roomPlayers.find(rp => rp.id === p.id);
+                return [p.id, { 
+                    isAlive: true, 
+                    isDisabled: false, 
+                    armor: (player?.kind === 'armor1' ? 2 : 1),
+                    delayKillAvailable: (player?.kind === 'delaykill'),
+                    isDoomed: false,
+                    deathLinkTarget: null
+                }];
+            }));
             
             Object.keys(prevStatus).forEach(pId => {
-                prevStatus[pId].isDisabled = false;
+                if(prevStatus[pId]) prevStatus[pId].isDisabled = false;
             });
             
             const initialStatusForNewNight = JSON.parse(JSON.stringify(prevStatus));
@@ -734,15 +744,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             saveNightNotes();
             render();
-        }
-        else if (target.closest('.wolf-bite-group-list .remove-action-btn')) {
-            const actionId = parseInt(target.closest('.action-item').dataset.actionId, 10);
-            const actionIndex = nightState.actions.findIndex(a => a.id === actionId);
-            if (actionIndex > -1) {
-                nightState.actions.splice(actionIndex, 1);
-                saveNightNotes();
-                render();
-            }
         }
         else if (target.closest('#reset-night-btn')) {
             if (confirm(`Bạn có chắc muốn làm mới mọi hành động và trạng thái Sống/Chết trong Đêm ${activeNightIndex + 1}?`)) {
