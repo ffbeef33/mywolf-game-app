@@ -119,6 +119,18 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
+    // <<< SỬA ĐỔI 1: Hàm mới để tính độ ưu tiên sắp xếp >>>
+    function getSortPriority(player) {
+        const isActive = player.activeRule !== '0';
+        const isSaver = player.kind.includes('save');
+        const isWitch = player.roleName === 'Phù thuỷ'; // Thay 'Phù thuỷ' bằng tên chính xác trong Google Sheet của bạn
+
+        if (!isActive) return 4;   // Không hành động -> ưu tiên thấp nhất
+        if (isWitch) return 3;     // Phù thuỷ -> sau các save khác
+        if (isSaver) return 2;     // Các vai trò save khác -> sau các vai trò active khác
+        return 1;                  // Các vai trò active còn lại -> ưu tiên cao nhất
+    }
+
     // --- Logic ---
     const calculateNightStatus = (nightState) => {
         if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [], infoResults: [] };
@@ -306,18 +318,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 wrapper.appendChild(wolfRow);
             }
             
-            // <<< SỬA ĐỔI: Cập nhật logic sắp xếp người chơi >>>
+            // <<< SỬA ĐỔI 2: Cập nhật logic sắp xếp người chơi >>>
             groupPlayers.sort((a, b) => {
-                const aIsActive = a.activeRule !== '0';
-                const bIsActive = b.activeRule !== '0';
+                const priorityA = getSortPriority(a);
+                const priorityB = getSortPriority(b);
 
-                if (aIsActive && !bIsActive) {
-                    return -1; // Người chơi active (a) đứng trước
+                if (priorityA !== priorityB) {
+                    return priorityA - priorityB; // Sắp xếp theo độ ưu tiên
                 }
-                if (!aIsActive && bIsActive) {
-                    return 1; // Người chơi active (b) đứng trước
-                }
-                // Nếu cả hai cùng active hoặc cùng không active, sắp xếp theo tên
+                
+                // Nếu cùng độ ưu tiên, sắp xếp theo tên
                 return a.name.localeCompare(b.name);
             }).forEach(player => {
                 const playerState = nightState.playersStatus[player.id];
