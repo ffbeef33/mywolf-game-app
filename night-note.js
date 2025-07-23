@@ -145,7 +145,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         Object.keys(initialStatus).forEach(pId => {
             if (initialStatus[pId].isAlive) {
-                const player = roomPlayers.find(p => p.id === pId);
                 liveStatuses[pId] = {
                     damage: 0, isProtected: false, isSaved: false,
                     isDisabled: initialStatus[pId].isDisabled || false,
