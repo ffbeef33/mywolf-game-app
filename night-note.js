@@ -306,7 +306,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 wrapper.appendChild(wolfRow);
             }
             
-            groupPlayers.sort((a, b) => a.name.localeCompare(b.name)).forEach(player => {
+            // <<< SỬA ĐỔI: Cập nhật logic sắp xếp người chơi >>>
+            groupPlayers.sort((a, b) => {
+                const aIsActive = a.activeRule !== '0';
+                const bIsActive = b.activeRule !== '0';
+
+                if (aIsActive && !bIsActive) {
+                    return -1; // Người chơi active (a) đứng trước
+                }
+                if (!aIsActive && bIsActive) {
+                    return 1; // Người chơi active (b) đứng trước
+                }
+                // Nếu cả hai cùng active hoặc cùng không active, sắp xếp theo tên
+                return a.name.localeCompare(b.name);
+            }).forEach(player => {
                 const playerState = nightState.playersStatus[player.id];
                 const lStatus = liveStatuses ? liveStatuses[player.id] : null;
                 if (playerState) {
@@ -509,6 +522,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     e.stopPropagation();
                 }
             });
+
+            if (showActionControls && nightState && Array.isArray(nightState.actions)) {
+                const actionsTakenThisTurn = nightState.actions.filter(a => a.actorId === player.id).length;
+                const quantityLimit = player.quantity || 1;
+
+                if (actionsTakenThisTurn >= quantityLimit) {
+                    const openModalBtn = row.querySelector('.open-target-modal-btn');
+                    if(openModalBtn) openModalBtn.disabled = true;
+                }
+            }
+
         }, 10);
         
         return row;
@@ -795,7 +819,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         document.addEventListener('click', handleEvents);
-        createTargetModal(); // Tạo modal khi trang tải xong
+        createTargetModal();
     };
 
     const urlRoomId = new URLSearchParams(window.location.search).get('roomId');
