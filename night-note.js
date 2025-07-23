@@ -225,9 +225,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (targetStatus) targetStatus.damage++;
                 return;
             }
-            if (!attacker || !target || liveStatuses[attackerId]?.isDisabled) return;
+            if (!attacker || !target || liveStatuses[actorId]?.isDisabled) return;
             
-            const attackerHasKill = attacker.kind.includes('kill') || liveStatuses[attackerId]?.tempStatus.hasKillAbility;
+            const attackerHasKill = attacker.kind.includes('kill') || liveStatuses[actorId]?.tempStatus.hasKillAbility;
 
             if (attackerHasKill) {
                 const finalTargetId = damageRedirects[targetId] || targetId;
@@ -238,14 +238,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 finalTargetStatus.damage++;
                 
                 if (finalTarget.kind === 'counter') {
-                    if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
+                    if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
                 }
                 if (finalTargetId !== targetId) {
-                     if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
+                     if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
                 }
                 const ward = counterWards[finalTargetId];
                 if (ward && !ward.triggered) {
-                    if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
+                    if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
                     ward.triggered = true;
                 }
             }
