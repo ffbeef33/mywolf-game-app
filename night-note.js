@@ -160,7 +160,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     deathLinkTarget: initialStatus[pId].deathLinkTarget || null,
                     tempStatus: {
                         hasKillAbility: false,
-                        sacrificerFor: null
                     }
                 };
                 if (liveStatuses[pId].isDoomed) {
@@ -173,12 +172,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const damageRedirects = {}; 
         const counterWards = {};    
         
+        // <<< SỬA LỖI: Đọc các liên kết thế mạng đã có từ trước >>>
         Object.keys(initialStatus).forEach(pId => {
             if(initialStatus[pId].sacrificedBy) {
                 damageRedirects[pId] = initialStatus[pId].sacrificedBy;
             }
         });
-
 
         actions.forEach(({ actorId, targetId }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
@@ -229,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
         actions.forEach(({ actorId, targetId, action }) => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             const target = roomPlayers.find(p => p.id === targetId);
-            
+
             if (actorId === 'wolf_group') {
                 const finalTargetId = damageRedirects[targetId] || targetId;
                 const targetStatus = liveStatuses[finalTargetId];
@@ -251,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (finalTarget.kind === 'counter') {
                     if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
                 }
-                if (finalTargetId !== targetId) { // Bị hy sinh/chuyển hướng
+                if (finalTargetId !== targetId) {
                      if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
                 }
                 const ward = counterWards[finalTargetId];
@@ -729,7 +728,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     armor: (player?.kind === 'armor1' ? 2 : 1),
                     delayKillAvailable: (player?.kind === 'delaykill'),
                     isDoomed: false,
-                    deathLinkTarget: null
+                    deathLinkTarget: null,
+                    sacrificedBy: null,
+                    transformedTo: null
                 }];
             }));
             
@@ -955,7 +956,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         armor: (player?.kind === 'armor1') ? 2 : 1,
                         delayKillAvailable: (player?.kind === 'delaykill'),
                         isDoomed: false,
-                        deathLinkTarget: null
+                        deathLinkTarget: null,
+                        sacrificedBy: null,
+                        transformedTo: null
                     }];
                  }));
                  nightStates.push({
@@ -978,7 +981,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             armor: (player.kind === 'armor1') ? 2 : 1,
                             delayKillAvailable: (player.kind === 'delaykill'),
                             isDoomed: false,
-                            deathLinkTarget: null
+                            deathLinkTarget: null,
+                            sacrificedBy: null,
+                            transformedTo: null
                         };
                     }
                 });
