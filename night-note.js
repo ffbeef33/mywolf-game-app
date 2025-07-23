@@ -143,7 +143,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const liveStatuses = {}; 
         const infoResults = [];
 
-        // --- Giai đoạn 0: Khởi tạo ---
         Object.keys(initialStatus).forEach(pId => {
             if (initialStatus[pId].isAlive) {
                 liveStatuses[pId] = {
@@ -164,7 +163,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // --- Giai đoạn 1: Các hiệu ứng thay đổi luồng & phòng thủ ưu tiên ---
         const damageRedirects = {}; 
         const counterWards = {};    
 
@@ -217,7 +215,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // --- Giai đoạn 2: Tấn công, Phản đòn & Kiểm tra ---
         actions.forEach(({ actorId, targetId, action }) => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             const target = roomPlayers.find(p => p.id === targetId);
@@ -272,7 +269,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // --- Giai đoạn 3: Cứu ---
         actions.forEach(({ actorId, targetId }) => {
              const actor = roomPlayers.find(p => p.id === actorId);
              if (!actor || liveStatuses[actorId]?.isDisabled) return;
@@ -282,7 +278,6 @@ document.addEventListener('DOMContentLoaded', () => {
              }
         });
 
-        // --- Giai đoạn 4: Tổng kết kết quả ---
         let deadPlayerIdsThisNight = new Set();
         Object.keys(liveStatuses).forEach(pId => {
             const status = liveStatuses[pId];
