@@ -297,10 +297,10 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     display: flex; flex-wrap: wrap; gap: 10px;
     align-items: center; width: 100%; margin-top: 10px;
 }
-.action-controls select {
+.action-controls .action-select {
     padding: 8px; background-color: var(--card-bg);
     border: 1px solid var(--border-color); color: var(--light-text);
-    border-radius: 5px; font-size: 0.9rem; flex: 1 1 120px;
+    border-radius: 5px; font-size: 0.9rem;
 }
 .optgroup-wolf {
     color: var(--danger-color);
@@ -310,7 +310,6 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
 option:disabled {
     color: #666;
 }
-.add-action-btn { padding: 8px 12px; flex-shrink: 0; }
 .action-list { width: 100%; padding-left: 15px; margin-top: 15px; }
 .action-item {
     display: flex; align-items: center; gap: 10px;
@@ -533,4 +532,100 @@ option:disabled {
     color: #f85149;
     font-size: 1.02rem;
     transition: background 0.18s, color 0.18s;
+}
+
+/* --- Style cho Bảng chọn mục tiêu (Modal) --- */
+.open-target-modal-btn {
+    background-color: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    flex-grow: 1;
+}
+.open-target-modal-btn:hover {
+    border-color: var(--text-color);
+    color: var(--text-color);
+}
+.selected-targets {
+    font-size: 0.85rem;
+    color: var(--light-text);
+    opacity: 0.7;
+    margin-left: 10px;
+    font-style: italic;
+}
+.modal-overlay {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(13, 17, 23, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.3s;
+}
+.modal-overlay.hidden {
+    display: none;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal-content {
+    background-color: var(--card-bg);
+    padding: 25px;
+    border: 1px solid var(--border-color);
+    width: 90%;
+    max-width: 400px;
+    border-radius: var(--border-radius);
+    position: relative;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+}
+.close-modal-btn {
+    color: var(--light-text);
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+#target-modal-title {
+    margin-top: 0;
+    color: var(--text-color);
+}
+#target-modal-limit {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-top: -10px;
+    margin-bottom: 15px;
+}
+.target-list {
+    max-height: 30vh;
+    overflow-y: auto;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 0;
+}
+.target-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 10px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+.target-item:hover {
+    background-color: var(--primary-bg);
+}
+.target-item input[type="checkbox"] {
+    margin-right: 15px;
+    transform: scale(1.4);
+    cursor: pointer;
+}
+.target-item label {
+    font-size: 1.1rem;
+    cursor: pointer;
+}
+.modal-buttons {
+    margin-top: 20px;
+    text-align: right;
 }
