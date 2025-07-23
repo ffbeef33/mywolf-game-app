@@ -745,6 +745,16 @@ document.addEventListener('DOMContentLoaded', () => {
             saveNightNotes();
             render();
         }
+        // <<< SỬA LỖI 2: Thêm sự kiện cho nút (x) của Sói cắn chung >>>
+        else if (target.closest('.wolf-bite-group-list .remove-action-btn')) {
+            const actionId = parseInt(target.closest('.action-item').dataset.actionId, 10);
+            const actionIndex = nightState.actions.findIndex(a => a.id === actionId);
+            if (actionIndex > -1) {
+                nightState.actions.splice(actionIndex, 1);
+                saveNightNotes();
+                render();
+            }
+        }
         else if (target.closest('#reset-night-btn')) {
             if (confirm(`Bạn có chắc muốn làm mới mọi hành động và trạng thái Sống/Chết trong Đêm ${activeNightIndex + 1}?`)) {
                 nightState.actions = [];
