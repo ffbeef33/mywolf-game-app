@@ -311,6 +311,13 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.keys(liveStatuses).forEach(pId => {
             const status = liveStatuses[pId];
             const player = roomPlayers.find(p => p.id === pId);
+
+            // <<< SỬA LỖI: Thêm kiểm tra 'player' tồn tại >>>
+            if (!player) {
+                console.warn(`Không tìm thấy người chơi với ID ${pId} trong danh sách.`);
+                return; // Bỏ qua người chơi không tồn tại
+            }
+            
             let effectiveDamage = status.damage;
             
             if (status.isProtected) { effectiveDamage = 0; }
