@@ -148,7 +148,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const liveStatuses = {}; 
         const infoResults = [];
 
-        // --- Giai đoạn 0: Khởi tạo ---
         Object.keys(initialStatus).forEach(pId => {
             if (initialStatus[pId].isAlive) {
                 liveStatuses[pId] = {
@@ -168,11 +167,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // --- Giai đoạn 1: Các hiệu ứng thay đổi luồng & phòng thủ ưu tiên ---
         const damageRedirects = {}; 
         const counterWards = {};    
         
-        // <<< SỬA LỖI: Đọc các liên kết thế mạng đã có từ trước >>>
         Object.keys(initialStatus).forEach(pId => {
             if(initialStatus[pId].sacrificedBy) {
                 damageRedirects[pId] = initialStatus[pId].sacrificedBy;
@@ -224,7 +221,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // --- Giai đoạn 2: Tấn công, Phản đòn & Kiểm tra ---
         actions.forEach(({ actorId, targetId, action }) => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             const target = roomPlayers.find(p => p.id === targetId);
@@ -235,9 +231,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (targetStatus) targetStatus.damage++;
                 return;
             }
-            if (!attacker || !target || liveStatuses[actorId]?.isDisabled) return;
+            if (!attacker || !target || liveStatuses[attackerId]?.isDisabled) return;
             
-            const attackerHasKill = attacker.kind.includes('kill') || liveStatuses[actorId]?.tempStatus.hasKillAbility;
+            const attackerHasKill = attacker.kind.includes('kill') || liveStatuses[attackerId]?.tempStatus.hasKillAbility;
 
             if (attackerHasKill) {
                 const finalTargetId = damageRedirects[targetId] || targetId;
@@ -248,20 +244,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 finalTargetStatus.damage++;
                 
                 if (finalTarget.kind === 'counter') {
-                    if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
+                    if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
                 }
                 if (finalTargetId !== targetId) {
-                     if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
+                     if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
                 }
                 const ward = counterWards[finalTargetId];
                 if (ward && !ward.triggered) {
-                    if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
+                    if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
                     ward.triggered = true;
                 }
             }
             
+            // <<< SỬA ĐỔI: Cập nhật logic `audit` để xử lý `reverse` và `counteraudit` >>>
             if (attacker.kind === 'audit') {
-                const result = (target.faction === 'Bầy Sói' || target.faction === 'Phe Sói') ? "thuộc Phe Sói" : "KHÔNG thuộc Phe Sói";
+                let isWolf = (target.faction === 'Bầy Sói' || target.faction === 'Phe Sói');
+                // Nếu mục tiêu có khả năng đảo ngược, lật kết quả
+                if (target.kind === 'reverse' || target.kind === 'counteraudit') {
+                    isWolf = !isWolf;
+                }
+                const result = isWolf ? "thuộc Phe Sói" : "KHÔNG thuộc Phe Sói";
                 infoResults.push(`- ${attacker.roleName} (${attacker.name}) soi ${target.name}: ${result}.`);
             }
             if (attacker.kind === 'invest') {
@@ -279,7 +281,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // --- Giai đoạn 3: Cứu ---
         actions.forEach(({ actorId, targetId }) => {
              const actor = roomPlayers.find(p => p.id === actorId);
              if (!actor || liveStatuses[actorId]?.isDisabled) return;
@@ -289,7 +290,6 @@ document.addEventListener('DOMContentLoaded', () => {
              }
         });
 
-        // --- Giai đoạn 4: Tổng kết kết quả ---
         let deadPlayerIdsThisNight = new Set();
         Object.keys(liveStatuses).forEach(pId => {
             const status = liveStatuses[pId];
