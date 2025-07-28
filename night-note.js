@@ -30,7 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { display: 'Khác', factions: ['Chức năng khác', 'Chưa phân loại'], className: 'faction-other' }
     ];
     const SELECTABLE_FACTIONS = [ "Bầy Sói", "Phe Sói", "Phe Dân", "Phe trung lập" ];
-    
+
+    // <<< SỬA ĐỔI 1: Cập nhật "Từ điển" để thêm hành động mới >>>
     const KIND_TO_ACTION_MAP = {
         'shield': { key: 'protect', label: 'Bảo vệ', type: 'defense' },
         'save': { key: 'save', label: 'Cứu', type: 'defense' },
@@ -50,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'transform': { key: 'transform', label: 'Biến hình', type: 'buff' },
         'choosesacrifier': { key: 'choosesacrifier', label: 'Chọn người thế mạng', type: 'buff' },
         'countershield': { key: 'countershield', label: 'Phá giáp', type: 'debuff'},
+        'killdelay': { key: 'killdelay', label: 'Giết (trì hoãn)', type: 'damage' }
     };
 
     let ALL_ACTIONS = {};
@@ -63,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`/api/sheets?sheetName=Roles`);
             if (!response.ok) throw new Error('Không thể tải dữ liệu vai trò.');
             const rawData = await response.json();
-            
+
             allRolesData = rawData.reduce((acc, role) => {
                 const roleName = (role.RoleName || '').trim();
                 if (roleName) {
@@ -92,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function saveNightNotes() {
         if (roomId) database.ref(`rooms/${roomId}/nightNotes`).set(nightStates);
     }
-    
+
     function isActionAvailable(player, currentNightIndex) {
         const rule = player.activeRule;
         const nightNumber = currentNightIndex + 1;
@@ -124,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return false;
             }
         }
-        
+
         return true;
     }
 
@@ -142,11 +144,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Logic ---
     const calculateNightStatus = (nightState) => {
         if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [], infoResults: [] };
-        
+
         const actions = nightState.actions || [];
         const initialStatus = nightState.playersStatus;
         const finalStatus = JSON.parse(JSON.stringify(initialStatus));
-        const liveStatuses = {}; 
+        const liveStatuses = {};
         const infoResults = [];
 
         // --- Giai đoạn 0: Khởi tạo ---
@@ -159,6 +161,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     isDoomed: initialStatus[pId].isDoomed || false,
                     delayKillAvailable: initialStatus[pId].delayKillAvailable !== false,
                     deathLinkTarget: initialStatus[pId].deathLinkTarget || null,
+                    // <<< SỬA ĐỔI 2: Thêm trạng thái mới >>>
+                    markedForDelayKill: initialStatus[pId].markedForDelayKill || false,
                     tempStatus: {
                         hasKillAbility: false,
                     }
@@ -166,12 +170,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (liveStatuses[pId].isDoomed) {
                     liveStatuses[pId].damage = 99;
                 }
+                if (liveStatuses[pId].markedForDelayKill) {
+                    liveStatuses[pId].damage = 99;
+                }
             }
         });
 
         // --- Giai đoạn 1: Các hiệu ứng thay đổi luồng & phòng thủ ưu tiên ---
-        const damageRedirects = {}; 
-        const counterWards = {};    
+        const damageRedirects = {};
+        const counterWards = {};
         const counterShieldedTargets = new Set();
 
         Object.keys(initialStatus).forEach(pId => {
@@ -179,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 damageRedirects[pId] = initialStatus[pId].sacrificedBy;
             }
         });
-        
+
         actions.forEach(({ actorId, targetId }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
             if (!actor || liveStatuses[actorId]?.isDisabled) return;
@@ -235,8 +242,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
+            else if (actor.kind === 'killdelay') {
+                if (finalStatus[targetId]) {
+                    finalStatus[targetId].markedForDelayKill = true;
+                    infoResults.push(`- ${actor.roleName} (${actor.name}) đã nguyền rủa ${target.name}.`);
+                }
+            }
         });
-        
+
         // --- Giai đoạn 2: Tấn công, Phản đòn & Kiểm tra ---
         actions.forEach(({ actorId, targetId, action }) => {
             const attacker = roomPlayers.find(p => p.id === actorId);
@@ -249,10 +262,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             if (!attacker || !target || liveStatuses[actorId]?.isDisabled) return;
-            
+
             const attackerHasKill = attacker.kind.includes('kill') || liveStatuses[actorId]?.tempStatus.hasKillAbility;
 
-            if (attackerHasKill) {
+            if (attackerHasKill && attacker.kind !== 'killdelay') {
                 const finalTargetId = damageRedirects[targetId] || targetId;
                 const finalTarget = roomPlayers.find(p => p.id === finalTargetId);
                 const finalTargetStatus = liveStatuses[finalTargetId];
@@ -311,11 +324,10 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.keys(liveStatuses).forEach(pId => {
             const status = liveStatuses[pId];
             const player = roomPlayers.find(p => p.id === pId);
-
-            // <<< SỬA LỖI: Thêm kiểm tra 'player' tồn tại >>>
+            
             if (!player) {
                 console.warn(`Không tìm thấy người chơi với ID ${pId} trong danh sách.`);
-                return; // Bỏ qua người chơi không tồn tại
+                return;
             }
             
             let effectiveDamage = status.damage;
@@ -526,7 +538,6 @@ document.addEventListener('DOMContentLoaded', () => {
             gmNoteBtn.id = "save-gm-night-note-btn";
             gmNoteBtn.textContent = "Lưu ghi chú đêm";
             gmNoteBtn.className = "btn-end-night";
-            gmNoteArea.parentNode.insertBefore(gmNoteBtn, gmNoteArea.nextSibling);
             gmNoteBtn.onclick = function() {
                 nightStates[activeNightIndex].gmNote = gmNoteArea.value;
                 saveNightNotes();
