@@ -31,12 +31,11 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
     const SELECTABLE_FACTIONS = [ "Bầy Sói", "Phe Sói", "Phe Dân", "Phe trung lập" ];
     
-    // <<< SỬA ĐỔI: Cập nhật "Từ điển" để thêm tất cả các hành động >>>
     const KIND_TO_ACTION_MAP = {
-        'shield': { key: 'shield', label: 'Bảo vệ', type: 'defense' },
+        'shield': { key: 'protect', label: 'Bảo vệ', type: 'defense' },
         'save': { key: 'save', label: 'Cứu', type: 'defense' },
         'kill': { key: 'kill', label: 'Giết', type: 'damage' },
-        'disable': { key: 'disable', label: 'Vô hiệu hóa', type: 'debuff' },
+        'disable': { key: 'disable_action', label: 'Vô hiệu hóa', type: 'debuff' },
         'check': { key: 'check', label: 'Kiểm tra', type: 'info' },
         'audit': { key: 'audit', label: 'Soi phe Sói', type: 'info' },
         'invest': { key: 'invest', label: 'Điều tra', type: 'info' },
@@ -81,7 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }, {});
 
             ALL_ACTIONS = Object.values(KIND_TO_ACTION_MAP).reduce((acc, action) => {
-                // Sử dụng 'key' làm khóa
                 acc[action.key] = action;
                 return acc;
             }, {});
@@ -192,7 +190,6 @@ document.addEventListener('DOMContentLoaded', () => {
         actions.forEach(({ actorId, targetId, action }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
             if (!actor || liveStatuses[actorId]?.isDisabled) return;
-            
             const actionKind = ALL_ACTIONS[action]?.key || action;
             if (actionKind === 'countershield') {
                 counterShieldedTargets.add(targetId);
@@ -207,8 +204,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const actionKind = ALL_ACTIONS[action]?.key || action;
 
-            if (actionKind === 'disable') { if(targetStatus) targetStatus.isDisabled = true; }
-            else if (actionKind === 'shield' || actionKind === 'protect') {
+            if (actionKind === 'disable_action') { if(targetStatus) targetStatus.isDisabled = true; }
+            else if (actionKind === 'protect') {
                 if(targetStatus && !counterShieldedTargets.has(targetId)) {
                     targetStatus.isProtected = true;
                 }
