@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
     const SELECTABLE_FACTIONS = [ "Bầy Sói", "Phe Sói", "Phe Dân", "Phe trung lập" ];
     
+    // <<< SỬA ĐỔI: Cập nhật "Từ điển" để thêm tất cả các hành động >>>
     const KIND_TO_ACTION_MAP = {
         'shield': { key: 'protect', label: 'Bảo vệ', type: 'defense' },
         'save': { key: 'save', label: 'Cứu', type: 'defense' },
@@ -50,6 +51,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'transform': { key: 'transform', label: 'Biến hình', type: 'buff' },
         'choosesacrifier': { key: 'choosesacrifier', label: 'Chọn người thế mạng', type: 'buff' },
         'countershield': { key: 'countershield', label: 'Phá giáp', type: 'debuff'},
+        'killdelay': { key: 'killdelay', label: 'Giết (trì hoãn)', type: 'damage' },
+        'gather': { key: 'gather', label: 'Tụ tập', type: 'buff' },
     };
 
     let ALL_ACTIONS = {};
@@ -159,11 +162,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     isDoomed: initialStatus[pId].isDoomed || false,
                     delayKillAvailable: initialStatus[pId].delayKillAvailable !== false,
                     deathLinkTarget: initialStatus[pId].deathLinkTarget || null,
+                    gatheredBy: null,
+                    markedForDelayKill: initialStatus[pId].markedForDelayKill || false,
                     tempStatus: {
                         hasKillAbility: false,
                     }
                 };
                 if (liveStatuses[pId].isDoomed) {
+                    liveStatuses[pId].damage = 99;
+                }
+                if (liveStatuses[pId].markedForDelayKill) {
                     liveStatuses[pId].damage = 99;
                 }
             }
@@ -235,6 +243,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
+            else if (actor.kind === 'killdelay') {
+                if (finalStatus[targetId]) {
+                    finalStatus[targetId].markedForDelayKill = true;
+                    infoResults.push(`- ${actor.roleName} (${actor.name}) đã nguyền rủa ${target.name}.`);
+                }
+            }
+            else if (actor.kind.includes('gather')) {
+                if (targetStatus) {
+                    targetStatus.gatheredBy = actorId;
+                }
+            }
         });
         
         // --- Giai đoạn 2: Tấn công, Phản đòn & Kiểm tra ---
@@ -252,13 +271,27 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const attackerHasKill = attacker.kind.includes('kill') || liveStatuses[actorId]?.tempStatus.hasKillAbility;
 
-            if (attackerHasKill) {
+            if (attackerHasKill && attacker.kind !== 'killdelay') {
                 const finalTargetId = damageRedirects[targetId] || targetId;
                 const finalTarget = roomPlayers.find(p => p.id === finalTargetId);
                 const finalTargetStatus = liveStatuses[finalTargetId];
                 
                 if (!finalTarget || !finalTargetStatus) return;
-                finalTargetStatus.damage++;
+                
+                let shouldDamage = true;
+                if(attacker.kind === 'killwolf' && !(finalTarget.faction === 'Bầy Sói' || finalTarget.faction === 'Phe Sói')){
+                    shouldDamage = false;
+                }
+                if(attacker.kind === 'killvillager'){
+                    if(finalTarget.faction === 'Phe Dân') {
+                        shouldDamage = true;
+                    } else {
+                        shouldDamage = false;
+                        if (liveStatuses[actorId]) liveStatuses[actorId].damage++; // Tự sát
+                    }
+                }
+                
+                if(shouldDamage) finalTargetStatus.damage++;
                 
                 if (finalTarget.kind === 'counter') {
                     if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
@@ -295,6 +328,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+        
+        const gatherGroups = {};
+        Object.keys(liveStatuses).forEach(pId => {
+            const status = liveStatuses[pId];
+            if(status.gatheredBy) {
+                if(!gatherGroups[status.gatheredBy]) {
+                    gatherGroups[status.gatheredBy] = [];
+                }
+                gatherGroups[status.gatheredBy].push(pId);
+            }
+        });
+        
+        Object.values(gatherGroups).forEach(group => {
+            let totalDamage = 0;
+            group.forEach(pId => {
+                totalDamage += liveStatuses[pId].damage;
+            });
+            group.forEach(pId => {
+                liveStatuses[pId].damage = totalDamage;
+            });
+        });
+
 
         // --- Giai đoạn 3: Cứu ---
         actions.forEach(({ actorId, targetId }) => {
@@ -302,7 +357,18 @@ document.addEventListener('DOMContentLoaded', () => {
              if (!actor || liveStatuses[actorId]?.isDisabled) return;
              if (actor.kind.includes('save')) {
                  const targetStatus = liveStatuses[targetId];
-                 if (targetStatus) targetStatus.isSaved = true;
+                 if (targetStatus) {
+                    if (actor.kind === 'save_gather' && targetStatus.gatheredBy) {
+                        const groupToSave = gatherGroups[targetStatus.gatheredBy];
+                        if (groupToSave) {
+                            groupToSave.forEach(pId => {
+                                liveStatuses[pId].isSaved = true;
+                            });
+                        }
+                    } else {
+                        targetStatus.isSaved = true;
+                    }
+                 }
              }
         });
 
@@ -752,7 +818,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     isDoomed: false,
                     deathLinkTarget: null,
                     sacrificedBy: null,
-                    transformedTo: null
+                    transformedTo: null,
+                    markedForDelayKill: false
                 }];
             }));
             
