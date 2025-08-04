@@ -151,6 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const liveStatuses = {}; 
         const infoResults = [];
 
+        // --- Giai đoạn 0: Khởi tạo ---
         Object.keys(initialStatus).forEach(pId => {
             if (initialStatus[pId].isAlive) {
                 liveStatuses[pId] = {
@@ -175,6 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // --- Giai đoạn 1: Các hiệu ứng thay đổi luồng & phòng thủ ưu tiên ---
         const damageRedirects = {}; 
         const counterWards = {};    
         const counterShieldedTargets = new Set();
@@ -256,6 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
+        // --- Giai đoạn 2: Tấn công, Phản đòn & Kiểm tra ---
         actions.forEach(({ actorId, targetId, action }) => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             const target = roomPlayers.find(p => p.id === targetId);
@@ -267,9 +270,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (targetStatus) targetStatus.damage++;
                 return;
             }
-            if (!attacker || !target || liveStatuses[actorId]?.isDisabled) return;
+            if (!attacker || !target || liveStatuses[attackerId]?.isDisabled) return;
             
-            const attackerHasKill = actionKind.includes('kill') || liveStatuses[actorId]?.tempStatus.hasKillAbility;
+            const attackerHasKill = actionKind.includes('kill') || liveStatuses[attackerId]?.tempStatus.hasKillAbility;
 
             if (attackerHasKill && actionKind !== 'killdelay') {
                 const finalTargetId = damageRedirects[targetId] || targetId;
@@ -297,11 +300,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
                 }
                 if (finalTargetId !== targetId) {
-                     if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
+                     if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
                 }
                 const ward = counterWards[finalTargetId];
                 if (ward && !ward.triggered) {
-                    if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
+                    if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
                     ward.triggered = true;
                 }
             }
@@ -351,6 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
 
+        // --- Giai đoạn 3: Cứu ---
         actions.forEach(({ actorId, targetId, action }) => {
              const actor = roomPlayers.find(p => p.id === actorId);
              if (!actor || liveStatuses[actorId]?.isDisabled) return;
@@ -373,6 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
              }
         });
 
+        // --- Giai đoạn 4: Tổng kết kết quả ---
         let deadPlayerIdsThisNight = new Set();
         Object.keys(liveStatuses).forEach(pId => {
             const status = liveStatuses[pId];
@@ -632,6 +637,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isProtected) row.classList.add('status-protected');
             if (liveStatus.isSaved && !liveStatus.isProtected) row.classList.add('status-saved'); 
             if (liveStatus.isDead && !liveStatus.isSaved && !liveStatus.isProtected) row.classList.add('status-danger');
+            // <<< SỬA ĐỔI: Thêm hiển thị cho người bị disable bởi Kind >>>
+            if (liveStatus.isDisabled && !playerState.isDisabled) {
+                row.classList.add('status-disabled-by-ability');
+            }
         }
         
         if (playerState.isDisabled) row.classList.add('status-disabled');
@@ -680,6 +689,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (liveStatus.isDead && !liveStatus.isSaved && !liveStatus.isProtected) {
                 statusIconsHTML += '<i class="fas fa-skull-crossbones icon-danger" title="Dự kiến chết"></i>';
+            }
+            // <<< SỬA ĐỔI: Thêm icon cho người bị disable bởi Kind >>>
+            if (liveStatus.isDisabled && !playerState.isDisabled) {
+                statusIconsHTML += '<i class="fas fa-user-slash icon-disabled-by-ability" title="Bị vô hiệu hóa"></i>';
             }
         }
         statusIconsHTML += '</div>';

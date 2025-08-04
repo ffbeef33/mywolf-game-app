@@ -159,6 +159,8 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     display: flex !important; 
     opacity: 1 !important;
 }
+
+/* --- Style cho trạng thái Vô hiệu hóa --- */
 .player-row.status-disabled {
     border-left: 6px solid var(--disable-color);
     background-color: var(--disable-bg) !important;
@@ -172,6 +174,7 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     color: var(--disable-color) !important;
     text-shadow: 0 0 3px #000;
 }
+
 .player-row .disable-label {
     display: inline-block;
     background: var(--disable-color);
@@ -214,6 +217,7 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     0% { box-shadow: 0 0 12px 3px var(--disable-glow); }
     100% { box-shadow: 0 0 18px 5px #fff7c0; }
 }
+
 .status-btn.life {
     background: #10291b;
     border-radius: 50%;
@@ -260,6 +264,7 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     display: flex; flex-wrap: wrap; align-items: center;
     width: 100%; gap: 10px; position: relative;
 }
+
 .player-row.status-protected {
     background-color: var(--action-protect-bg) !important;
     box-shadow: 0 0 6px 3px var(--action-protect);
@@ -270,10 +275,9 @@ button:hover { filter: brightness(1.1); background-color: #2ea043; }
     box-shadow: 0 0 6px 3px var(--action-save);
     border-left: 5px solid var(--action-save);
 }
-.player-row.status-disabled {
-    background-color: var(--action-disable-bg) !important;
-    box-shadow: 0 0 6px 3px var(--action-disable);
-    border-left: 5px solid var(--action-disable);
+.player-row.status-disabled-by-ability {
+    background-color: rgba(255, 211, 61, 0.1) !important; /* Màu vàng nhạt hơn */
+    border-left: 5px solid rgba(255, 211, 61, 0.5);
 }
 .player-row.status-danger {
     background-color: var(--action-danger-bg) !important;
@@ -653,4 +657,7 @@ button:disabled {
     color: var(--danger-color);
     text-shadow: 0 0 8px var(--danger-color);
 }
+.icon-disabled-by-ability {
+    color: var(--disable-color);
+    opacity: 0.7;
 }
