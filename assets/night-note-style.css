@@ -653,3 +653,4 @@ button:disabled {
     color: var(--danger-color);
     text-shadow: 0 0 8px var(--danger-color);
 }
+}
