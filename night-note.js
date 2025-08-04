@@ -187,15 +187,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
+        // Vòng lặp 1: Xử lý các hiệu ứng ưu tiên nhất (disable, countershield)
         actions.forEach(({ actorId, targetId, action }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
             if (!actor || liveStatuses[actorId]?.isDisabled) return;
+            
             const actionKind = ALL_ACTIONS[action]?.key || action;
             if (actionKind === 'countershield') {
                 counterShieldedTargets.add(targetId);
             }
+            if (actionKind === 'disable_action') {
+                if (liveStatuses[targetId]) liveStatuses[targetId].isDisabled = true;
+            }
         });
-
+        
+        // Vòng lặp 2: Xử lý các hiệu ứng còn lại trong Giai đoạn 1
         actions.forEach(({ actorId, targetId, action }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
             if (!actor || liveStatuses[actorId]?.isDisabled) return;
@@ -204,9 +210,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const actionKind = ALL_ACTIONS[action]?.key || action;
 
-            if (actionKind === 'disable_action') { if(targetStatus) targetStatus.isDisabled = true; }
-            else if (actionKind === 'protect') {
-                if(targetStatus && !counterShieldedTargets.has(targetId)) {
+            if (actionKind === 'protect') {
+                if(targetStatus && !counterShieldedTargets.has(targetId) && !counterShieldedTargets.has(actorId)) {
                     targetStatus.isProtected = true;
                 }
             }
