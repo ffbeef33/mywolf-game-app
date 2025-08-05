@@ -189,3 +189,49 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
   #role-count-display { grid-template-columns: 1fr 1fr; }
   .action-buttons, .main-action-buttons { flex-direction: column; }
 }
+
+/* ==========================================================================
+   THÊM MỚI: Style cho Vùng Xem Trước Deck
+   ========================================================================== */
+.deck-preview {
+  margin-top: 15px;
+  padding: 15px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--border-radius);
+  max-height: 220px;
+  overflow-y: auto;
+  background-color: var(--primary-bg);
+  animation: fadeIn 0.3s;
+}
+
+.deck-preview.hidden {
+  display: none;
+}
+
+.deck-preview h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1rem;
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+.deck-preview ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+  column-count: 2; /* Chia danh sách thành 2 cột */
+  column-gap: 20px; /* Khoảng cách giữa các cột */
+}
+
+.deck-preview li {
+  padding: 4px 0;
+  font-size: 0.9rem;
+}
+
+/* Responsive cho màn hình nhỏ, chỉ dùng 1 cột */
+@media (max-width: 500px) {
+  .deck-preview ul {
+    column-count: 1;
+  }
+}
