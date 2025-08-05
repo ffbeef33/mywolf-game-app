@@ -206,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (actionKind === 'disable_action') { if(targetStatus) targetStatus.isDisabled = true; }
             else if (actionKind === 'protect') {
-                if(targetStatus && !counterShieldedTargets.has(targetId)) {
+                if(targetStatus && !counterShieldedTargets.has(targetId) && !counterShieldedTargets.has(actorId)) {
                     targetStatus.isProtected = true;
                 }
             }
@@ -270,9 +270,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (targetStatus) targetStatus.damage++;
                 return;
             }
-            if (!attacker || !target || liveStatuses[actorId]?.isDisabled) return;
+            if (!attacker || !target || liveStatuses[attackerId]?.isDisabled) return;
             
-            const attackerHasKill = actionKind.includes('kill') || liveStatuses[actorId]?.tempStatus.hasKillAbility;
+            const attackerHasKill = actionKind.includes('kill') || liveStatuses[attackerId]?.tempStatus.hasKillAbility;
 
             if (attackerHasKill && actionKind !== 'killdelay') {
                 const finalTargetId = damageRedirects[targetId] || targetId;
@@ -290,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         shouldDamage = true;
                     } else {
                         shouldDamage = false;
-                        if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
+                        if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
                     }
                 }
                 
@@ -309,9 +309,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
+            // <<< SỬA LỖI: Sửa logic `audit` để kiểm tra `target.kind` >>>
             if (actionKind === 'audit') {
                 let isWolf = (target.faction === 'Bầy Sói' || target.faction === 'Phe Sói');
-                if (target.kind === 'reverse' || target.kind === 'counteraudit') {
+                if (target.kind.includes('reverse') || target.kind.includes('counteraudit')) {
                     isWolf = !isWolf;
                 }
                 const result = isWolf ? "thuộc Phe Sói" : "KHÔNG thuộc Phe Sói";
@@ -637,9 +638,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isProtected) row.classList.add('status-protected');
             if (liveStatus.isSaved && !liveStatus.isProtected) row.classList.add('status-saved'); 
             if (liveStatus.isDead && !liveStatus.isSaved && !liveStatus.isProtected) row.classList.add('status-danger');
-            if (liveStatus.isDisabled && !playerState.isDisabled) {
-                row.classList.add('status-disabled-by-ability');
-            }
         }
         
         if (playerState.isDisabled) row.classList.add('status-disabled');
@@ -688,9 +686,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (liveStatus.isDead && !liveStatus.isSaved && !liveStatus.isProtected) {
                 statusIconsHTML += '<i class="fas fa-skull-crossbones icon-danger" title="Dự kiến chết"></i>';
-            }
-            if (liveStatus.isDisabled && !playerState.isDisabled) {
-                statusIconsHTML += '<i class="fas fa-user-slash icon-disabled-by-ability" title="Bị vô hiệu hóa"></i>';
             }
         }
         statusIconsHTML += '</div>';
