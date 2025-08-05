@@ -39,8 +39,8 @@ export default async function handler(request, response) {
       if (sheetName === 'Favor Deck') {
         const decks = [];
         const deckNames = rows[0] || [];
-        // ===== SỬA LỖI DUY NHẤT TẠI ĐÂY: Đọc từ hàng 2 (index 1) thay vì hàng 3 =====
-        const playerCounts = rows[1] || []; // Sửa từ rows[2] thành rows[1]
+        // ===== CẬP NHẬT: Đổi lại để đọc đúng hàng 3 (index 2) theo xác nhận của bạn =====
+        const playerCounts = rows[2] || [];
         
         // Bắt đầu từ cột B (index = 1)
         for (let col = 1; col < deckNames.length; col++) {
@@ -49,7 +49,7 @@ export default async function handler(request, response) {
 
           const deck = {
             deckName: deckName.trim(),
-            // Lấy số từ chuỗi "14 Player"
+            // parseInt sẽ tự động lấy số từ chuỗi "14 Player"
             playerCount: parseInt(playerCounts[col]) || 0,
             roles: [],
           };
