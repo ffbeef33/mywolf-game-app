@@ -20,7 +20,6 @@ export default async function handler(request, response) {
     try {
       const { sheetName = 'Roles' } = request.query;
 
-      // ===== THAY ĐỔI 1: Thêm 'Favor Deck' vào danh sách hợp lệ =====
       if (!['Roles', 'Players', 'Favor Deck'].includes(sheetName)) {
         return response.status(400).json({ error: 'Invalid sheet name specified.' });
       }
@@ -37,20 +36,21 @@ export default async function handler(request, response) {
       
       response.setHeader('Cache-Control', 's-maxage=10, stale-while-revalidate');
 
-      // ===== THAY ĐỔI 2: Thêm logic đặc biệt để xử lý sheet 'Favor Deck' =====
       if (sheetName === 'Favor Deck') {
         const decks = [];
         const deckNames = rows[0] || [];
-        const playerCounts = rows[2] || [];
+        // ===== SỬA LỖI DUY NHẤT TẠI ĐÂY: Đọc từ hàng 2 (index 1) thay vì hàng 3 =====
+        const playerCounts = rows[1] || []; // Sửa từ rows[2] thành rows[1]
         
         // Bắt đầu từ cột B (index = 1)
         for (let col = 1; col < deckNames.length; col++) {
           const deckName = deckNames[col];
-          if (!deckName) continue; // Bỏ qua nếu cột không có tên deck
+          if (!deckName) continue;
 
           const deck = {
             deckName: deckName.trim(),
-            playerCount: parseInt(playerCounts[col], 10) || 0,
+            // Lấy số từ chuỗi "14 Player"
+            playerCount: parseInt(playerCounts[col]) || 0,
             roles: [],
           };
 
