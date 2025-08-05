@@ -206,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (actionKind === 'disable_action') { if(targetStatus) targetStatus.isDisabled = true; }
             else if (actionKind === 'protect') {
-                if(targetStatus && !counterShieldedTargets.has(targetId)) {
+                if(targetStatus && !counterShieldedTargets.has(targetId) && !counterShieldedTargets.has(actorId)) {
                     targetStatus.isProtected = true;
                 }
             }
@@ -637,10 +637,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isProtected) row.classList.add('status-protected');
             if (liveStatus.isSaved && !liveStatus.isProtected) row.classList.add('status-saved'); 
             if (liveStatus.isDead && !liveStatus.isSaved && !liveStatus.isProtected) row.classList.add('status-danger');
-            // <<< SỬA ĐỔI: Thêm hiển thị cho người bị disable bởi Kind >>>
-            if (liveStatus.isDisabled && !playerState.isDisabled) {
-                row.classList.add('status-disabled-by-ability');
-            }
         }
         
         if (playerState.isDisabled) row.classList.add('status-disabled');
@@ -689,10 +685,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (liveStatus.isDead && !liveStatus.isSaved && !liveStatus.isProtected) {
                 statusIconsHTML += '<i class="fas fa-skull-crossbones icon-danger" title="Dự kiến chết"></i>';
-            }
-            // <<< SỬA ĐỔI: Thêm icon cho người bị disable bởi Kind >>>
-            if (liveStatus.isDisabled && !playerState.isDisabled) {
-                statusIconsHTML += '<i class="fas fa-user-slash icon-disabled-by-ability" title="Bị vô hiệu hóa"></i>';
             }
         }
         statusIconsHTML += '</div>';
