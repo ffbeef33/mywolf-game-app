@@ -206,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (actionKind === 'disable_action') { if(targetStatus) targetStatus.isDisabled = true; }
             else if (actionKind === 'protect') {
-                if(targetStatus && !counterShieldedTargets.has(targetId) && !counterShieldedTargets.has(actorId)) {
+                if(targetStatus && !counterShieldedTargets.has(targetId)) {
                     targetStatus.isProtected = true;
                 }
             }
@@ -297,22 +297,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(shouldDamage) finalTargetStatus.damage++;
                 
                 if (finalTarget.kind === 'counter') {
-                    if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
+                    if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
                 }
                 if (finalTargetId !== targetId) {
-                     if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
+                     if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
                 }
                 const ward = counterWards[finalTargetId];
                 if (ward && !ward.triggered) {
-                    if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
+                    if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
                     ward.triggered = true;
                 }
             }
             
-            // <<< SỬA LỖI: Sửa logic `audit` để kiểm tra `target.kind` >>>
             if (actionKind === 'audit') {
                 let isWolf = (target.faction === 'Bầy Sói' || target.faction === 'Phe Sói');
-                if (target.kind.includes('reverse') || target.kind.includes('counteraudit')) {
+                if (target.kind === 'reverse' || target.kind === 'counteraudit') {
                     isWolf = !isWolf;
                 }
                 const result = isWolf ? "thuộc Phe Sói" : "KHÔNG thuộc Phe Sói";
@@ -638,6 +637,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isProtected) row.classList.add('status-protected');
             if (liveStatus.isSaved && !liveStatus.isProtected) row.classList.add('status-saved'); 
             if (liveStatus.isDead && !liveStatus.isSaved && !liveStatus.isProtected) row.classList.add('status-danger');
+            // <<< SỬA ĐỔI: Thêm hiển thị cho người bị disable bởi Kind >>>
+            if (liveStatus.isDisabled && !playerState.isDisabled) {
+                row.classList.add('status-disabled-by-ability');
+            }
         }
         
         if (playerState.isDisabled) row.classList.add('status-disabled');
@@ -686,6 +689,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (liveStatus.isDead && !liveStatus.isSaved && !liveStatus.isProtected) {
                 statusIconsHTML += '<i class="fas fa-skull-crossbones icon-danger" title="Dự kiến chết"></i>';
+            }
+            // <<< SỬA ĐỔI: Thêm icon cho người bị disable bởi Kind >>>
+            if (liveStatus.isDisabled && !playerState.isDisabled) {
+                statusIconsHTML += '<i class="fas fa-user-slash icon-disabled-by-ability" title="Bị vô hiệu hóa"></i>';
             }
         }
         statusIconsHTML += '</div>';
