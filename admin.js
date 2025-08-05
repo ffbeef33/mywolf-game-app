@@ -1,5 +1,5 @@
 // =================================================================
-// === admin.js - CẬP NHẬT TÍNH NĂNG XEM TRƯỚC FAVORITE DECK ===
+// === admin.js - CẬP NHẬT TÍNH NĂNG DECK TRONG EDIT MODE ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const processPlayerPickBtn = document.getElementById('process-player-pick-btn');
     const startNightNoteBtn = document.getElementById('start-night-note-btn');
     const favoriteDeckSelect = document.getElementById('favorite-deck-select');
-    const deckPreviewContainer = document.getElementById('deck-preview-container'); // MỚI: Vùng xem trước
+    const deckPreviewContainer = document.getElementById('deck-preview-container');
 
     // --- Elements cho tính năng chỉnh sửa ---
     const editRoomBtn = document.getElementById('edit-room-btn');
@@ -68,6 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const pendingPlayerAdditions = document.getElementById('pending-player-additions');
     const pendingRolesContainer = document.getElementById('pending-roles-container');
     const pendingRoleAdditions = document.getElementById('pending-role-additions');
+    const editDeckSelect = document.getElementById('edit-deck-select'); // MỚI
+    const editDeckPreview = document.getElementById('edit-deck-preview'); // MỚI
     
     // --- Biến trạng thái (State Variables) ---
     let isEditMode = false;
@@ -93,13 +95,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // CẬP NHẬT: Hàm applyFavoriteDeck để thêm logic hiển thị xem trước
     const applyFavoriteDeck = (deckIndex) => {
-        // Reset tất cả lựa chọn hiện tại
         document.querySelectorAll('input[name="selected-role"]').forEach(cb => cb.checked = false);
         document.querySelectorAll('input[name="quantity-role"]').forEach(input => input.value = 0);
 
-        // Nếu người dùng chọn "-- Tự chọn vai trò --"
         if (!deckIndex) {
             updateCounters();
             deckPreviewContainer.innerHTML = '';
@@ -110,36 +109,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedDeck = favoriteDecksData[deckIndex];
         if (!selectedDeck) return;
 
-        // --- Logic hiển thị xem trước ---
-        const roleCountsForPreview = selectedDeck.roles.reduce((acc, role) => {
+        const roleCounts = selectedDeck.roles.reduce((acc, role) => {
             acc[role] = (acc[role] || 0) + 1;
             return acc;
         }, {});
 
         let previewHtml = '<h4>Các vai trò trong deck:</h4><ul>';
-        Object.keys(roleCountsForPreview).sort().forEach(roleName => {
-            const count = roleCountsForPreview[roleName];
+        Object.keys(roleCounts).sort().forEach(roleName => {
+            const count = roleCounts[roleName];
             previewHtml += `<li>${roleName}${count > 1 ? ` (x${count})` : ''}</li>`;
         });
         previewHtml += '</ul>';
-
         deckPreviewContainer.innerHTML = previewHtml;
         deckPreviewContainer.classList.remove('hidden');
-        // --- Kết thúc logic xem trước ---
 
-        // Áp dụng lựa chọn vào các input (logic này giữ nguyên)
-        for (const roleName in roleCountsForPreview) {
-            const count = roleCountsForPreview[roleName];
+        for (const roleName in roleCounts) {
+            const count = roleCounts[roleName];
             const checkbox = document.getElementById(`role-${roleName}`);
             const numberInput = document.querySelector(`input[data-role-name="${roleName}"]`);
-
             if (numberInput) {
                 numberInput.value = count;
             } else if (checkbox) {
                 checkbox.checked = true;
             }
         }
-
         updateCounters();
     };
 
@@ -150,25 +143,32 @@ document.addEventListener('DOMContentLoaded', () => {
             
             favoriteDecksData = await response.json();
             
-            favoriteDeckSelect.innerHTML = '<option value="">-- Tự chọn vai trò --</option>';
-            
-            favoriteDecksData.forEach((deck, index) => {
-                const option = document.createElement('option');
-                option.value = index;
-                option.textContent = `${deck.deckName} (${deck.playerCount} người)`;
-                favoriteDeckSelect.appendChild(option);
+            const dropdowns = [favoriteDeckSelect, editDeckSelect];
+            dropdowns.forEach(dropdown => {
+                if (!dropdown) return;
+                const currentValue = dropdown.value;
+                dropdown.innerHTML = dropdown.id === 'favorite-deck-select' 
+                    ? '<option value="">-- Tự chọn vai trò --</option>'
+                    : '<option value="">-- Giữ nguyên vai trò hiện tại --</option>';
+                
+                favoriteDecksData.forEach((deck, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = `${deck.deckName} (${deck.playerCount} người)`;
+                    dropdown.appendChild(option);
+                });
+                dropdown.value = currentValue;
             });
 
         } catch (error) {
             console.error("Lỗi tải Favorite Decks:", error);
-            const option = document.createElement('option');
-            option.value = "";
-            option.textContent = "Lỗi tải danh sách deck";
-            option.disabled = true;
-            favoriteDeckSelect.appendChild(option);
         }
     };
 
+    // (Các hàm logic khác từ processPlayerPick đến resetAdminUI giữ nguyên, không thay đổi)
+    // ...
+    // --- Bỏ qua các hàm không thay đổi để cho gọn ---
+    // ...
     const processPlayerPick = async () => {
         if (!currentRoomId) return;
         if (!confirm('Bạn có chắc muốn xử lý và phân phối vai trò? Hành động này không thể hoàn tác.')) return;
@@ -621,16 +621,66 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Logic cho tính năng chỉnh sửa ---
+
+    // MỚI: Hàm áp dụng deck trong chế độ Edit
+    const applyDeckToEditMode = (deckIndex) => {
+        // Cập nhật và hiển thị preview
+        if (!deckIndex) {
+            editDeckPreview.innerHTML = '';
+            editDeckPreview.classList.add('hidden');
+            return;
+        }
+        const selectedDeck = favoriteDecksData[deckIndex];
+        if (!selectedDeck) return;
+        const roleCounts = selectedDeck.roles.reduce((acc, role) => {
+            acc[role] = (acc[role] || 0) + 1;
+            return acc;
+        }, {});
+        let previewHtml = '<h4>Các vai trò trong deck:</h4><ul>';
+        Object.keys(roleCounts).sort().forEach(roleName => {
+            const count = roleCounts[roleName];
+            previewHtml += `<li>${roleName}${count > 1 ? ` (x${count})` : ''}</li>`;
+        });
+        previewHtml += '</ul>';
+        editDeckPreview.innerHTML = previewHtml;
+        editDeckPreview.classList.remove('hidden');
+
+        // Logic thay thế vai trò
+        rolesToRemove.clear();
+        rolesToAdd.clear();
+        
+        database.ref(`rooms/${currentRoomId}/rolesToAssign`).once('value', snapshot => {
+            const currentRoles = snapshot.val() || [];
+            // Đánh dấu tất cả vai trò hiện tại sẽ bị xóa
+            currentRoles.forEach((role, index) => rolesToRemove.add(`${role}_${index}`));
+
+            // Thêm tất cả vai trò từ deck mới vào danh sách sẽ thêm
+            selectedDeck.roles.forEach(role => rolesToAdd.add(role));
+
+            // Cập nhật lại giao diện để phản ánh thay đổi
+            renderPendingAdditions();
+            database.ref(`rooms/${currentRoomId}`).once('value', (roomSnapshot) => {
+                updateActiveRoomUIForEditing(roomSnapshot.val());
+            });
+        });
+    };
+
     const setEditMode = (enabled) => {
         isEditMode = enabled;
         editControls.classList.toggle('hidden', !enabled);
         mainActionButtons.classList.toggle('hidden', enabled);
         editRoomBtn.style.display = enabled ? 'none' : 'block';
 
+        // Reset trạng thái chỉnh sửa
         playersToKick.clear();
         rolesToRemove.clear();
         playersToAdd.clear();
         rolesToAdd.clear();
+        if (editDeckSelect) editDeckSelect.value = ''; // Reset dropdown
+        if (editDeckPreview) {
+            editDeckPreview.innerHTML = ''; // Xóa preview
+            editDeckPreview.classList.add('hidden');
+        }
         renderPendingAdditions();
 
         database.ref(`rooms/${currentRoomId}`).once('value', (snapshot) => {
@@ -644,6 +694,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     };
+    
+    // CẬP NHẬT: updateActiveRoomUIForEditing để hiển thị đúng trạng thái
     const updateActiveRoomUIForEditing = (roomData) => {
         const playersInGame = roomData.players || {};
         const rolesInGame = roomData.rolesToAssign || [];
@@ -655,6 +707,9 @@ document.addEventListener('DOMContentLoaded', () => {
             li.className = 'player-item';
             li.dataset.playerId = playerId;
             li.innerHTML = `<span class="player-name">${player.name} ${roleName}</span>`;
+            if (playersToKick.has(playerId)) {
+                li.classList.add('kicked');
+            }
             
             const kickBtn = document.createElement('button');
             kickBtn.className = 'kick-btn';
@@ -677,6 +732,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const li = document.createElement('li');
             li.className = 'role-item';
             li.textContent = roleName;
+            const uniqueRoleId = `${roleName}_${index}`;
+            
+            if (rolesToRemove.has(uniqueRoleId)) {
+                li.classList.add('removed');
+            }
             
             const removeBtn = document.createElement('button');
             removeBtn.className = 'remove-role-btn';
@@ -684,7 +744,6 @@ document.addEventListener('DOMContentLoaded', () => {
             removeBtn.title = `Loại bỏ vai trò ${roleName}`;
             removeBtn.onclick = () => {
                 li.classList.toggle('removed');
-                const uniqueRoleId = `${roleName}_${index}`;
                 if (rolesToRemove.has(uniqueRoleId)) {
                     rolesToRemove.delete(uniqueRoleId);
                 } else {
@@ -825,6 +884,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (saveRoomChangesBtn) saveRoomChangesBtn.addEventListener('click', saveRoomChanges);
     if (openAddPlayerModalBtn) openAddPlayerModalBtn.addEventListener('click', showAddPlayerModal);
     if (openAddRoleModalBtn) openAddRoleModalBtn.addEventListener('click', showAddRoleModal);
+    
+    // MỚI: Gán sự kiện cho dropdown deck trong Edit mode
+    if (editDeckSelect) editDeckSelect.addEventListener('change', (event) => {
+        applyDeckToEditMode(event.target.value);
+    });
+
     if (confirmAddPlayersBtn) confirmAddPlayersBtn.onclick = () => {
         document.querySelectorAll('#modal-player-list input:checked').forEach(cb => {
             playersToAdd.add(cb.value);
