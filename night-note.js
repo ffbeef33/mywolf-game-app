@@ -483,6 +483,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const { liveStatuses, infoResults, deadPlayerNames } = calculateNightStatus(nightState);
 
+        // <<< BỔ SUNG LOG CHO VIỆC CHUYỂN PHE TẠI ĐÂY >>>
+        if (nightState.factionChanges && Array.isArray(nightState.factionChanges)) {
+            nightState.factionChanges.forEach(change => {
+                const player = roomPlayers.find(p => p.id === change.playerId);
+                const playerName = player ? player.name : 'Người chơi không rõ';
+                // Thêm vào đầu mảng infoResults để hiển thị nổi bật
+                infoResults.unshift(`- [GM] Đã chuyển phe của ${playerName} từ ${change.oldFaction} thành ${change.newFaction}.`);
+            });
+        }
+
         FACTION_GROUPS.forEach(group => {
             const groupPlayers = roomPlayers.filter(p => group.factions.includes(p.faction));
             if (groupPlayers.length === 0) return;
@@ -720,7 +730,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             if (factionSelect) {
-                // <<< SỬA ĐỔI LOGIC CHUYỂN PHE TẠI ĐÂY >>>
                 const handleFactionChange = function() {
                     const newFaction = factionSelect.value;
 
@@ -1028,16 +1037,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const playersData = roomData.players || {};
             
-            // <<< SỬA ĐỔI LOGIC ĐỌC DỮ LIỆU PHE TẠI ĐÂY >>>
             roomPlayers = Object.keys(playersData).map(key => {
                 const originalData = playersData[key];
                 const roleName = (originalData.roleName || '').trim();
                 const roleInfo = allRolesData[roleName] || { faction: 'Chưa phân loại', active: '0', kind: 'empty', quantity: 1 };
                 
-                // Bắt đầu với phe mặc định từ vai trò
                 let finalFaction = roleInfo.faction;
 
-                // KIỂM TRA XEM CÓ PHE GHI ĐÈ TỪ GM KHÔNG
                 if (originalData.factionOverride) {
                     finalFaction = originalData.factionOverride;
                 }
@@ -1045,7 +1051,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return { 
                     id: key, 
                     ...originalData, 
-                    faction: finalFaction, // Sử dụng phe cuối cùng đã được xác định
+                    faction: finalFaction,
                     activeRule: roleInfo.active,
                     kind: roleInfo.kind,
                     quantity: roleInfo.quantity
