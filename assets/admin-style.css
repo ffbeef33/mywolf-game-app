@@ -91,6 +91,17 @@ strong { color: var(--text-color); font-weight: 700; }
 .checkbox-item, .player-checkbox-item, .role-checkbox-item, .role-input-item { display: flex; align-items: center; background-color: var(--primary-bg); padding: 8px; border-radius: 5px; }
 input[type="checkbox"] { margin-right: 8px; }
 
+.form-control {
+    width: 100%;
+    padding: 10px;
+    background-color: var(--primary-bg);
+    border: 1px solid var(--border-color);
+    color: var(--light-text);
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+}
+
+
 /* ==========================================================================
    5. Các thành phần cụ thể (Specific Components)
    ========================================================================== */
@@ -132,7 +143,6 @@ button.btn-danger:hover:not(:disabled) { background-color: var(--danger-hover-bg
 button.btn-save { background-color: var(--save-color); }
 button.btn-save:hover:not(:disabled) { background-color: var(--save-hover-color); }
 
-/* THÊM MỚI: Style cho nút đặc biệt */
 button.btn-special { background-color: var(--special-color); }
 button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-color); }
 
@@ -154,7 +164,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .kick-btn, .remove-role-btn { background-color: var(--danger-bg); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 14px; font-weight: bold; cursor: pointer; flex-shrink: 0; padding: 0; line-height: 24px; text-align: center; }
 .kick-btn:hover, .remove-role-btn:hover { background-color: var(--danger-hover-bg); }
 
-/* --- KHÔI PHỤC: Style cho các mục đang chờ --- */
 .pending-container { margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 10px; }
 .pending-container.hidden { display: none; }
 .pending-container h4 { margin: 0 0 10px 0; color: var(--light-text); font-size: 1rem; }
@@ -162,7 +171,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .pending-additions li { color: var(--save-color); font-weight: bold; list-style-type: none; padding: 5px 0; }
 .pending-additions li::before { content: '+ '; font-weight: bold; }
 
-/* --- Modal Styles --- */
 .modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(13, 17, 23, 0.92); display: flex; justify-content: center; align-items: center; animation: fadeIn 0.3s; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .modal.hidden { display: none; }

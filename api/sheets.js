@@ -1,13 +1,11 @@
 import { google } from 'googleapis';
 
 // --- Cấu hình xác thực Google ---
-// Đặt các biến này ở ngoài để có thể tái sử dụng
 const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS);
 const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
 const auth = new google.auth.GoogleAuth({
   credentials,
-  // QUAN TRỌNG: Thay đổi scope để có quyền ghi và xóa
   scopes: ['https://www.googleapis.com/auth/spreadsheets'],
 });
 
@@ -22,7 +20,8 @@ export default async function handler(request, response) {
     try {
       const { sheetName = 'Roles' } = request.query;
 
-      if (!['Roles', 'Players'].includes(sheetName)) {
+      // ===== THAY ĐỔI 1: Thêm 'Favor Deck' vào danh sách hợp lệ =====
+      if (!['Roles', 'Players', 'Favor Deck'].includes(sheetName)) {
         return response.status(400).json({ error: 'Invalid sheet name specified.' });
       }
 
@@ -35,7 +34,38 @@ export default async function handler(request, response) {
       if (!rows || rows.length === 0) {
         return response.status(404).json({ error: `No data found in ${sheetName} sheet.` });
       }
+      
+      response.setHeader('Cache-Control', 's-maxage=10, stale-while-revalidate');
 
+      // ===== THAY ĐỔI 2: Thêm logic đặc biệt để xử lý sheet 'Favor Deck' =====
+      if (sheetName === 'Favor Deck') {
+        const decks = [];
+        const deckNames = rows[0] || [];
+        const playerCounts = rows[2] || [];
+        
+        // Bắt đầu từ cột B (index = 1)
+        for (let col = 1; col < deckNames.length; col++) {
+          const deckName = deckNames[col];
+          if (!deckName) continue; // Bỏ qua nếu cột không có tên deck
+
+          const deck = {
+            deckName: deckName.trim(),
+            playerCount: parseInt(playerCounts[col], 10) || 0,
+            roles: [],
+          };
+
+          // Bắt đầu từ hàng 4 (index = 3) để đọc vai trò
+          for (let row = 3; row < rows.length; row++) {
+            if (rows[row] && rows[row][col]) {
+              deck.roles.push(rows[row][col].trim());
+            }
+          }
+          decks.push(deck);
+        }
+        return response.status(200).json(decks);
+      }
+      
+      // Logic cũ cho sheet 'Roles' và 'Players'
       const headers = rows.shift();
       const data = rows.map(row => {
         let obj = {};
@@ -45,7 +75,6 @@ export default async function handler(request, response) {
         return obj;
       });
 
-      response.setHeader('Cache-Control', 's-maxage=10, stale-while-revalidate');
       return response.status(200).json(data);
 
     } catch (error) {
@@ -67,16 +96,13 @@ export default async function handler(request, response) {
           return response.status(400).json({ error: 'Invalid payload for saveGameLog.' });
         }
         
-        // Chuyển đổi payload thành mảng 2 chiều để ghi vào sheet
-        const values = payload.map(item => [item.role, item.name]); // Cột A: Chức năng, Cột B: Tên
+        const values = payload.map(item => [item.role, item.name]);
 
-        // Trước khi ghi, xóa dữ liệu cũ để đảm bảo log luôn mới
         await sheets.spreadsheets.values.clear({
           spreadsheetId,
           range: `${gameLogSheetName}!A:B`,
         });
 
-        // Ghi dữ liệu mới
         await sheets.spreadsheets.values.update({
           spreadsheetId,
           range: `${gameLogSheetName}!A1`,
@@ -90,19 +116,18 @@ export default async function handler(request, response) {
       }
 
       if (action === 'clearGameLog') {
-        // Xóa toàn bộ dữ liệu trong sheet GameLog
         await sheets.spreadsheets.values.clear({
           spreadsheetId,
-          range: `${gameLogSheetName}!A:B`, // Chỉ định rõ vùng cần xóa
+          range: `${gameLogSheetName}!A:B`,
         });
 
         return response.status(200).json({ success: true, message: 'Game log cleared successfully.' });
       }
 
-      // Nếu action không hợp lệ
       return response.status(400).json({ error: 'Invalid action specified.' });
 
-    } catch (error) {
+    } catch (error)
+    {
       console.error('POST API Error:', error);
       return response.status(500).json({ error: 'Failed to process request.', details: error.message });
     }

@@ -1,6 +1,5 @@
 // =================================================================
-// === admin.js - PHIÊN BẢN SỬA LỖI TOÀN DIỆN CHO NÚT GHI CHÚ ===
-console.log("ĐANG CHẠY admin.js PHIÊN BẢN SỬA LỖI!");
+// === admin.js - CẬP NHẬT TÍNH NĂNG FAVORITE DECK ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -47,7 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const monitorTimerDisplay = document.getElementById('monitor-timer-display');
     const playerChoicesList = document.getElementById('player-choices-list');
     const processPlayerPickBtn = document.getElementById('process-player-pick-btn');
-    const startNightNoteBtn = document.getElementById('start-night-note-btn'); // Lấy nút ghi chú
+    const startNightNoteBtn = document.getElementById('start-night-note-btn');
+    const favoriteDeckSelect = document.getElementById('favorite-deck-select'); // MỚI: Dropdown Deck
 
     // --- Elements cho tính năng chỉnh sửa ---
     const editRoomBtn = document.getElementById('edit-room-btn');
@@ -75,20 +75,85 @@ document.addEventListener('DOMContentLoaded', () => {
     let playersToAdd = new Set();
     let rolesToAdd = new Set();
     let allPlayersData = [];
-    let currentRoomId = null; // **QUAN TRỌNG**: Biến toàn cục cho ID phòng
+    let currentRoomId = null; 
     let roomListener = null;
     let pickTimerInterval = null;
     let allRolesData = [];
+    let favoriteDecksData = []; // MỚI: Biến lưu các deck yêu thích
 
     // --- Các hàm xử lý logic ---
     
-    // **SỬA LỖI**: Hàm xử lý sự kiện cho nút Ghi chú đêm
     const handleStartNightNote = () => {
         if (currentRoomId) {
             const noteUrl = `night-note.html?roomId=${currentRoomId}`;
             window.open(noteUrl, '_blank');
         } else {
             alert('Lỗi: Không tìm thấy ID phòng hiện tại. Vui lòng chọn một phòng để quản lý trước.');
+        }
+    };
+    
+    // MỚI: Hàm áp dụng một deck yêu thích vào lựa chọn vai trò
+    const applyFavoriteDeck = (deckIndex) => {
+        // Reset tất cả lựa chọn hiện tại
+        document.querySelectorAll('input[name="selected-role"]').forEach(cb => cb.checked = false);
+        document.querySelectorAll('input[name="quantity-role"]').forEach(input => input.value = 0);
+
+        if (!deckIndex) { // Nếu người dùng chọn "-- Tự chọn vai trò --"
+            updateCounters();
+            return;
+        }
+
+        const selectedDeck = favoriteDecksData[deckIndex];
+        if (!selectedDeck) return;
+
+        // Đếm số lượng của mỗi vai trò trong deck được chọn
+        const roleCounts = selectedDeck.roles.reduce((acc, role) => {
+            acc[role] = (acc[role] || 0) + 1;
+            return acc;
+        }, {});
+
+        // Cập nhật giao diện dựa trên roleCounts
+        for (const roleName in roleCounts) {
+            const count = roleCounts[roleName];
+            const checkbox = document.getElementById(`role-${roleName}`);
+            const numberInput = document.querySelector(`input[data-role-name="${roleName}"]`);
+
+            if (numberInput) { // Nếu là vai trò nhập số lượng (Dân, Sói)
+                numberInput.value = count;
+            } else if (checkbox) { // Nếu là vai trò checkbox
+                checkbox.checked = true; // Chỉ cần check 1 lần cho các vai trò duy nhất
+            }
+        }
+
+        // Cập nhật lại bộ đếm
+        updateCounters();
+    };
+
+
+    // MỚI: Hàm tải và hiển thị các deck yêu thích
+    const loadFavoriteDecks = async () => {
+        try {
+            const response = await fetch(`/api/sheets?sheetName=Favor Deck`);
+            if (!response.ok) throw new Error('Không thể tải Favorite Decks.');
+            
+            favoriteDecksData = await response.json();
+            
+            favoriteDeckSelect.innerHTML = '<option value="">-- Tự chọn vai trò --</option>'; // Reset dropdown
+            
+            favoriteDecksData.forEach((deck, index) => {
+                const option = document.createElement('option');
+                option.value = index; // Lưu index để dễ dàng truy xuất
+                option.textContent = `${deck.deckName} (${deck.playerCount} người)`;
+                favoriteDeckSelect.appendChild(option);
+            });
+
+        } catch (error) {
+            console.error("Lỗi tải Favorite Decks:", error);
+            const option = document.createElement('option');
+            option.value = "";
+            option.textContent = "Lỗi tải danh sách deck";
+            option.disabled = true;
+            favoriteDeckSelect.appendChild(option);
         }
     };
 
@@ -235,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const loadRoomForManagement = async (roomId) => {
         if (roomListener) { database.ref(`rooms/${currentRoomId}`).off('value', roomListener); }
-        currentRoomId = roomId; // **QUAN TRỌNG**: Cập nhật ID phòng hiện tại
+        currentRoomId = roomId; 
         const roomRef = database.ref(`rooms/${roomId}`);
         roomListener = roomRef.on('value', (snapshot) => {
             const roomData = snapshot.val();
@@ -734,9 +799,12 @@ document.addEventListener('DOMContentLoaded', () => {
     rolesByFactionContainer.addEventListener('input', updateCounters);
     refreshRoomsBtn.addEventListener('click', loadAndDisplayRooms);
     backToSetupBtn.addEventListener('click', resetAdminUI);
-    
-    // **SỬA LỖI**: Gán sự kiện cho nút Ghi chú đêm
     startNightNoteBtn.addEventListener('click', handleStartNightNote);
+    
+    // MỚI: Gán sự kiện cho dropdown deck
+    favoriteDeckSelect.addEventListener('change', (event) => {
+        applyFavoriteDeck(event.target.value);
+    });
 
     roomListContainer.addEventListener('click', (event) => {
         const target = event.target;
@@ -775,7 +843,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Tải dữ liệu ban đầu ---
-    loadPlayersFromSheet();
-    loadRolesFromSheet();
-    loadAndDisplayRooms();
+    const initialLoad = async () => {
+        await loadPlayersFromSheet();
+        await loadRolesFromSheet();
+        await loadFavoriteDecks(); // MỚI: Tải các deck
+        loadAndDisplayRooms();
+    };
+
+    initialLoad();
 });
