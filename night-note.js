@@ -311,7 +311,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (actionKind === 'audit') {
                 let isWolf = (target.faction === 'Bầy Sói' || target.faction === 'Phe Sói');
-                // <<< SỬA ĐỔI DUY NHẤT TẠI ĐÂY >>>
                 if (target.kind.includes('reverse') || target.kind.includes('counteraudit')) {
                     isWolf = !isWolf;
                 }
@@ -322,14 +321,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const result = (target.faction !== 'Phe Dân') ? "KHÔNG thuộc Phe Dân" : "thuộc Phe Dân";
                 infoResults.push(`- ${attacker.roleName} (${attacker.name}) điều tra ${target.name}: ${result}.`);
             }
+            // <<< SỬA ĐỔI LOGIC 'CHECK' TẠI ĐÂY >>>
             if (actionKind === 'check') {
-                const targetAction = actions.find(a => a.actorId === targetId);
-                if (targetAction) {
-                    const finalTargetOfTarget = roomPlayers.find(p => p.id === targetAction.targetId);
-                    infoResults.push(`- ${attacker.roleName} (${attacker.name}) thấy ${target.name} đã chọn ${finalTargetOfTarget?.name || 'Không rõ'}.`);
-                } else {
-                    infoResults.push(`- ${attacker.roleName} (${attacker.name}) thấy ${target.name} không chọn ai cả.`);
-                }
+                infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã kiểm tra ${target.name}.`);
             }
         });
         
