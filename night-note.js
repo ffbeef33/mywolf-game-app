@@ -143,14 +143,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Logic ---
     const calculateNightStatus = (nightState) => {
-        if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [], infoResults: [], eventLog: [] };
+        if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [], infoResults: [] };
         
         const actions = nightState.actions || [];
         const initialStatus = nightState.playersStatus;
         const finalStatus = JSON.parse(JSON.stringify(initialStatus));
         const liveStatuses = {}; 
         const infoResults = [];
-        const eventLog = [];
 
         // --- Giai đoạn 0: Khởi tạo ---
         Object.keys(initialStatus).forEach(pId => {
@@ -170,11 +169,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 if (liveStatuses[pId].isDoomed) {
                     liveStatuses[pId].damage = 99;
-                    eventLog.push(`- **${roomPlayers.find(p=>p.id===pId)?.name}** chết vì bị nguyền rủa từ đêm trước.`);
                 }
                 if (liveStatuses[pId].markedForDelayKill) {
                     liveStatuses[pId].damage = 99;
-                    eventLog.push(`- **${roomPlayers.find(p=>p.id===pId)?.name}** chết vì bị giết trì hoãn từ đêm trước.`);
                 }
             }
         });
@@ -196,8 +193,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const actionKind = ALL_ACTIONS[action]?.key || action;
             if (actionKind === 'countershield') {
                 counterShieldedTargets.add(targetId);
-                const target = roomPlayers.find(p => p.id === targetId);
-                eventLog.push(`- **${actor.name}** đã phá giáp của **${target.name}**.`);
             }
         });
 
@@ -209,44 +204,25 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const actionKind = ALL_ACTIONS[action]?.key || action;
 
-            if (actionKind === 'disable_action') { 
-                if(targetStatus) {
-                    targetStatus.isDisabled = true;
-                    eventLog.push(`- **${actor.name}** đã vô hiệu hóa **${target.name}**.`);
-                }
-            }
+            if (actionKind === 'disable_action') { if(targetStatus) targetStatus.isDisabled = true; }
             else if (actionKind === 'protect') {
-                if(targetStatus && !counterShieldedTargets.has(targetId) && !counterShieldedTargets.has(actorId)) {
+                if(targetStatus && !counterShieldedTargets.has(targetId)) {
                     targetStatus.isProtected = true;
-                    eventLog.push(`- **${actor.name}** đã bảo vệ **${target.name}**.`);
                 }
             }
-            else if (actionKind === 'sacrifice') { 
-                damageRedirects[targetId] = actorId;
-                eventLog.push(`- **${actor.name}** sẽ hy sinh cho **${target.name}**.`);
-            }
-            else if (actionKind === 'checkcounter') { 
-                counterWards[targetId] = { actorId: actorId, triggered: false };
-                eventLog.push(`- **${actor.name}** đã đặt bẫy lên **${target.name}**.`);
-            }
+            else if (actionKind === 'sacrifice') { damageRedirects[targetId] = actorId; }
+            else if (actionKind === 'checkcounter') { counterWards[targetId] = { actorId: actorId, triggered: false }; }
             else if (actionKind === 'checkdmg') {
-                if (liveStatuses[actorId]) {
-                    liveStatuses[actorId].deathLinkTarget = targetId;
-                    eventLog.push(`- **${actor.name}** đã liên kết với **${target.name}**.`);
-                }
+                if (liveStatuses[actorId]) liveStatuses[actorId].deathLinkTarget = targetId;
             }
             else if (actionKind === 'givekill') {
-                if (targetStatus) {
-                    targetStatus.tempStatus.hasKillAbility = true;
-                    eventLog.push(`- **${actor.name}** đã cho **${target.name}** khả năng giết.`);
-                }
+                if (targetStatus) targetStatus.tempStatus.hasKillAbility = true;
             }
             else if (actionKind === 'givearmor') {
                 if (targetStatus) targetStatus.armor = 2;
                 const actorStatus = liveStatuses[actorId];
                 if (actorStatus) actorStatus.armor = 2;
                 damageRedirects[targetId] = actorId;
-                eventLog.push(`- **${actor.name}** đã cho giáp và bảo vệ **${target.name}**.`);
             }
             else if (actionKind === 'choosesacrifier') {
                 if (finalStatus[actorId]) {
@@ -278,7 +254,6 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (actionKind === 'gather') {
                 if (targetStatus) {
                     targetStatus.gatheredBy = actorId;
-                    eventLog.push(`- **${actor.name}** đã tụ tập với **${target.name}**.`);
                 }
             }
         });
@@ -291,17 +266,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (actorId === 'wolf_group') {
                 const finalTargetId = damageRedirects[targetId] || targetId;
-                const finalTarget = roomPlayers.find(p => p.id === finalTargetId);
                 const targetStatus = liveStatuses[finalTargetId];
-                if (targetStatus) {
-                    targetStatus.damage++;
-                    if(finalTargetId !== targetId){
-                        const originalTarget = roomPlayers.find(p => p.id === targetId);
-                        eventLog.push(`- Bầy Sói tấn công **${originalTarget.name}**, nhưng **${finalTarget.name}** đã nhận thay.`);
-                    } else {
-                        eventLog.push(`- Bầy Sói tấn công **${finalTarget.name}**.`);
-                    }
-                }
+                if (targetStatus) targetStatus.damage++;
                 return;
             }
             if (!attacker || !target || liveStatuses[actorId]?.isDisabled) return;
@@ -331,23 +297,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(shouldDamage) finalTargetStatus.damage++;
                 
                 if (finalTarget.kind === 'counter') {
-                    if (liveStatuses[actorId]) {
-                        liveStatuses[actorId].damage++;
-                        eventLog.push(`- **${attacker.name}** bị phản sát thương từ **${finalTarget.name}**.`);
-                    }
+                    if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
                 }
                 if (finalTargetId !== targetId) {
-                     if (liveStatuses[actorId]) {
-                         liveStatuses[actorId].damage++;
-                         eventLog.push(`- **${attacker.name}** bị phản sát thương do tấn công người được **${finalTarget.name}** hy sinh bảo vệ.`);
-                     }
+                     if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
                 }
                 const ward = counterWards[finalTargetId];
                 if (ward && !ward.triggered) {
-                    if (liveStatuses[actorId]) {
-                        liveStatuses[actorId].damage++;
-                        eventLog.push(`- **${attacker.name}** bị phản sát thương từ bẫy trên **${finalTarget.name}**.`);
-                    }
+                    if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
                     ward.triggered = true;
                 }
             }
@@ -482,13 +439,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const deadPlayerNames = Array.from(deadPlayerIdsThisNight).map(id => roomPlayers.find(p => p.id === id)?.name).filter(Boolean);
-        if(deadPlayerNames.length > 0){
-             eventLog.push(`- **Kết quả:** ${deadPlayerNames.join(', ')} đã chết.`);
-        } else {
-             eventLog.push(`- **Kết quả:** Không có ai chết đêm nay.`);
-        }
         
-        return { liveStatuses, finalStatus, deadPlayerNames, infoResults, eventLog };
+        return { liveStatuses, finalStatus, deadPlayerNames, infoResults };
     };
 
     function buildNightActionSummary(nightState) {
@@ -535,7 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
             interactionTable.innerHTML = '<div class="loading-spinner"></div>';
             return;
         }
-        const { liveStatuses, infoResults, deadPlayerNames, eventLog } = calculateNightStatus(nightState);
+        const { liveStatuses, infoResults, deadPlayerNames } = calculateNightStatus(nightState);
 
         FACTION_GROUPS.forEach(group => {
             const groupPlayers = roomPlayers.filter(p => group.factions.includes(p.faction));
@@ -607,22 +559,6 @@ document.addEventListener('DOMContentLoaded', () => {
             nightResultsDiv.innerHTML = deadPlayerNames.length > 0
                     ? `<strong>Đã chết:</strong> ${deadPlayerNames.map(name => `<span class="dead-player">${name}</span>`).join(', ')}`
                     : '<p>Không có ai chết trong đêm nay.</p>';
-        }
-
-        let eventLogSection = document.getElementById('event-log-section');
-        if (!eventLogSection) {
-            eventLogSection = document.createElement('section');
-            eventLogSection.id = 'event-log-section';
-            eventLogSection.className = 'card';
-            const resultsCard = document.querySelector('.results-card');
-            resultsCard.parentNode.insertBefore(eventLogSection, resultsCard.nextSibling);
-        }
-
-        if (eventLog && eventLog.length > 0) {
-            eventLogSection.style.display = 'block';
-            eventLogSection.innerHTML = `<h2>Nhật Ký Sự Kiện Đêm</h2><ul id="event-log-list">${eventLog.map(log => `<li>${log}</li>`).join('')}</ul>`;
-        } else {
-            eventLogSection.style.display = 'none';
         }
 
         let gmInfoLogDiv = document.getElementById('gm-info-log');
@@ -701,6 +637,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isProtected) row.classList.add('status-protected');
             if (liveStatus.isSaved && !liveStatus.isProtected) row.classList.add('status-saved'); 
             if (liveStatus.isDead && !liveStatus.isSaved && !liveStatus.isProtected) row.classList.add('status-danger');
+            // <<< SỬA ĐỔI: Thêm hiển thị cho người bị disable bởi Kind >>>
             if (liveStatus.isDisabled && !playerState.isDisabled) {
                 row.classList.add('status-disabled-by-ability');
             }
@@ -753,6 +690,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isDead && !liveStatus.isSaved && !liveStatus.isProtected) {
                 statusIconsHTML += '<i class="fas fa-skull-crossbones icon-danger" title="Dự kiến chết"></i>';
             }
+            // <<< SỬA ĐỔI: Thêm icon cho người bị disable bởi Kind >>>
             if (liveStatus.isDisabled && !playerState.isDisabled) {
                 statusIconsHTML += '<i class="fas fa-user-slash icon-disabled-by-ability" title="Bị vô hiệu hóa"></i>';
             }
