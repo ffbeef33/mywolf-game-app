@@ -270,9 +270,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (targetStatus) targetStatus.damage++;
                 return;
             }
-            if (!attacker || !target || liveStatuses[attackerId]?.isDisabled) return;
+            if (!attacker || !target || liveStatuses[actorId]?.isDisabled) return;
             
-            const attackerHasKill = actionKind.includes('kill') || liveStatuses[attackerId]?.tempStatus.hasKillAbility;
+            const attackerHasKill = actionKind.includes('kill') || liveStatuses[actorId]?.tempStatus.hasKillAbility;
 
             if (attackerHasKill && actionKind !== 'killdelay') {
                 const finalTargetId = damageRedirects[targetId] || targetId;
@@ -290,21 +290,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         shouldDamage = true;
                     } else {
                         shouldDamage = false;
-                        if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
+                        if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
                     }
                 }
                 
                 if(shouldDamage) finalTargetStatus.damage++;
                 
                 if (finalTarget.kind === 'counter') {
-                    if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
+                    if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
                 }
                 if (finalTargetId !== targetId) {
-                     if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
+                     if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
                 }
                 const ward = counterWards[finalTargetId];
                 if (ward && !ward.triggered) {
-                    if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
+                    if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
                     ward.triggered = true;
                 }
             }
