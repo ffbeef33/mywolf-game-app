@@ -321,7 +321,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const result = (target.faction !== 'Phe Dân') ? "KHÔNG thuộc Phe Dân" : "thuộc Phe Dân";
                 infoResults.push(`- ${attacker.roleName} (${attacker.name}) điều tra ${target.name}: ${result}.`);
             }
-            // <<< SỬA ĐỔI LOGIC 'CHECK' TẠI ĐÂY >>>
             if (actionKind === 'check') {
                 infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã kiểm tra ${target.name}.`);
             }
@@ -721,17 +720,23 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             if (factionSelect) {
+                // <<< SỬA ĐỔI LOGIC CHUYỂN PHE TẠI ĐÂY >>>
                 const handleFactionChange = function() {
-                    const oldFaction = player.faction;
                     const newFaction = factionSelect.value;
-                    const playerToUpdate = roomPlayers.find(p => p.id === player.id);
-                    if(playerToUpdate) playerToUpdate.faction = newFaction;
-                    if (!Array.isArray(nightStates[activeNightIndex].factionChanges)) {
-                        nightStates[activeNightIndex].factionChanges = [];
+
+                    // Ghi đè phe của người chơi trực tiếp vào Firebase.
+                    database.ref(`rooms/${roomId}/players/${player.id}/factionOverride`).set(newFaction);
+
+                    // Ghi nhận lại hành động thay đổi phe để hiển thị trong log tóm tắt
+                    const nightState = nightStates[activeNightIndex];
+                    if (!Array.isArray(nightState.factionChanges)) {
+                        nightState.factionChanges = [];
                     }
-                    nightStates[activeNightIndex].factionChanges.push({ playerId: player.id, oldFaction, newFaction });
+                    nightState.factionChanges = nightState.factionChanges.filter(c => c.playerId !== player.id);
+                    nightState.factionChanges.push({ playerId: player.id, oldFaction: player.faction, newFaction: newFaction });
+
+                    // Lưu lại ghi chú đêm (chứa log thay đổi phe)
                     saveNightNotes();
-                    render();
                 };
                 factionSelect.onchange = handleFactionChange;
                 factionSelect.onblur = function() { 
@@ -1023,15 +1028,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const playersData = roomData.players || {};
             
+            // <<< SỬA ĐỔI LOGIC ĐỌC DỮ LIỆU PHE TẠI ĐÂY >>>
             roomPlayers = Object.keys(playersData).map(key => {
                 const originalData = playersData[key];
                 const roleName = (originalData.roleName || '').trim();
                 const roleInfo = allRolesData[roleName] || { faction: 'Chưa phân loại', active: '0', kind: 'empty', quantity: 1 };
                 
+                // Bắt đầu với phe mặc định từ vai trò
+                let finalFaction = roleInfo.faction;
+
+                // KIỂM TRA XEM CÓ PHE GHI ĐÈ TỪ GM KHÔNG
+                if (originalData.factionOverride) {
+                    finalFaction = originalData.factionOverride;
+                }
+                
                 return { 
                     id: key, 
                     ...originalData, 
-                    faction: roleInfo.faction,
+                    faction: finalFaction, // Sử dụng phe cuối cùng đã được xác định
                     activeRule: roleInfo.active,
                     kind: roleInfo.kind,
                     quantity: roleInfo.quantity
