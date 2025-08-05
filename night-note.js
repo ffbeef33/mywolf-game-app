@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (!attacker || !target || liveStatuses[actorId]?.isDisabled) return;
             
-            const attackerHasKill = actionKind.includes('kill') || liveStatuses[attackerId]?.tempStatus.hasKillAbility;
+            const attackerHasKill = actionKind.includes('kill') || liveStatuses[actorId]?.tempStatus.hasKillAbility;
 
             if (attackerHasKill && actionKind !== 'killdelay') {
                 const finalTargetId = damageRedirects[targetId] || targetId;
@@ -331,21 +331,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(shouldDamage) finalTargetStatus.damage++;
                 
                 if (finalTarget.kind === 'counter') {
-                    if (liveStatuses[attackerId]) {
-                        liveStatuses[attackerId].damage++;
+                    if (liveStatuses[actorId]) {
+                        liveStatuses[actorId].damage++;
                         eventLog.push(`- **${attacker.name}** bị phản sát thương từ **${finalTarget.name}**.`);
                     }
                 }
                 if (finalTargetId !== targetId) {
-                     if (liveStatuses[attackerId]) {
-                         liveStatuses[attackerId].damage++;
+                     if (liveStatuses[actorId]) {
+                         liveStatuses[actorId].damage++;
                          eventLog.push(`- **${attacker.name}** bị phản sát thương do tấn công người được **${finalTarget.name}** hy sinh bảo vệ.`);
                      }
                 }
                 const ward = counterWards[finalTargetId];
                 if (ward && !ward.triggered) {
-                    if (liveStatuses[attackerId]) {
-                        liveStatuses[attackerId].damage++;
+                    if (liveStatuses[actorId]) {
+                        liveStatuses[actorId].damage++;
                         eventLog.push(`- **${attacker.name}** bị phản sát thương từ bẫy trên **${finalTarget.name}**.`);
                     }
                     ward.triggered = true;
