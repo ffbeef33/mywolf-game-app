@@ -332,8 +332,16 @@ option:disabled {
     align-items: center; gap: 10px; flex-wrap: wrap;
 }
 .night-tabs-container h3 { margin: 0; font-size: 1.2rem; color: var(--light-text); flex-shrink: 0; }
-#night-tabs { display: flex; gap: 10px; }
-.night-tab { background-color: var(--card-bg); border: 1px solid var(--border-color); }
+#night-tabs {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap; /* SỬA LỖI: Cho phép các tab xuống dòng */
+}
+.night-tab {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    margin-bottom: 5px; /* SỬA LỖI: Thêm khoảng cách dọc khi tab xuống dòng */
+}
 .night-tab.active { background-color: var(--text-color); border-color: var(--text-color); color: #fff; }
 .btn-add-night { background-color: var(--safe-color); margin-left: auto; }
 .loading-spinner {
