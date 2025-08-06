@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         return true;
     }
-
+    
     function getSortPriority(player) {
         const isActive = player.activeRule !== '0';
         const isSaver = player.kind.includes('save');
@@ -190,6 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const damageRedirects = {}; 
         const counterWards = {};    
         const counterShieldedTargets = new Set();
+        const damageLinks = {}; // CẬP NHẬT: Thêm object để lưu liên kết sát thương của 'noti'
 
         Object.keys(initialStatus).forEach(pId => {
             if(initialStatus[pId].sacrificedBy) {
@@ -267,9 +268,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             else if (actionKind === 'noti') {
-                if (targetStatus) {
-                    targetStatus.isNotified = true;
+                if (targetStatus) targetStatus.isNotified = true;
+                // CẬP NHẬT: Tạo liên kết sát thương từ mục tiêu (B) đến người dùng (A)
+                if (!damageLinks[targetId]) {
+                    damageLinks[targetId] = [];
                 }
+                damageLinks[targetId].push(actorId);
             }
         });
         
@@ -303,10 +307,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(actionKind === 'killwolf' && !(finalTarget.faction === 'Bầy Sói' || finalTarget.faction === 'Phe Sói')){
                     shouldDamage = false;
                 }
-
-                // ===== THAY ĐỔI LOGIC `killvillager` TẠI ĐÂY =====
                 if(actionKind === 'killvillager'){
-                    if(finalTarget.roleName === 'Dân') { // Kiểm tra vai trò thay vì phe
+                    if(finalTarget.roleName === 'Dân') {
                         shouldDamage = true;
                     } else {
                         shouldDamage = false;
@@ -409,34 +411,56 @@ document.addEventListener('DOMContentLoaded', () => {
              }
         });
 
-        // --- Giai đoạn 4: Tổng kết kết quả ---
+        // --- CẬP NHẬT: Toàn bộ Giai đoạn 4 được cấu trúc lại để xử lý liên kết sát thương ---
         let deadPlayerIdsThisNight = new Set();
+        const finalNightResolution = {};
+
+        // Vòng 1: Tính sát thương hiệu quả ban đầu cho mỗi người chơi
         Object.keys(liveStatuses).forEach(pId => {
             const status = liveStatuses[pId];
-            const player = roomPlayers.find(p => p.id === pId);
-            
-            if (!player) {
-                console.warn(`Không tìm thấy người chơi với ID ${pId} trong danh sách.`);
-                return;
+            let initialEffectiveDamage = status.damage;
+            if (status.isProtected) {
+                initialEffectiveDamage = 0;
             }
-            
-            let effectiveDamage = status.damage;
-            
-            if (status.isProtected) { effectiveDamage = 0; }
-            if (effectiveDamage > 0 && status.armor > 1) {
-                const damageAbsorbed = Math.min(effectiveDamage, status.armor - 1);
-                status.armor -= damageAbsorbed;
-                effectiveDamage -= damageAbsorbed;
-            }
-            
-            if (effectiveDamage > 0 && !status.isSaved && !status.isSavedByKillif) {
-                status.isDead = true;
-            } else {
-                status.isDead = false;
-            }
+            finalNightResolution[pId] = {
+                effectiveDamage: initialEffectiveDamage,
+                armor: status.armor,
+                isSaved: status.isSaved || status.isSavedByKillif
+            };
+        });
 
-            if (status.isDead) {
-                if (player.kind === 'delaykill' && status.delayKillAvailable) {
+        // Vòng 2: Chuyển sát thương liên kết từ 'noti'
+        Object.keys(damageLinks).forEach(sourceId => {
+            if (finalNightResolution[sourceId]) {
+                const damageToTransfer = finalNightResolution[sourceId].effectiveDamage;
+                if (damageToTransfer > 0) {
+                    const receivers = damageLinks[sourceId];
+                    receivers.forEach(receiverId => {
+                        if (finalNightResolution[receiverId]) {
+                            finalNightResolution[receiverId].effectiveDamage += damageToTransfer;
+                            infoResults.push(`- ${roomPlayers.find(p=>p.id===receiverId).name} nhận sát thương chung từ ${roomPlayers.find(p=>p.id===sourceId).name}.`);
+                        }
+                    });
+                }
+            }
+        });
+        
+        // Vòng 3: Tổng kết cuối cùng về cái chết, giáp và các điều kiện đặc biệt
+        Object.keys(finalNightResolution).forEach(pId => {
+            const res = finalNightResolution[pId];
+            const player = roomPlayers.find(p => p.id === pId);
+            let finalDamage = res.effectiveDamage;
+
+            // Áp dụng giáp
+            if (finalDamage > 0 && res.armor > 1) {
+                const damageAbsorbed = Math.min(finalDamage, res.armor - 1);
+                res.armor -= damageAbsorbed;
+                finalDamage -= damageAbsorbed;
+            }
+            
+            // Kiểm tra cứu và xác định chết
+            if (finalDamage > 0 && !res.isSaved) {
+                if (player.kind === 'delaykill' && liveStatuses[pId].delayKillAvailable) {
                     finalStatus[pId].isDoomed = true;
                     finalStatus[pId].delayKillAvailable = false;
                 } else {
@@ -446,13 +470,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (finalStatus[pId]) {
-                finalStatus[pId].armor = status.armor;
+                finalStatus[pId].armor = res.armor;
                 if (liveStatuses[pId].deathLinkTarget) {
                     finalStatus[pId].deathLinkTarget = liveStatuses[pId].deathLinkTarget;
                 }
             }
         });
         
+        // Vòng lặp xử lý liên kết chết chóc (deathLinkTarget)
         let chainReactionOccurred = true;
         while(chainReactionOccurred) {
             chainReactionOccurred = false;
