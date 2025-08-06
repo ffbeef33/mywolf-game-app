@@ -27,10 +27,7 @@
 
                 <div class="form-group">
                     <h3><span aria-hidden="true">⭐</span> Chọn Deck Yêu Thích (Tùy chọn)</h3>
-                    <select id="favorite-deck-select" class="form-control">
-                        <option value="">-- Tự chọn vai trò --</option>
-                        </select>
-                    <div id="deck-preview-container" class="deck-preview hidden"></div>
+                    <button id="open-deck-modal-btn" class="btn-secondary">Mở Danh Sách Deck</button>
                 </div>
 
                 <div class="form-group" id="player-selection-section">
@@ -80,10 +77,7 @@
                     <h3>Chế Độ Chỉnh Sửa</h3>
                     <div class="form-group">
                         <h4><span aria-hidden="true">🔄</span> Thay thế bằng Deck Yêu Thích</h4>
-                        <select id="edit-deck-select" class="form-control">
-                            <option value="">-- Giữ nguyên vai trò hiện tại --</option>
-                            </select>
-                        <div id="edit-deck-preview" class="deck-preview hidden"></div>
+                        <button id="edit-open-deck-modal-btn" class="btn-secondary">Mở Danh Sách Deck để Thay Thế</button>
                     </div>
                     <div class="action-buttons">
                         <button id="open-add-player-modal-btn">Thêm Người Chơi</button>
@@ -135,6 +129,15 @@
             <h2>Thêm Vai Trò Mới</h2>
             <div id="modal-role-list" class="modal-list"></div>
             <button id="confirm-add-roles-btn" class="btn-save">Xác Nhận Thêm</button>
+        </div>
+    </div>
+
+    <div id="deck-modal" class="modal hidden">
+        <div class="modal-content large">
+            <span id="close-deck-modal-btn" class="close-modal-btn">&times;</span>
+            <h2>Chọn một Deck Yêu Thích</h2>
+            <div id="deck-modal-grid">
+                </div>
         </div>
     </div>
 
