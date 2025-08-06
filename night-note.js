@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         return true;
     }
-    
+
     function getSortPriority(player) {
         const isActive = player.activeRule !== '0';
         const isSaver = player.kind.includes('save');
@@ -190,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const damageRedirects = {}; 
         const counterWards = {};    
         const counterShieldedTargets = new Set();
-        const damageLinks = {}; // CẬP NHẬT: Thêm object để lưu liên kết sát thương của 'noti'
+        const damageLinks = {};
 
         Object.keys(initialStatus).forEach(pId => {
             if(initialStatus[pId].sacrificedBy) {
@@ -269,7 +269,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             else if (actionKind === 'noti') {
                 if (targetStatus) targetStatus.isNotified = true;
-                // CẬP NHẬT: Tạo liên kết sát thương từ mục tiêu (B) đến người dùng (A)
                 if (!damageLinks[targetId]) {
                     damageLinks[targetId] = [];
                 }
@@ -411,11 +410,10 @@ document.addEventListener('DOMContentLoaded', () => {
              }
         });
 
-        // --- CẬP NHẬT: Toàn bộ Giai đoạn 4 được cấu trúc lại để xử lý liên kết sát thương ---
+        // --- Giai đoạn 4: Tổng kết kết quả ---
         let deadPlayerIdsThisNight = new Set();
         const finalNightResolution = {};
 
-        // Vòng 1: Tính sát thương hiệu quả ban đầu cho mỗi người chơi
         Object.keys(liveStatuses).forEach(pId => {
             const status = liveStatuses[pId];
             let initialEffectiveDamage = status.damage;
@@ -429,7 +427,6 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         });
 
-        // Vòng 2: Chuyển sát thương liên kết từ 'noti'
         Object.keys(damageLinks).forEach(sourceId => {
             if (finalNightResolution[sourceId]) {
                 const damageToTransfer = finalNightResolution[sourceId].effectiveDamage;
@@ -445,21 +442,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // Vòng 3: Tổng kết cuối cùng về cái chết, giáp và các điều kiện đặc biệt
         Object.keys(finalNightResolution).forEach(pId => {
             const res = finalNightResolution[pId];
             const player = roomPlayers.find(p => p.id === pId);
             let finalDamage = res.effectiveDamage;
 
-            // Áp dụng giáp
             if (finalDamage > 0 && res.armor > 1) {
                 const damageAbsorbed = Math.min(finalDamage, res.armor - 1);
                 res.armor -= damageAbsorbed;
                 finalDamage -= damageAbsorbed;
             }
             
-            // Kiểm tra cứu và xác định chết
             if (finalDamage > 0 && !res.isSaved) {
+                // CẬP NHẬT: Thêm dòng này để cập nhật trạng thái "dự kiến chết" cho hàm render
+                if (liveStatuses[pId]) liveStatuses[pId].isDead = true;
+
                 if (player.kind === 'delaykill' && liveStatuses[pId].delayKillAvailable) {
                     finalStatus[pId].isDoomed = true;
                     finalStatus[pId].delayKillAvailable = false;
@@ -477,7 +474,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // Vòng lặp xử lý liên kết chết chóc (deathLinkTarget)
         let chainReactionOccurred = true;
         while(chainReactionOccurred) {
             chainReactionOccurred = false;
@@ -701,7 +697,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (liveStatus) {
             if (liveStatus.isProtected) row.classList.add('status-protected');
             if (liveStatus.isSaved && !liveStatus.isProtected) row.classList.add('status-saved'); 
-            if (liveStatus.isDead && !liveStatus.isSaved && !liveStatus.isProtected) row.classList.add('status-danger');
+            if (liveStatus.isDead) row.classList.add('status-danger'); // Hiển thị dự kiến chết
             if (liveStatus.isDisabled && !playerState.isDisabled) {
                 row.classList.add('status-disabled-by-ability');
             }
@@ -754,7 +750,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isSaved) {
                 statusIconsHTML += '<i class="fas fa-heart icon-saved" title="Được cứu"></i>';
             }
-            if (liveStatus.isDead && !liveStatus.isSaved && !liveStatus.isProtected) {
+            if (liveStatus.isDead) { // Hiển thị icon dự kiến chết
                 statusIconsHTML += '<i class="fas fa-skull-crossbones icon-danger" title="Dự kiến chết"></i>';
             }
             if (liveStatus.isDisabled && !playerState.isDisabled) {
