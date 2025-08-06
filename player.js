@@ -169,7 +169,6 @@ document.addEventListener('DOMContentLoaded', () => {
         roomIdDisplay.textContent = roomId;
         displayRolesInGame(roomData.rolesToAssign || []);
         
-        // --- CẬP NHẬT THEO YÊU CẦU MỚI: Lấy thông tin playerId sớm hơn ---
         const myPlayerEntry = Object.entries(roomData.players).find(([id, p]) => p.name === username);
 
         if (!myPlayerEntry) {
@@ -186,8 +185,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ? roomData.nightNotes[lastNightIndex].playersStatus[myPlayerId]?.isAlive ?? myPlayer.isAlive
             : myPlayer.isAlive;
         
-
-        // --- CẬP NHẬT THEO YÊU CẦU MỚI: Cải tiến logic xử lý vote cho người chết ---
         const votingState = roomData.votingState;
         if (votingState && votingState.status === 'active') {
             if (isAlive) {
@@ -332,13 +329,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- TÍCH HỢP MODULE VOTE: Các hàm xử lý vote phía player ---
+    // --- CẬP NHẬT 06/08/2025 (Lần 2): Hàm này được viết lại để cho phép thay đổi vote ---
     function handleVotingState(username, roomId, state) {
         if (voteTimerInterval) clearInterval(voteTimerInterval);
 
         voteTitleDisplay.textContent = state.title;
 
-        // Lấy thời gian server để đồng bộ
+        // Cập nhật timer
         database.ref('/.info/serverTimeOffset').once('value', (snap) => {
             const offset = snap.val();
             const updateTimer = () => {
@@ -350,34 +347,48 @@ document.addEventListener('DOMContentLoaded', () => {
             voteTimerInterval = setInterval(updateTimer, 1000);
         });
 
+        // Lấy lựa chọn hiện tại của người chơi
         const myChoice = state.choices ? state.choices[username] : null;
         
         voteOptionsContainer.innerHTML = '';
-        if (!myChoice) {
-             // Hiển thị các ứng viên
-            for(const playerId in state.candidates) {
-                const playerName = state.candidates[playerId];
-                const btn = document.createElement('button');
-                btn.className = 'choice-btn';
-                btn.textContent = playerName;
-                btn.dataset.targetId = playerId;
-                btn.addEventListener('click', () => selectVote(username, roomId, playerId));
-                voteOptionsContainer.appendChild(btn);
-            }
-             // Nút bỏ qua
-            const skipBtn = document.createElement('button');
-            skipBtn.className = 'choice-btn btn-secondary';
-            skipBtn.textContent = 'Bỏ qua';
-            skipBtn.dataset.targetId = 'skip_vote';
-            skipBtn.addEventListener('click', () => selectVote(username, roomId, 'skip_vote'));
-            voteOptionsContainer.appendChild(skipBtn);
-            
-            voteStatusMessage.textContent = 'Hãy bỏ phiếu...';
 
+        // Luôn hiển thị các nút để người chơi có thể thay đổi
+        // Hiển thị các ứng viên
+        for (const playerId in state.candidates) {
+            const playerName = state.candidates[playerId];
+            const btn = document.createElement('button');
+            btn.className = 'choice-btn';
+            btn.textContent = playerName;
+            btn.dataset.targetId = playerId;
+            
+            // Nếu đây là lựa chọn hiện tại, làm nổi bật nó
+            if (playerId === myChoice) {
+                btn.classList.add('selected');
+            }
+            
+            btn.addEventListener('click', () => selectVote(username, roomId, playerId));
+            voteOptionsContainer.appendChild(btn);
+        }
+
+        // Nút bỏ qua
+        const skipBtn = document.createElement('button');
+        skipBtn.className = 'choice-btn btn-secondary';
+        skipBtn.textContent = 'Bỏ qua';
+        skipBtn.dataset.targetId = 'skip_vote';
+        
+        // Làm nổi bật nếu đã chọn bỏ qua
+        if (myChoice === 'skip_vote') {
+            skipBtn.classList.add('selected');
+        }
+
+        skipBtn.addEventListener('click', () => selectVote(username, roomId, 'skip_vote'));
+        voteOptionsContainer.appendChild(skipBtn);
+        
+        // Cập nhật thông báo trạng thái
+        if (myChoice) {
+            voteStatusMessage.textContent = 'Bạn có thể thay đổi lựa chọn của mình.';
         } else {
-            const votedFor = myChoice === 'skip_vote' ? 'Bỏ qua' : (state.candidates[myChoice] || 'Không rõ');
-            voteOptionsContainer.innerHTML = `<p>Bạn đã bỏ phiếu cho:</p><h3>${votedFor}</h3>`;
-            voteStatusMessage.textContent = 'Đang chờ những người khác...';
+            voteStatusMessage.textContent = 'Hãy bỏ phiếu...';
         }
     }
     
