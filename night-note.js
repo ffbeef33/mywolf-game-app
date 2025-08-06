@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
     const SELECTABLE_FACTIONS = [ "Bầy Sói", "Phe Sói", "Phe Dân", "Phe trung lập" ];
     
+    // CẬP NHẬT: Thêm kind mới
     const KIND_TO_ACTION_MAP = {
         'shield': { key: 'protect', label: 'Bảo vệ', type: 'defense' },
         'save': { key: 'save', label: 'Cứu', type: 'defense' },
@@ -52,6 +53,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'countershield': { key: 'countershield', label: 'Phá giáp', type: 'debuff'},
         'killdelay': { key: 'killdelay', label: 'Giết (trì hoãn)', type: 'damage' },
         'gather': { key: 'gather', label: 'Tụ tập', type: 'buff' },
+        'killif': { key: 'killif', label: 'Giết/Cứu', type: 'conditional' },
+        'noti': { key: 'noti', label: 'Đánh dấu', type: 'buff' },
     };
 
     let ALL_ACTIONS = {};
@@ -165,7 +168,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     markedForDelayKill: initialStatus[pId].markedForDelayKill || false,
                     tempStatus: {
                         hasKillAbility: false,
-                    }
+                    },
+                    // CẬP NHẬT: Thêm thuộc tính mới
+                    isSavedByKillif: false,
+                    isNotified: false
                 };
                 if (liveStatuses[pId].isDoomed) {
                     liveStatuses[pId].damage = 99;
@@ -256,10 +262,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     targetStatus.gatheredBy = actorId;
                 }
             }
+            // CẬP NHẬT: Thêm logic cho 'noti'
+            else if (actionKind === 'noti') {
+                if (targetStatus) {
+                    targetStatus.isNotified = true;
+                }
+            }
         });
         
         // --- Giai đoạn 2: Tấn công, Phản đòn & Kiểm tra ---
-        actions.forEach(({ actorId, targetId, action }) => {
+        // CẬP NHẬT: Tách killif ra xử lý riêng
+        const killifActions = actions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
+        const otherActions = actions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) !== 'killif');
+
+        otherActions.forEach(({ actorId, targetId, action }) => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             const target = roomPlayers.find(p => p.id === targetId);
             const actionKind = ALL_ACTIONS[action]?.key || action;
@@ -323,6 +339,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (actionKind === 'check') {
                 infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã kiểm tra ${target.name}.`);
+            }
+        });
+
+        killifActions.forEach(({ actorId, targetId }) => {
+            const attacker = roomPlayers.find(p => p.id === actorId);
+            const target = roomPlayers.find(p => p.id === targetId);
+            if (!attacker || !target || liveStatuses[actorId]?.isDisabled) return;
+            
+            const finalTargetId = damageRedirects[targetId] || targetId;
+            const targetStatus = liveStatuses[finalTargetId];
+    
+            if (targetStatus) {
+                if (targetStatus.damage > 0) {
+                    targetStatus.isSavedByKillif = true;
+                    infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã CỨU ${target.name} (do mục tiêu đã bị tấn công).`);
+                } else {
+                    targetStatus.damage++;
+                }
             }
         });
         
@@ -391,7 +425,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 effectiveDamage -= damageAbsorbed;
             }
             
-            if (effectiveDamage > 0 && !status.isSaved) {
+            // CẬP NHẬT: Thêm điều kiện isSavedByKillif
+            if (effectiveDamage > 0 && !status.isSaved && !status.isSavedByKillif) {
                 status.isDead = true;
             } else {
                 status.isDead = false;
@@ -483,12 +518,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const { liveStatuses, infoResults, deadPlayerNames } = calculateNightStatus(nightState);
 
-        // <<< BỔ SUNG LOG CHO VIỆC CHUYỂN PHE TẠI ĐÂY >>>
         if (nightState.factionChanges && Array.isArray(nightState.factionChanges)) {
             nightState.factionChanges.forEach(change => {
                 const player = roomPlayers.find(p => p.id === change.playerId);
                 const playerName = player ? player.name : 'Người chơi không rõ';
-                // Thêm vào đầu mảng infoResults để hiển thị nổi bật
                 infoResults.unshift(`- [GM] Đã chuyển phe của ${playerName} từ ${change.oldFaction} thành ${change.newFaction}.`);
             });
         }
@@ -644,6 +677,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isDisabled && !playerState.isDisabled) {
                 row.classList.add('status-disabled-by-ability');
             }
+            // CẬP NHẬT: Thêm class highlight
+            if (liveStatus.isNotified) {
+                row.classList.add('status-notified');
+            }
         }
         
         if (playerState.isDisabled) row.classList.add('status-disabled');
@@ -696,6 +733,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isDisabled && !playerState.isDisabled) {
                 statusIconsHTML += '<i class="fas fa-user-slash icon-disabled-by-ability" title="Bị vô hiệu hóa"></i>';
             }
+            // CẬP NHẬT: Thêm icon
+            if (liveStatus.isNotified) {
+                statusIconsHTML += '<i class="fas fa-star icon-notified" title="Được đánh dấu"></i>';
+            }
         }
         statusIconsHTML += '</div>';
 
@@ -732,19 +773,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (factionSelect) {
                 const handleFactionChange = function() {
                     const newFaction = factionSelect.value;
-
-                    // Ghi đè phe của người chơi trực tiếp vào Firebase.
                     database.ref(`rooms/${roomId}/players/${player.id}/factionOverride`).set(newFaction);
-
-                    // Ghi nhận lại hành động thay đổi phe để hiển thị trong log tóm tắt
                     const nightState = nightStates[activeNightIndex];
                     if (!Array.isArray(nightState.factionChanges)) {
                         nightState.factionChanges = [];
                     }
                     nightState.factionChanges = nightState.factionChanges.filter(c => c.playerId !== player.id);
                     nightState.factionChanges.push({ playerId: player.id, oldFaction: player.faction, newFaction: newFaction });
-
-                    // Lưu lại ghi chú đêm (chứa log thay đổi phe)
                     saveNightNotes();
                 };
                 factionSelect.onchange = handleFactionChange;

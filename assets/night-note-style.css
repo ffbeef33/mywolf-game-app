@@ -335,12 +335,12 @@ option:disabled {
 #night-tabs {
     display: flex;
     gap: 10px;
-    flex-wrap: wrap; /* SỬA LỖI: Cho phép các tab xuống dòng */
+    flex-wrap: wrap;
 }
 .night-tab {
     background-color: var(--card-bg);
     border: 1px solid var(--border-color);
-    margin-bottom: 5px; /* SỬA LỖI: Thêm khoảng cách dọc khi tab xuống dòng */
+    margin-bottom: 5px;
 }
 .night-tab.active { background-color: var(--text-color); border-color: var(--text-color); color: #fff; }
 .btn-add-night { background-color: var(--safe-color); margin-left: auto; }
@@ -697,4 +697,21 @@ button:disabled {
 #event-log-list li strong {
     color: var(--text-color);
     font-weight: 700;
+}
+
+/* THÊM MỚI: Style cho Kind "noti" và "killif" */
+.player-row.status-notified {
+    border-left: 5px solid #9370DB; /* Màu tím đặc trưng */
+    box-shadow: 0 0 10px 2px #9370DB80;
+    background-color: rgba(147, 112, 219, 0.1) !important;
+}
+
+.status-icons .icon-notified {
+    color: #9370DB;
+    text-shadow: 0 0 8px #9370DB;
+}
+
+.action-item .action-type-conditional {
+    color: #9370DB; /* Màu tím */
+    font-weight: bold;
 }
