@@ -26,7 +26,8 @@ export default async function handler(request, response) {
 
       const res = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${sheetName}!A:Z`,
+        // ===== SỬA LỖI: Bỏ giới hạn cột A:Z để đọc toàn bộ sheet =====
+        range: sheetName,
       });
 
       const rows = res.data.values;
@@ -39,17 +40,15 @@ export default async function handler(request, response) {
       if (sheetName === 'Favor Deck') {
         const decks = [];
         const deckNames = rows[0] || [];
-        // ===== CẬP NHẬT: Đổi lại để đọc đúng hàng 3 (index 2) theo xác nhận của bạn =====
         const playerCounts = rows[2] || [];
         
         // Bắt đầu từ cột B (index = 1)
         for (let col = 1; col < deckNames.length; col++) {
           const deckName = deckNames[col];
-          if (!deckName) continue;
+          if (!deckName) continue; 
 
           const deck = {
             deckName: deckName.trim(),
-            // parseInt sẽ tự động lấy số từ chuỗi "14 Player"
             playerCount: parseInt(playerCounts[col]) || 0,
             roles: [],
           };
