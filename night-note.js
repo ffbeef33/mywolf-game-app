@@ -132,28 +132,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
-    // ===== HÀM ĐÃ CẬP NHẬT LOGIC SẮP XẾP =====
     function getSortPriority(player) {
         const isActive = player.activeRule !== '0';
         const isSaver = player.kind.includes('save');
         const isAuditor = player.kind.includes('audit');
 
-        // Ưu tiên 4: Các vai trò không hoạt động sẽ ở cuối cùng
         if (!isActive) {
             return 4;
         }
-        // Ưu tiên 3: Các vai trò Soi ('audit')
         if (isAuditor) {
             return 3;
         }
-        // Ưu tiên 2: Các vai trò Cứu ('save')
         if (isSaver) {
             return 2;
         }
-        // Ưu tiên 1: Tất cả các vai trò hoạt động khác sẽ ở trên cùng
         return 1;
     }
-
 
     // --- Logic ---
     const calculateNightStatus = (nightState) => {
@@ -309,8 +303,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(actionKind === 'killwolf' && !(finalTarget.faction === 'Bầy Sói' || finalTarget.faction === 'Phe Sói')){
                     shouldDamage = false;
                 }
+
+                // ===== THAY ĐỔI LOGIC `killvillager` TẠI ĐÂY =====
                 if(actionKind === 'killvillager'){
-                    if(finalTarget.faction === 'Phe Dân') {
+                    if(finalTarget.roleName === 'Dân') { // Kiểm tra vai trò thay vì phe
                         shouldDamage = true;
                     } else {
                         shouldDamage = false;
