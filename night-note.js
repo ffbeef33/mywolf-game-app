@@ -463,7 +463,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             if (finalDamage > 0 && !res.isSaved) {
-                // CẬP NHẬT: Thêm dòng này để cập nhật trạng thái "dự kiến chết" cho hàm render
                 if (liveStatuses[pId]) liveStatuses[pId].isDead = true;
 
                 if (player.kind === 'delaykill' && liveStatuses[pId].delayKillAvailable) {
@@ -695,7 +694,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
-        // --- TÍCH HỢP MODULE VOTE: Gọi hàm render module vote ---
         renderVotingModule();
     };
 
@@ -709,7 +707,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (liveStatus) {
             if (liveStatus.isProtected) row.classList.add('status-protected');
             if (liveStatus.isSaved && !liveStatus.isProtected) row.classList.add('status-saved'); 
-            if (liveStatus.isDead) row.classList.add('status-danger'); // Hiển thị dự kiến chết
+            if (liveStatus.isDead) row.classList.add('status-danger'); 
             if (liveStatus.isDisabled && !playerState.isDisabled) {
                 row.classList.add('status-disabled-by-ability');
             }
@@ -762,7 +760,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isSaved) {
                 statusIconsHTML += '<i class="fas fa-heart icon-saved" title="Được cứu"></i>';
             }
-            if (liveStatus.isDead) { // Hiển thị icon dự kiến chết
+            if (liveStatus.isDead) {
                 statusIconsHTML += '<i class="fas fa-skull-crossbones icon-danger" title="Dự kiến chết"></i>';
             }
             if (liveStatus.isDisabled && !playerState.isDisabled) {
@@ -889,6 +887,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- TÍCH HỢP MODULE VOTE: Các hàm cho module vote ---
 
+    // --- CẬP NHẬT 06/08/2025 (Lần 4): Thêm bộ đếm ngược cho GM ---
     function createVotingModuleStructure() {
         if (document.getElementById('voting-section')) return;
 
@@ -908,6 +907,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <input type="number" id="vote-timer-input" value="60" min="10" title="Thời gian vote (giây)">
                 <button id="start-vote-btn" class="btn-special">Bắt Đầu Vote</button>
                 <button id="end-vote-btn" class="btn-danger" style="display: none;">Kết Thúc Vote Ngay</button>
+                <span id="gm-vote-timer-display" class="gm-timer-display"></span>
             </div>
             <div id="vote-players-list"></div>
             <div id="vote-results-container" style="display: none;">
@@ -926,7 +926,6 @@ document.addEventListener('DOMContentLoaded', () => {
         votePlayersList = votingModuleEl.querySelector('#vote-players-list');
         voteResultsContainer = votingModuleEl.querySelector('#vote-results-container');
         
-        // --- CẬP NHẬT 06/08/2025: Thêm event listener cho các nút +/- ---
         votePlayersList.addEventListener('click', (e) => {
             if (e.target.classList.contains('weight-btn')) {
                 const playerId = e.target.dataset.playerId;
@@ -941,7 +940,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 display.textContent = currentValue;
                 
-                // Lưu lại giá trị đã thay đổi
                 rememberedVoteWeights[playerId] = currentValue;
             }
         });
@@ -963,7 +961,6 @@ document.addEventListener('DOMContentLoaded', () => {
             livingPlayers.sort((a,b) => a.name.localeCompare(b.name)).forEach(player => {
                 const playerRow = document.createElement('div');
                 playerRow.className = 'vote-player-row';
-                // --- CẬP NHẬT 06/08/2025: Lấy số phiếu đã ghi nhớ ---
                 const currentWeight = rememberedVoteWeights[player.id] ?? 1;
                 
                 playerRow.innerHTML = `
@@ -981,6 +978,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- CẬP NHẬT 06/08/2025 (Lần 4): Cập nhật hàm để khởi động timer cho GM ---
     function handleStartVote() {
         if (!roomId) return;
 
@@ -1009,11 +1007,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const title = document.getElementById('vote-title-input').value || 'Vote';
         const timerSeconds = parseInt(document.getElementById('vote-timer-input').value, 10) || 60;
+        const endTime = Date.now() + (timerSeconds * 1000);
 
         const votingState = {
             status: 'active',
             title: title,
-            endTime: Date.now() + (timerSeconds * 1000), 
+            endTime: endTime, 
             candidates: candidates,
             choices: null
         };
@@ -1026,6 +1025,19 @@ document.addEventListener('DOMContentLoaded', () => {
             voteResultsContainer.querySelector('#vote-results-summary').innerHTML = 'Đang chờ người chơi vote...';
             voteResultsContainer.querySelector('#vote-results-details').innerHTML = '';
 
+            const gmTimerDisplay = document.getElementById('gm-vote-timer-display');
+            gmTimerDisplay.style.display = 'inline';
+
+            if (voteTimerInterval) clearInterval(voteTimerInterval);
+            voteTimerInterval = setInterval(() => {
+                const remaining = Math.round((endTime - Date.now()) / 1000);
+                if (remaining > 0) {
+                    gmTimerDisplay.textContent = `Thời gian: ${remaining}s`;
+                } else {
+                    gmTimerDisplay.textContent = "Hết giờ!";
+                    handleEndVote(); 
+                }
+            }, 1000);
 
             const choicesRef = database.ref(`rooms/${roomId}/votingState/choices`);
             if(voteChoicesListener) choicesRef.off('value', voteChoicesListener);
@@ -1037,9 +1049,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- CẬP NHẬT 06/08/2025 (Lần 4): Cập nhật hàm để dọn dẹp timer ---
     function handleEndVote() {
         if (!roomId) return;
-        database.ref(`rooms/${roomId}/votingState/status`).set('finished');
+        
+        // Chỉ thực hiện nếu vote đang active để tránh gọi lại nhiều lần
+        database.ref(`rooms/${roomId}/votingState/status`).once('value', (snapshot) => {
+            if (snapshot.val() === 'active') {
+                database.ref(`rooms/${roomId}/votingState/status`).set('finished');
+                alert("Vote đã kết thúc!");
+            }
+        });
         
         const choicesRef = database.ref(`rooms/${roomId}/votingState/choices`);
         if (voteChoicesListener) {
@@ -1047,12 +1067,18 @@ document.addEventListener('DOMContentLoaded', () => {
             voteChoicesListener = null;
         }
 
+        if (voteTimerInterval) {
+            clearInterval(voteTimerInterval);
+            voteTimerInterval = null;
+        }
+
+        const gmTimerDisplay = document.getElementById('gm-vote-timer-display');
+        if (gmTimerDisplay) gmTimerDisplay.style.display = 'none';
+
         startVoteBtn.style.display = 'inline-block';
         endVoteBtn.style.display = 'none';
-        alert("Vote đã kết thúc!");
     }
 
-    // --- CẬP NHẬT 06/08/2025: Toàn bộ hàm này được viết lại để xử lý logic mới ---
     function renderVoteResults(choices, weights) {
         if (!voteResultsContainer) return;
         
@@ -1061,7 +1087,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const { finalStatus } = calculateNightStatus(lastNight);
         const livingPlayers = roomPlayers.filter(p => finalStatus[p.id]?.isAlive);
         
-        // ---- Logic cho phần "Chi tiết" ----
         let detailsHtml = '<h4>Chi tiết:</h4><ul>';
         livingPlayers.sort((a,b) => a.name.localeCompare(b.name)).forEach(voter => {
             const choice = choices[voter.name];
@@ -1081,7 +1106,6 @@ document.addEventListener('DOMContentLoaded', () => {
         detailsHtml += '</ul>';
         voteResultsContainer.querySelector('#vote-results-details').innerHTML = detailsHtml;
 
-        // ---- Logic cho phần "Thống kê phiếu" (Tally) ----
         const tally = {};
         livingPlayers.forEach(p => tally[p.id] = 0);
         tally['skip_vote'] = 0;
@@ -1102,7 +1126,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let maxVotes = -1;
         let mostVotedPlayers = [];
         
-        // Tìm người bị vote nhiều nhất (không tính skip_vote)
         for(const targetId in tally) {
             if (targetId !== 'skip_vote') {
                 if (tally[targetId] > maxVotes) {
@@ -1114,7 +1137,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Tạo danh sách hiển thị đã sắp xếp
         let summaryHtml = '<h4>Thống kê phiếu:</h4><ul>';
         const sortedTally = Object.entries(tally).sort(([,a],[,b]) => b-a);
 

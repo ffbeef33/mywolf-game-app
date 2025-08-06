@@ -852,3 +852,11 @@ button:disabled {
     color: var(--danger-color);
     border-color: var(--danger-color);
 }
+/* --- CẬP NHẬT 06/08/2025 (Lần 4): Style cho bộ đếm ngược của GM --- */
+.gm-timer-display {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-left: 15px;
+    display: none; /* Sẽ được hiển thị bởi JS khi vote bắt đầu */
+}

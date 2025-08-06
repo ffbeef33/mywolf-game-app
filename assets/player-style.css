@@ -260,3 +260,12 @@ button:disabled {
     margin-top: 15px;
     font-style: italic;
 }
+
+/* --- CẬP NHẬT 06/08/2025 (Lần 2): Style cho nút vote được chọn --- */
+.choices-grid .choice-btn.selected {
+    border-color: var(--text-color);
+    background-color: #1d3350; /* Một màu xanh dương đậm để làm nổi bật */
+    color: #fff;
+    box-shadow: 0 0 8px var(--text-color);
+    transform: translateY(-2px);
+}

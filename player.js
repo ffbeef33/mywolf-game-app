@@ -329,6 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- CẬP NHẬT 06/08/2025 (Lần 4): Cập nhật timer của người chơi ---
     function handleVotingState(username, roomId, state) {
         if (voteTimerInterval) clearInterval(voteTimerInterval);
 
@@ -339,7 +340,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const updateTimer = () => {
                 const remaining = Math.round((state.endTime - (Date.now() + offset)) / 1000);
                 voteTimerDisplay.textContent = remaining > 0 ? `${remaining}s` : "Hết giờ!";
-                if (remaining <= 0) clearInterval(voteTimerInterval);
+                if (remaining <= 0) {
+                    clearInterval(voteTimerInterval);
+                    // Tự động vô hiệu hóa các nút khi hết giờ ở phía client
+                    voteOptionsContainer.querySelectorAll('button').forEach(btn => btn.disabled = true);
+                    voteStatusMessage.textContent = "Đã hết thời gian vote.";
+                }
             };
             updateTimer();
             voteTimerInterval = setInterval(updateTimer, 1000);
@@ -383,18 +389,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // --- CẬP NHẬT 06/08/2025 (Lần 3): Hàm này được cập nhật để cho phép hủy vote ---
     function selectVote(username, roomId, targetId) {
         const choiceRef = database.ref(`rooms/${roomId}/votingState/choices/${username}`);
         
         choiceRef.once('value', (snapshot) => {
             const currentChoice = snapshot.val();
             
-            // Nếu người chơi bấm vào lựa chọn hiện tại của họ -> Hủy phiếu
             if (currentChoice === targetId) {
                 choiceRef.set(null);
             } 
-            // Nếu họ bấm vào lựa chọn mới -> Đổi phiếu
             else {
                 choiceRef.set(targetId);
             }
