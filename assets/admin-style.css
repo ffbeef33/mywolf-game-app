@@ -207,7 +207,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
   padding-top: 10px;
 }
 
-/* Scrollbar cho grid */
 #deck-modal-grid::-webkit-scrollbar { width: 8px; }
 #deck-modal-grid::-webkit-scrollbar-track { background: var(--secondary-bg); border-radius: 10px; }
 #deck-modal-grid::-webkit-scrollbar-thumb { background: var(--text-color); border-radius: 10px; }
@@ -258,18 +257,35 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
   font-size: 0.85rem;
 }
 
-/* Scrollbar cho danh sách vai trò trong card */
 .deck-card-roles::-webkit-scrollbar { width: 5px; }
 .deck-card-roles::-webkit-scrollbar-thumb { background: var(--secondary-button-hover-bg); border-radius: 10px; }
-
 
 .deck-card-roles li {
   padding: 3px 0;
 }
 
-/* Responsive cho màn hình nhỏ, chỉ dùng 1 cột */
+/* Style tô màu vai trò theo phe trong Deck Card */
+.deck-card-roles li.faction-villager {
+  color: var(--text-color); /* Màu xanh dương cho Phe Dân */
+}
+
+.deck-card-roles li.faction-wolf {
+  color: var(--danger-bg); /* Màu đỏ cho Phe Sói / Bầy Sói */
+  font-weight: 600;
+}
+
+.deck-card-roles li.faction-neutral {
+  color: #d29922; /* Màu vàng/cam cho Phe Trung Lập */
+}
+
+.deck-card-roles li.faction-other {
+  color: var(--light-text); /* Màu mặc định cho các phe khác */
+  opacity: 0.8;
+}
+
+
 @media (max-width: 500px) {
-  .deck-preview ul {
+  .deck-card-roles {
     column-count: 1;
   }
 }

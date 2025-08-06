@@ -1,5 +1,5 @@
 // =================================================================
-// === admin.js - KHÔI PHỤC LOGIC XÓA & CẬP NHẬT GIAO DIỆN POPUP ===
+// === admin.js - CẬP NHẬT TÔ MÀU VAI TRÒ TRONG DECK POPUP ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -98,9 +98,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // CẬP NHẬT: Thêm hàm trợ giúp và logic tô màu trong openDeckModal
     const openDeckModal = (context) => {
         deckModalContext = context;
         deckModalGrid.innerHTML = ''; 
+
+        // Hàm trợ giúp để lấy lớp CSS theo phe
+        const factionToClassMap = {
+          'Phe Dân': 'faction-villager',
+          'Phe Sói': 'faction-wolf',
+          'Bầy Sói': 'faction-wolf',
+          'Phe trung lập': 'faction-neutral'
+        };
+        const getFactionClass = (roleName) => {
+            const roleData = allRolesData.find(r => r.name === roleName);
+            return (roleData && factionToClassMap[roleData.faction]) ? factionToClassMap[roleData.faction] : 'faction-other';
+        };
 
         if (favoriteDecksData.length === 0) {
             deckModalGrid.innerHTML = '<p>Không tìm thấy deck nào. Vui lòng kiểm tra lại Google Sheet.</p>';
@@ -110,11 +123,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     acc[role] = (acc[role] || 0) + 1;
                     return acc;
                 }, {});
+                
                 let rolesHtml = '';
                 Object.keys(roleCounts).sort().forEach(roleName => {
                     const count = roleCounts[roleName];
-                    rolesHtml += `<li>${roleName}${count > 1 ? ` (x${count})` : ''}</li>`;
+                    const factionClass = getFactionClass(roleName); // Lấy lớp CSS
+                    rolesHtml += `<li class="${factionClass}">${roleName}${count > 1 ? ` (x${count})` : ''}</li>`;
                 });
+
                 const cardHtml = `
                     <div class="deck-card" data-index="${index}">
                         <div class="deck-card-header">
@@ -189,7 +205,9 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Lỗi tải Favorite Decks:", error);
         }
     };
-
+    
+    // ... (Toàn bộ các hàm logic khác không thay đổi) ...
+    
     const processPlayerPick = async () => {
         if (!currentRoomId) return;
         if (!confirm('Bạn có chắc muốn xử lý và phân phối vai trò? Hành động này không thể hoàn tác.')) return;
@@ -666,7 +684,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
     
-    // KHÔI PHỤC: Hàm updateActiveRoomUIForEditing đầy đủ
     const updateActiveRoomUIForEditing = (roomData) => {
         const playersInGame = roomData.players || {};
         const rolesInGame = roomData.rolesToAssign || [];
