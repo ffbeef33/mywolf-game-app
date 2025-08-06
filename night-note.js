@@ -886,51 +886,61 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- TÍCH HỢP MODULE VOTE: Các hàm cho module vote ---
 
+    // SỬA LỖI: Hàm này đã được sửa lại để đảm bảo hoạt động ổn định
     function createVotingModuleStructure() {
         if (document.getElementById('voting-section')) return;
 
-        const container = document.createElement('div');
-        container.innerHTML = `
-            <div id="voting-section" class="card">
-                <h2><i class="fas fa-gavel"></i> Dàn Xử Án</h2>
-                <div class="voting-controls">
-                    <input type="text" id="vote-title-input" placeholder="Tiêu đề (ví dụ: Vote treo cổ ngày 1)" value="Vote treo cổ">
-                    <input type="number" id="vote-timer-input" value="60" min="10" title="Thời gian vote (giây)">
-                    <button id="start-vote-btn" class="btn-special">Bắt Đầu Vote</button>
-                    <button id="end-vote-btn" class="btn-danger" style="display: none;">Kết Thúc Vote Ngay</button>
-                </div>
-                <div id="vote-players-list"></div>
-                <div id="vote-results-container" style="display: none;">
-                    <h3>Kết Quả Vote</h3>
-                    <div id="vote-results-summary"></div>
-                    <div id="vote-results-details"></div>
-                </div>
+        const mainContainer = document.querySelector('.container');
+        if (!mainContainer) {
+            console.error("Lỗi nghiêm trọng: Không tìm thấy '.container' để chèn module vote.");
+            return;
+        }
+
+        const votingModuleEl = document.createElement('div');
+        votingModuleEl.id = 'voting-section';
+        votingModuleEl.className = 'card';
+        votingModuleEl.innerHTML = `
+            <h2><i class="fas fa-gavel"></i> Dàn Xử Án</h2>
+            <div class="voting-controls">
+                <input type="text" id="vote-title-input" placeholder="Tiêu đề (ví dụ: Vote treo cổ ngày 1)" value="Vote treo cổ">
+                <input type="number" id="vote-timer-input" value="60" min="10" title="Thời gian vote (giây)">
+                <button id="start-vote-btn" class="btn-special">Bắt Đầu Vote</button>
+                <button id="end-vote-btn" class="btn-danger" style="display: none;">Kết Thúc Vote Ngay</button>
+            </div>
+            <div id="vote-players-list"></div>
+            <div id="vote-results-container" style="display: none;">
+                <h3>Kết Quả Vote</h3>
+                <div id="vote-results-summary"></div>
+                <div id="vote-results-details"></div>
             </div>
         `;
-        document.querySelector('.container').appendChild(container.firstChild);
 
-        votingSection = document.getElementById('voting-section');
-        votePlayersList = document.getElementById('vote-players-list');
-        startVoteBtn = document.getElementById('start-vote-btn');
-        endVoteBtn = document.getElementById('end-vote-btn');
-        voteResultsContainer = document.getElementById('vote-results-container');
-
+        // Gán sự kiện cho các nút TRƯỚC KHI thêm vào trang
+        startVoteBtn = votingModuleEl.querySelector('#start-vote-btn');
+        endVoteBtn = votingModuleEl.querySelector('#end-vote-btn');
         startVoteBtn.addEventListener('click', handleStartVote);
         endVoteBtn.addEventListener('click', handleEndVote);
+        
+        // Gán các biến global khác
+        votingSection = votingModuleEl;
+        votePlayersList = votingModuleEl.querySelector('#vote-players-list');
+        voteResultsContainer = votingModuleEl.querySelector('#vote-results-container');
+        
+        mainContainer.appendChild(votingModuleEl);
     }
 
     function renderVotingModule() {
         createVotingModuleStructure();
 
         const lastNight = nightStates[nightStates.length - 1];
-        if (!lastNight) return;
+        if (!lastNight || !votePlayersList) return;
 
         const { finalStatus } = calculateNightStatus(lastNight);
         const livingPlayers = roomPlayers.filter(p => finalStatus[p.id]?.isAlive);
 
         votePlayersList.innerHTML = '<h4>Thiết lập phiếu vote:</h4>';
         if (livingPlayers.length > 0) {
-            livingPlayers.forEach(player => {
+            livingPlayers.sort((a,b) => a.name.localeCompare(b.name)).forEach(player => {
                 const playerRow = document.createElement('div');
                 playerRow.className = 'vote-player-row';
                 playerRow.innerHTML = `
@@ -979,7 +989,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const votingState = {
             status: 'active',
             title: title,
-            endTime: firebase.database.ServerValue.TIMESTAMP + (timerSeconds * 1000),
+            endTime: Date.now() + (timerSeconds * 1000), // Sử dụng thời gian client, sẽ được đồng bộ trên player.js
             candidates: candidates,
             choices: null
         };
@@ -988,7 +998,7 @@ document.addEventListener('DOMContentLoaded', () => {
         voteRef.set(votingState).then(() => {
             startVoteBtn.style.display = 'none';
             endVoteBtn.style.display = 'inline-block';
-            voteResultsContainer.style.display = 'block';
+            voteResultsContainer.style.display = 'grid';
             voteResultsContainer.querySelector('#vote-results-summary').innerHTML = 'Đang chờ người chơi vote...';
             voteResultsContainer.querySelector('#vote-results-details').innerHTML = '';
 
@@ -1022,8 +1032,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!voteResultsContainer) return;
         
         const tally = {};
-        const livingPlayerIds = roomPlayers.filter(p => p.isAlive).map(p => p.id);
-        livingPlayerIds.forEach(id => tally[id] = 0);
+        const lastNight = nightStates[nightStates.length - 1];
+        if (!lastNight) return;
+        const { finalStatus } = calculateNightStatus(lastNight);
+        const livingPlayers = roomPlayers.filter(p => finalStatus[p.id]?.isAlive);
+        
+        livingPlayers.forEach(p => tally[p.id] = 0);
         tally['skip_vote'] = 0;
 
         for (const voterName in choices) {
@@ -1054,7 +1068,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sortedTally = Object.entries(tally).sort(([,a],[,b]) => b-a);
 
         sortedTally.forEach(([targetId, count]) => {
-            const isMostVoted = mostVotedPlayers.includes(targetId);
+            const isMostVoted = mostVotedPlayers.includes(targetId) && count > 0;
             const targetName = targetId === 'skip_vote' ? 'Bỏ qua' : (roomPlayers.find(p => p.id === targetId)?.name || 'Không rõ');
             summaryHtml += `<li ${isMostVoted ? 'class="most-voted"' : ''}>${targetName}: <strong>${count}</strong> phiếu</li>`;
         });
