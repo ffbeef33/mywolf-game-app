@@ -31,7 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
     const SELECTABLE_FACTIONS = [ "Bầy Sói", "Phe Sói", "Phe Dân", "Phe trung lập" ];
     
-    // CẬP NHẬT: Thêm kind mới
     const KIND_TO_ACTION_MAP = {
         'shield': { key: 'protect', label: 'Bảo vệ', type: 'defense' },
         'save': { key: 'save', label: 'Cứu', type: 'defense' },
@@ -132,16 +131,19 @@ document.addEventListener('DOMContentLoaded', () => {
         
         return true;
     }
-
+    
+    // ===== HÀM ĐÃ CẬP NHẬT =====
     function getSortPriority(player) {
         const isActive = player.activeRule !== '0';
-        const isSaver = player.kind.includes('save');
         const isWitch = player.roleName === 'Phù thuỷ';
+        const isSaver = player.kind.includes('save');
+        const isAuditor = player.kind.includes('audit'); // Thêm điều kiện kiểm tra audit
 
-        if (!isActive) return 4;
-        if (isWitch) return 3;
-        if (isSaver) return 2;
-        return 1;
+        if (!isActive) return 5;      // Ưu tiên thấp nhất: vai trò không hoạt động
+        if (isWitch) return 1;          // Ưu tiên cao nhất
+        if (isSaver) return 2;          // Ưu tiên thứ 2: Các vai trò Cứu
+        if (isAuditor) return 3;        // Ưu tiên thứ 3: Các vai trò Soi (sau Cứu)
+        return 4;                       // Ưu tiên mặc định cho các vai trò khác
     }
 
     // --- Logic ---
@@ -169,7 +171,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     tempStatus: {
                         hasKillAbility: false,
                     },
-                    // CẬP NHẬT: Thêm thuộc tính mới
                     isSavedByKillif: false,
                     isNotified: false
                 };
@@ -262,7 +263,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     targetStatus.gatheredBy = actorId;
                 }
             }
-            // CẬP NHẬT: Thêm logic cho 'noti'
             else if (actionKind === 'noti') {
                 if (targetStatus) {
                     targetStatus.isNotified = true;
@@ -271,7 +271,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         // --- Giai đoạn 2: Tấn công, Phản đòn & Kiểm tra ---
-        // CẬP NHẬT: Tách killif ra xử lý riêng
         const killifActions = actions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
         const otherActions = actions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) !== 'killif');
 
@@ -394,7 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (actor.kind === 'save_gather' && targetStatus.gatheredBy) {
                         const groupToSave = gatherGroups[targetStatus.gatheredBy];
                         if (groupToSave) {
-                            groupToSave.forEach(pId => {
+                            toSave.forEach(pId => {
                                 liveStatuses[pId].isSaved = true;
                             });
                         }
@@ -425,7 +424,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 effectiveDamage -= damageAbsorbed;
             }
             
-            // CẬP NHẬT: Thêm điều kiện isSavedByKillif
             if (effectiveDamage > 0 && !status.isSaved && !status.isSavedByKillif) {
                 status.isDead = true;
             } else {
@@ -677,7 +675,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isDisabled && !playerState.isDisabled) {
                 row.classList.add('status-disabled-by-ability');
             }
-            // CẬP NHẬT: Thêm class highlight
             if (liveStatus.isNotified) {
                 row.classList.add('status-notified');
             }
@@ -733,7 +730,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isDisabled && !playerState.isDisabled) {
                 statusIconsHTML += '<i class="fas fa-user-slash icon-disabled-by-ability" title="Bị vô hiệu hóa"></i>';
             }
-            // CẬP NHẬT: Thêm icon
             if (liveStatus.isNotified) {
                 statusIconsHTML += '<i class="fas fa-star icon-notified" title="Được đánh dấu"></i>';
             }
