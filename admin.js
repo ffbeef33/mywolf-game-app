@@ -1,5 +1,5 @@
 // =================================================================
-// === admin.js - CẬP NHẬT TÔ MÀU VAI TRÒ TRONG DECK POPUP ===
+// === admin.js - SỬA LỖI BỘ ĐẾM VAI TRÒ CHO PHE SÓI & BẦY SÓI ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -98,12 +98,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // CẬP NHẬT: Thêm hàm trợ giúp và logic tô màu trong openDeckModal
     const openDeckModal = (context) => {
         deckModalContext = context;
         deckModalGrid.innerHTML = ''; 
 
-        // Hàm trợ giúp để lấy lớp CSS theo phe
         const factionToClassMap = {
           'Phe Dân': 'faction-villager',
           'Phe Sói': 'faction-wolf',
@@ -127,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let rolesHtml = '';
                 Object.keys(roleCounts).sort().forEach(roleName => {
                     const count = roleCounts[roleName];
-                    const factionClass = getFactionClass(roleName); // Lấy lớp CSS
+                    const factionClass = getFactionClass(roleName);
                     rolesHtml += `<li class="${factionClass}">${roleName}${count > 1 ? ` (x${count})` : ''}</li>`;
                 });
 
@@ -205,8 +203,6 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Lỗi tải Favorite Decks:", error);
         }
     };
-    
-    // ... (Toàn bộ các hàm logic khác không thay đổi) ...
     
     const processPlayerPick = async () => {
         if (!currentRoomId) return;
@@ -452,6 +448,8 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .catch((error) => alert("Lỗi khi xóa phòng: " + error.message));
     };
+
+    // ===== HÀM ĐÃ CẬP NHẬT =====
     const updateCounters = () => {
         const totalPlayers = document.querySelectorAll('input[name="selected-player"]:checked').length;
         let selectedRoleNames = [];
@@ -462,25 +460,44 @@ document.addEventListener('DOMContentLoaded', () => {
             for (let i = 0; i < count; i++) { selectedRoleNames.push(roleName); }
         });
         const totalRoles = selectedRoleNames.length;
-        let counts = { wolfPack: 0, villagerFaction: 0, wolfFaction: 0, neutralFaction: 0 };
+        
+        // Cập nhật lại đối tượng đếm
+        let counts = {
+            baySoi: 0,
+            pheDan: 0,
+            pheSoi: 0,
+            pheTrungLap: 0
+        };
+
         selectedRoleNames.forEach(roleName => {
             const roleData = allRolesData.find(r => r.name === roleName);
             if (roleData) {
-                if (roleName.toLowerCase().includes('sói')) counts.wolfPack++;
+                // Logic đếm mới, chính xác theo phe
                 switch (roleData.faction.trim()) {
-                    case 'Phe Dân': counts.villagerFaction++; break;
-                    case 'Phe Sói': counts.wolfFaction++; break;
-                    case 'Bầy Sói': counts.wolfFaction++; break;
-                    case 'Phe trung lập': counts.neutralFaction++; break;
+                    case 'Phe Dân':
+                        counts.pheDan++;
+                        break;
+                    case 'Phe Sói':
+                        counts.pheSoi++;
+                        break;
+                    case 'Bầy Sói':
+                        counts.baySoi++;
+                        break;
+                    case 'Phe trung lập':
+                        counts.pheTrungLap++;
+                        break;
                 }
             }
         });
+
+        // Gán lại giá trị cho các phần tử hiển thị
         playerCountEl.textContent = totalPlayers;
-        wolfPackCountEl.textContent = counts.wolfPack;
-        villagerFactionCountEl.textContent = counts.villagerFaction;
-        wolfFactionCountEl.textContent = counts.wolfFaction;
-        neutralFactionCountEl.textContent = counts.neutralFaction;
+        wolfPackCountEl.textContent = counts.baySoi; // Bầy Sói
+        villagerFactionCountEl.textContent = counts.pheDan; // Phe Dân
+        wolfFactionCountEl.textContent = counts.pheSoi; // Phe Sói
+        neutralFactionCountEl.textContent = counts.pheTrungLap; // Phe Trung Lập
         roleCountEl.textContent = totalRoles;
+
         if (totalPlayers === totalRoles && totalPlayers > 0) {
             roleCounterContainer.classList.add('valid');
             roleCounterContainer.classList.remove('invalid');
@@ -491,6 +508,7 @@ document.addEventListener('DOMContentLoaded', () => {
             createRoomBtn.disabled = true;
         }
     };
+
     const loadPlayersFromSheet = async () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Players`);
