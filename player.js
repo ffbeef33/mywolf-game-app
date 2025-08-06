@@ -169,18 +169,35 @@ document.addEventListener('DOMContentLoaded', () => {
         roomIdDisplay.textContent = roomId;
         displayRolesInGame(roomData.rolesToAssign || []);
         
-        const myPlayer = Object.values(roomData.players).find(p => p.name === username);
-        if (!myPlayer) {
+        // --- CẬP NHẬT THEO YÊU CẦU MỚI: Lấy thông tin playerId sớm hơn ---
+        const myPlayerEntry = Object.entries(roomData.players).find(([id, p]) => p.name === username);
+
+        if (!myPlayerEntry) {
             showSection(waitingSection);
             waitingSection.querySelector('.waiting-message').textContent = "Bạn đã bị loại khỏi phòng hoặc chưa được thêm vào phòng!";
             return;
         }
 
-        // --- TÍCH HỢP MODULE VOTE: Kiểm tra trạng thái vote ---
+        const myPlayerId = myPlayerEntry[0];
+        const myPlayer = myPlayerEntry[1];
+
+        const lastNightIndex = (roomData.nightNotes?.length || 0) - 1;
+        const isAlive = lastNightIndex >= 0 
+            ? roomData.nightNotes[lastNightIndex].playersStatus[myPlayerId]?.isAlive ?? myPlayer.isAlive
+            : myPlayer.isAlive;
+        
+
+        // --- CẬP NHẬT THEO YÊU CẦU MỚI: Cải tiến logic xử lý vote cho người chết ---
         const votingState = roomData.votingState;
-        if (votingState && votingState.status === 'active' && myPlayer.isAlive) {
-            showSection(votingUiSection);
-            handleVotingState(username, roomId, votingState);
+        if (votingState && votingState.status === 'active') {
+            if (isAlive) {
+                showSection(votingUiSection);
+                handleVotingState(username, roomId, votingState);
+            } else {
+                showSection(waitingSection);
+                waitingSection.querySelector('h2').textContent = "Đang diễn ra vote...";
+                waitingSection.querySelector('.waiting-message').textContent = "Bạn đã chết và không thể tham gia bỏ phiếu.";
+            }
             return;
         }
 
@@ -194,6 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
             handlePlayerPickState(username, roomId, roomData.playerPickState);
         } else {
             showSection(waitingSection);
+            waitingSection.querySelector('h2').textContent = "Đang chờ Quản Trò...";
             waitingSection.querySelector('.waiting-message').textContent = "Chờ quản trò bắt đầu...";
         }
     }
@@ -357,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
             voteStatusMessage.textContent = 'Hãy bỏ phiếu...';
 
         } else {
-            const votedFor = state.candidates[myChoice] || 'Bỏ qua';
+            const votedFor = myChoice === 'skip_vote' ? 'Bỏ qua' : (state.candidates[myChoice] || 'Không rõ');
             voteOptionsContainer.innerHTML = `<p>Bạn đã bỏ phiếu cho:</p><h3>${votedFor}</h3>`;
             voteStatusMessage.textContent = 'Đang chờ những người khác...';
         }

@@ -886,7 +886,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- TÍCH HỢP MODULE VOTE: Các hàm cho module vote ---
 
-    // SỬA LỖI: Hàm này đã được sửa lại để đảm bảo hoạt động ổn định
     function createVotingModuleStructure() {
         if (document.getElementById('voting-section')) return;
 
@@ -915,17 +914,30 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
-        // Gán sự kiện cho các nút TRƯỚC KHI thêm vào trang
         startVoteBtn = votingModuleEl.querySelector('#start-vote-btn');
         endVoteBtn = votingModuleEl.querySelector('#end-vote-btn');
         startVoteBtn.addEventListener('click', handleStartVote);
         endVoteBtn.addEventListener('click', handleEndVote);
         
-        // Gán các biến global khác
         votingSection = votingModuleEl;
         votePlayersList = votingModuleEl.querySelector('#vote-players-list');
         voteResultsContainer = votingModuleEl.querySelector('#vote-results-container');
         
+        // --- CẬP NHẬT THEO YÊU CẦU MỚI: Thêm event listener cho các nút +/- ---
+        votePlayersList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('weight-btn')) {
+                const playerId = e.target.dataset.playerId;
+                const display = document.getElementById(`weight-display-${playerId}`);
+                let currentValue = parseInt(display.textContent, 10);
+                if (e.target.classList.contains('plus')) {
+                    currentValue++;
+                } else if (e.target.classList.contains('minus')) {
+                    currentValue = Math.max(0, currentValue - 1);
+                }
+                display.textContent = currentValue;
+            }
+        });
+
         mainContainer.appendChild(votingModuleEl);
     }
 
@@ -943,11 +955,13 @@ document.addEventListener('DOMContentLoaded', () => {
             livingPlayers.sort((a,b) => a.name.localeCompare(b.name)).forEach(player => {
                 const playerRow = document.createElement('div');
                 playerRow.className = 'vote-player-row';
+                // --- CẬP NHẬT THEO YÊU CẦU MỚI: Thay input bằng nút +/- ---
                 playerRow.innerHTML = `
                     <span class="vote-player-name">${player.name} (${player.roleName || 'Chưa rõ'})</span>
-                    <div class="vote-weight-wrapper">
-                        <label for="weight-${player.id}">Số phiếu:</label>
-                        <input type="number" class="vote-weight-input" id="weight-${player.id}" data-player-id="${player.id}" value="1" min="0">
+                    <div class="vote-weight-controls">
+                        <button class="weight-btn minus" data-player-id="${player.id}" title="Giảm phiếu">-</button>
+                        <span class="vote-weight-display" id="weight-display-${player.id}">1</span>
+                        <button class="weight-btn plus" data-player-id="${player.id}" title="Tăng phiếu">+</button>
                     </div>
                 `;
                 votePlayersList.appendChild(playerRow);
@@ -961,10 +975,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!roomId) return;
 
         secretVoteWeights = {};
-        const voteWeightInputs = document.querySelectorAll('.vote-weight-input');
-        voteWeightInputs.forEach(input => {
-            const playerId = input.dataset.playerId;
-            const weight = parseInt(input.value, 10);
+        // --- CẬP NHẬT THEO YÊU CẦU MỚI: Đọc số phiếu từ span thay vì input ---
+        const voteWeightDisplays = document.querySelectorAll('.vote-weight-display');
+        voteWeightDisplays.forEach(display => {
+            const playerId = display.id.replace('weight-display-', '');
+            const weight = parseInt(display.textContent, 10);
             if (playerId && !isNaN(weight)) {
                 secretVoteWeights[playerId] = weight;
             }
@@ -989,7 +1004,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const votingState = {
             status: 'active',
             title: title,
-            endTime: Date.now() + (timerSeconds * 1000), // Sử dụng thời gian client, sẽ được đồng bộ trên player.js
+            endTime: Date.now() + (timerSeconds * 1000), 
             candidates: candidates,
             choices: null
         };
@@ -1004,7 +1019,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
             const choicesRef = database.ref(`rooms/${roomId}/votingState/choices`);
-            if(voteChoicesListener) choicesRef.off('value', voteChoicesListener); // Hủy listener cũ
+            if(voteChoicesListener) choicesRef.off('value', voteChoicesListener);
             
             voteChoicesListener = choicesRef.on('value', (snapshot) => {
                 const choices = snapshot.val() || {};
@@ -1031,17 +1046,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderVoteResults(choices, weights) {
         if (!voteResultsContainer) return;
         
-        const tally = {};
         const lastNight = nightStates[nightStates.length - 1];
         if (!lastNight) return;
         const { finalStatus } = calculateNightStatus(lastNight);
         const livingPlayers = roomPlayers.filter(p => finalStatus[p.id]?.isAlive);
         
+        // --- CẬP NHẬT THEO YÊU CẦU MỚI: Xử lý người không vote ---
+        const finalChoices = { ...choices };
+        livingPlayers.forEach(player => {
+            if (!finalChoices.hasOwnProperty(player.name)) {
+                finalChoices[player.name] = 'skip_vote';
+            }
+        });
+
+        const tally = {};
         livingPlayers.forEach(p => tally[p.id] = 0);
         tally['skip_vote'] = 0;
 
-        for (const voterName in choices) {
-            const targetId = choices[voterName];
+        for (const voterName in finalChoices) {
+            const targetId = finalChoices[voterName];
             const voter = roomPlayers.find(p => p.name === voterName);
             if (voter) {
                 const weight = weights[voter.id] || 0;
@@ -1063,7 +1086,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Render Summary
+        // --- CẬP NHẬT THEO YÊU CẦU MỚI: Sắp xếp kết quả ---
         let summaryHtml = '<h4>Thống kê phiếu:</h4><ul>';
         const sortedTally = Object.entries(tally).sort(([,a],[,b]) => b-a);
 
@@ -1075,10 +1098,9 @@ document.addEventListener('DOMContentLoaded', () => {
         summaryHtml += '</ul>';
         voteResultsContainer.querySelector('#vote-results-summary').innerHTML = summaryHtml;
 
-        // Render Details
         let detailsHtml = '<h4>Chi tiết:</h4><ul>';
-         for (const voterName in choices) {
-            const targetId = choices[voterName];
+        for (const voterName in finalChoices) {
+            const targetId = finalChoices[voterName];
             const targetName = targetId === 'skip_vote' ? 'Bỏ qua' : (roomPlayers.find(p => p.id === targetId)?.name || 'Không rõ');
             const voter = roomPlayers.find(p => p.name === voterName);
             const weight = voter ? (weights[voter.id] || 0) : 0;
