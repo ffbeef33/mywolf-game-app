@@ -329,13 +329,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- CẬP NHẬT 06/08/2025 (Lần 2): Hàm này được viết lại để cho phép thay đổi vote ---
     function handleVotingState(username, roomId, state) {
         if (voteTimerInterval) clearInterval(voteTimerInterval);
 
         voteTitleDisplay.textContent = state.title;
 
-        // Cập nhật timer
         database.ref('/.info/serverTimeOffset').once('value', (snap) => {
             const offset = snap.val();
             const updateTimer = () => {
@@ -347,13 +345,10 @@ document.addEventListener('DOMContentLoaded', () => {
             voteTimerInterval = setInterval(updateTimer, 1000);
         });
 
-        // Lấy lựa chọn hiện tại của người chơi
         const myChoice = state.choices ? state.choices[username] : null;
         
         voteOptionsContainer.innerHTML = '';
 
-        // Luôn hiển thị các nút để người chơi có thể thay đổi
-        // Hiển thị các ứng viên
         for (const playerId in state.candidates) {
             const playerName = state.candidates[playerId];
             const btn = document.createElement('button');
@@ -361,7 +356,6 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.textContent = playerName;
             btn.dataset.targetId = playerId;
             
-            // Nếu đây là lựa chọn hiện tại, làm nổi bật nó
             if (playerId === myChoice) {
                 btn.classList.add('selected');
             }
@@ -370,13 +364,11 @@ document.addEventListener('DOMContentLoaded', () => {
             voteOptionsContainer.appendChild(btn);
         }
 
-        // Nút bỏ qua
         const skipBtn = document.createElement('button');
         skipBtn.className = 'choice-btn btn-secondary';
         skipBtn.textContent = 'Bỏ qua';
         skipBtn.dataset.targetId = 'skip_vote';
         
-        // Làm nổi bật nếu đã chọn bỏ qua
         if (myChoice === 'skip_vote') {
             skipBtn.classList.add('selected');
         }
@@ -384,7 +376,6 @@ document.addEventListener('DOMContentLoaded', () => {
         skipBtn.addEventListener('click', () => selectVote(username, roomId, 'skip_vote'));
         voteOptionsContainer.appendChild(skipBtn);
         
-        // Cập nhật thông báo trạng thái
         if (myChoice) {
             voteStatusMessage.textContent = 'Bạn có thể thay đổi lựa chọn của mình.';
         } else {
@@ -392,9 +383,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    // --- CẬP NHẬT 06/08/2025 (Lần 3): Hàm này được cập nhật để cho phép hủy vote ---
     function selectVote(username, roomId, targetId) {
-        database.ref(`rooms/${roomId}/votingState/choices/${username}`).set(targetId)
-            .catch(err => console.error("Lỗi khi gửi phiếu vote:", err));
+        const choiceRef = database.ref(`rooms/${roomId}/votingState/choices/${username}`);
+        
+        choiceRef.once('value', (snapshot) => {
+            const currentChoice = snapshot.val();
+            
+            // Nếu người chơi bấm vào lựa chọn hiện tại của họ -> Hủy phiếu
+            if (currentChoice === targetId) {
+                choiceRef.set(null);
+            } 
+            // Nếu họ bấm vào lựa chọn mới -> Đổi phiếu
+            else {
+                choiceRef.set(targetId);
+            }
+        }).catch(err => console.error("Lỗi khi đọc phiếu vote:", err));
     }
 
 
