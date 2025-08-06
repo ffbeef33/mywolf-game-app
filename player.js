@@ -38,8 +38,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalRoleFaction = document.getElementById('modal-role-faction');
     const modalRoleDescription = document.getElementById('modal-role-description');
 
+    // --- TÍCH HỢP MODULE VOTE: Thêm selectors cho module vote ---
+    const votingUiSection = document.getElementById('voting-ui-section');
+    const voteTitleDisplay = document.getElementById('vote-title-display');
+    const voteTimerDisplay = document.getElementById('vote-timer-display');
+    const voteOptionsContainer = document.getElementById('vote-options-container');
+    const voteStatusMessage = document.getElementById('vote-status-message');
+
+
     let roomListener = null;
     let pickTimerInterval = null;
+    let voteTimerInterval = null; // --- TÍCH HỢP MODULE VOTE: Thêm interval cho vote timer ---
     let currentRoomId = null;
     let allRolesData = [];
 
@@ -112,7 +121,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const cleanup = () => {
         if (roomListener && currentRoomId) database.ref(`rooms/${currentRoomId}`).off('value', roomListener);
         if (pickTimerInterval) clearInterval(pickTimerInterval);
-        roomListener = pickTimerInterval = currentRoomId = null;
+        if (voteTimerInterval) clearInterval(voteTimerInterval); // --- TÍCH HỢP MODULE VOTE
+        roomListener = pickTimerInterval = voteTimerInterval = currentRoomId = null;
     };
 
     function listenForRoomCreated(username) {
@@ -166,6 +176,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // --- TÍCH HỢP MODULE VOTE: Kiểm tra trạng thái vote ---
+        const votingState = roomData.votingState;
+        if (votingState && votingState.status === 'active' && myPlayer.isAlive) {
+            showSection(votingUiSection);
+            handleVotingState(username, roomId, votingState);
+            return;
+        }
+
+
         if (myPlayer.roleName) {
             showSection(roleRevealSection);
             const fullRoleData = allRolesData.find(role => role.name === myPlayer.roleName);
@@ -175,12 +194,12 @@ document.addEventListener('DOMContentLoaded', () => {
             handlePlayerPickState(username, roomId, roomData.playerPickState);
         } else {
             showSection(waitingSection);
-            waitingSection.querySelector('.waiting-message').textContent = "Chờ quản trò bắt đầu chia vai...";
+            waitingSection.querySelector('.waiting-message').textContent = "Chờ quản trò bắt đầu...";
         }
     }
     
     function showSection(sectionToShow) {
-        [waitingSection, playerPickSection, roleRevealSection].forEach(section => {
+        [waitingSection, playerPickSection, roleRevealSection, votingUiSection].forEach(section => {
             section.classList.toggle('hidden', section !== sectionToShow);
         });
     }
@@ -294,6 +313,61 @@ document.addEventListener('DOMContentLoaded', () => {
             choiceStatus.textContent = 'Đang chờ những người chơi khác...';
         }
     }
+
+    // --- TÍCH HỢP MODULE VOTE: Các hàm xử lý vote phía player ---
+    function handleVotingState(username, roomId, state) {
+        if (voteTimerInterval) clearInterval(voteTimerInterval);
+
+        voteTitleDisplay.textContent = state.title;
+
+        // Lấy thời gian server để đồng bộ
+        database.ref('/.info/serverTimeOffset').once('value', (snap) => {
+            const offset = snap.val();
+            const updateTimer = () => {
+                const remaining = Math.round((state.endTime - (Date.now() + offset)) / 1000);
+                voteTimerDisplay.textContent = remaining > 0 ? `${remaining}s` : "Hết giờ!";
+                if (remaining <= 0) clearInterval(voteTimerInterval);
+            };
+            updateTimer();
+            voteTimerInterval = setInterval(updateTimer, 1000);
+        });
+
+        const myChoice = state.choices ? state.choices[username] : null;
+        
+        voteOptionsContainer.innerHTML = '';
+        if (!myChoice) {
+             // Hiển thị các ứng viên
+            for(const playerId in state.candidates) {
+                const playerName = state.candidates[playerId];
+                const btn = document.createElement('button');
+                btn.className = 'choice-btn';
+                btn.textContent = playerName;
+                btn.dataset.targetId = playerId;
+                btn.addEventListener('click', () => selectVote(username, roomId, playerId));
+                voteOptionsContainer.appendChild(btn);
+            }
+             // Nút bỏ qua
+            const skipBtn = document.createElement('button');
+            skipBtn.className = 'choice-btn btn-secondary';
+            skipBtn.textContent = 'Bỏ qua';
+            skipBtn.dataset.targetId = 'skip_vote';
+            skipBtn.addEventListener('click', () => selectVote(username, roomId, 'skip_vote'));
+            voteOptionsContainer.appendChild(skipBtn);
+            
+            voteStatusMessage.textContent = 'Hãy bỏ phiếu...';
+
+        } else {
+            const votedFor = state.candidates[myChoice] || 'Bỏ qua';
+            voteOptionsContainer.innerHTML = `<p>Bạn đã bỏ phiếu cho:</p><h3>${votedFor}</h3>`;
+            voteStatusMessage.textContent = 'Đang chờ những người khác...';
+        }
+    }
+    
+    function selectVote(username, roomId, targetId) {
+        database.ref(`rooms/${roomId}/votingState/choices/${username}`).set(targetId)
+            .catch(err => console.error("Lỗi khi gửi phiếu vote:", err));
+    }
+
 
     function selectRole(username, roomId, choice) {
         database.ref(`rooms/${roomId}/playerPickState/playerChoices/${username}`).set(choice)

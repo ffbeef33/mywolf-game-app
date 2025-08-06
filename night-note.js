@@ -19,6 +19,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const nightTabsContainer = document.getElementById('night-tabs');
     let gmNoteArea, gmNoteBtn;
     let nightActionSummaryDiv;
+    
+    // --- TÍCH HỢP MODULE VOTE: Thêm selectors cho module vote ---
+    let votingSection, votePlayersList, startVoteBtn, endVoteBtn, voteResultsContainer, voteTimerInterval;
+    let secretVoteWeights = {};
+    let voteChoicesListener = null;
+
 
     // --- Config ---
     const FACTIONS = [ "Bầy Sói", "Phe Sói", "Phe Dân", "Phe trung lập", "Chức năng khác", "Chưa phân loại" ];
@@ -685,6 +691,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
+        
+        // --- TÍCH HỢP MODULE VOTE: Gọi hàm render module vote ---
+        renderVotingModule();
     };
 
     function createPlayerRow(player, playerState, liveStatus, isFinished) {
@@ -756,7 +765,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isDisabled && !playerState.isDisabled) {
                 statusIconsHTML += '<i class="fas fa-user-slash icon-disabled-by-ability" title="Bị vô hiệu hóa"></i>';
             }
-            if (liveStatus.isNotified) {
+             if (liveStatus.isNotified) {
                 statusIconsHTML += '<i class="fas fa-star icon-notified" title="Được đánh dấu"></i>';
             }
         }
@@ -874,6 +883,197 @@ document.addEventListener('DOMContentLoaded', () => {
             nightTabsContainer.appendChild(tab);
         });
     };
+    
+    // --- TÍCH HỢP MODULE VOTE: Các hàm cho module vote ---
+
+    function createVotingModuleStructure() {
+        if (document.getElementById('voting-section')) return;
+
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <div id="voting-section" class="card">
+                <h2><i class="fas fa-gavel"></i> Dàn Xử Án</h2>
+                <div class="voting-controls">
+                    <input type="text" id="vote-title-input" placeholder="Tiêu đề (ví dụ: Vote treo cổ ngày 1)" value="Vote treo cổ">
+                    <input type="number" id="vote-timer-input" value="60" min="10" title="Thời gian vote (giây)">
+                    <button id="start-vote-btn" class="btn-special">Bắt Đầu Vote</button>
+                    <button id="end-vote-btn" class="btn-danger" style="display: none;">Kết Thúc Vote Ngay</button>
+                </div>
+                <div id="vote-players-list"></div>
+                <div id="vote-results-container" style="display: none;">
+                    <h3>Kết Quả Vote</h3>
+                    <div id="vote-results-summary"></div>
+                    <div id="vote-results-details"></div>
+                </div>
+            </div>
+        `;
+        document.querySelector('.container').appendChild(container.firstChild);
+
+        votingSection = document.getElementById('voting-section');
+        votePlayersList = document.getElementById('vote-players-list');
+        startVoteBtn = document.getElementById('start-vote-btn');
+        endVoteBtn = document.getElementById('end-vote-btn');
+        voteResultsContainer = document.getElementById('vote-results-container');
+
+        startVoteBtn.addEventListener('click', handleStartVote);
+        endVoteBtn.addEventListener('click', handleEndVote);
+    }
+
+    function renderVotingModule() {
+        createVotingModuleStructure();
+
+        const lastNight = nightStates[nightStates.length - 1];
+        if (!lastNight) return;
+
+        const { finalStatus } = calculateNightStatus(lastNight);
+        const livingPlayers = roomPlayers.filter(p => finalStatus[p.id]?.isAlive);
+
+        votePlayersList.innerHTML = '<h4>Thiết lập phiếu vote:</h4>';
+        if (livingPlayers.length > 0) {
+            livingPlayers.forEach(player => {
+                const playerRow = document.createElement('div');
+                playerRow.className = 'vote-player-row';
+                playerRow.innerHTML = `
+                    <span class="vote-player-name">${player.name} (${player.roleName || 'Chưa rõ'})</span>
+                    <div class="vote-weight-wrapper">
+                        <label for="weight-${player.id}">Số phiếu:</label>
+                        <input type="number" class="vote-weight-input" id="weight-${player.id}" data-player-id="${player.id}" value="1" min="0">
+                    </div>
+                `;
+                votePlayersList.appendChild(playerRow);
+            });
+        } else {
+            votePlayersList.innerHTML += '<p>Không có người chơi nào còn sống để vote.</p>';
+        }
+    }
+
+    function handleStartVote() {
+        if (!roomId) return;
+
+        secretVoteWeights = {};
+        const voteWeightInputs = document.querySelectorAll('.vote-weight-input');
+        voteWeightInputs.forEach(input => {
+            const playerId = input.dataset.playerId;
+            const weight = parseInt(input.value, 10);
+            if (playerId && !isNaN(weight)) {
+                secretVoteWeights[playerId] = weight;
+            }
+        });
+
+        const lastNight = nightStates[nightStates.length - 1];
+        if (!lastNight) {
+            alert("Lỗi: Không tìm thấy dữ liệu đêm cuối.");
+            return;
+        }
+        const { finalStatus } = calculateNightStatus(lastNight);
+        const livingPlayers = roomPlayers.filter(p => finalStatus[p.id]?.isAlive);
+
+        const candidates = livingPlayers.reduce((acc, p) => {
+            acc[p.id] = p.name;
+            return acc;
+        }, {});
+        
+        const title = document.getElementById('vote-title-input').value || 'Vote';
+        const timerSeconds = parseInt(document.getElementById('vote-timer-input').value, 10) || 60;
+
+        const votingState = {
+            status: 'active',
+            title: title,
+            endTime: firebase.database.ServerValue.TIMESTAMP + (timerSeconds * 1000),
+            candidates: candidates,
+            choices: null
+        };
+
+        const voteRef = database.ref(`rooms/${roomId}/votingState`);
+        voteRef.set(votingState).then(() => {
+            startVoteBtn.style.display = 'none';
+            endVoteBtn.style.display = 'inline-block';
+            voteResultsContainer.style.display = 'block';
+            voteResultsContainer.querySelector('#vote-results-summary').innerHTML = 'Đang chờ người chơi vote...';
+            voteResultsContainer.querySelector('#vote-results-details').innerHTML = '';
+
+
+            const choicesRef = database.ref(`rooms/${roomId}/votingState/choices`);
+            if(voteChoicesListener) choicesRef.off('value', voteChoicesListener); // Hủy listener cũ
+            
+            voteChoicesListener = choicesRef.on('value', (snapshot) => {
+                const choices = snapshot.val() || {};
+                renderVoteResults(choices, secretVoteWeights);
+            });
+        });
+    }
+
+    function handleEndVote() {
+        if (!roomId) return;
+        database.ref(`rooms/${roomId}/votingState/status`).set('finished');
+        
+        const choicesRef = database.ref(`rooms/${roomId}/votingState/choices`);
+        if (voteChoicesListener) {
+            choicesRef.off('value', voteChoicesListener);
+            voteChoicesListener = null;
+        }
+
+        startVoteBtn.style.display = 'inline-block';
+        endVoteBtn.style.display = 'none';
+        alert("Vote đã kết thúc!");
+    }
+
+    function renderVoteResults(choices, weights) {
+        if (!voteResultsContainer) return;
+        
+        const tally = {};
+        const livingPlayerIds = roomPlayers.filter(p => p.isAlive).map(p => p.id);
+        livingPlayerIds.forEach(id => tally[id] = 0);
+        tally['skip_vote'] = 0;
+
+        for (const voterName in choices) {
+            const targetId = choices[voterName];
+            const voter = roomPlayers.find(p => p.name === voterName);
+            if (voter) {
+                const weight = weights[voter.id] || 0;
+                if (tally.hasOwnProperty(targetId)) {
+                    tally[targetId] += weight;
+                }
+            }
+        }
+        
+        let maxVotes = -1;
+        let mostVotedPlayers = [];
+        
+        for(const targetId in tally) {
+            if (targetId !== 'skip_vote' && tally[targetId] > maxVotes) {
+                maxVotes = tally[targetId];
+                mostVotedPlayers = [targetId];
+            } else if (targetId !== 'skip_vote' && tally[targetId] === maxVotes && maxVotes > 0) {
+                 mostVotedPlayers.push(targetId);
+            }
+        }
+
+        // Render Summary
+        let summaryHtml = '<h4>Thống kê phiếu:</h4><ul>';
+        const sortedTally = Object.entries(tally).sort(([,a],[,b]) => b-a);
+
+        sortedTally.forEach(([targetId, count]) => {
+            const isMostVoted = mostVotedPlayers.includes(targetId);
+            const targetName = targetId === 'skip_vote' ? 'Bỏ qua' : (roomPlayers.find(p => p.id === targetId)?.name || 'Không rõ');
+            summaryHtml += `<li ${isMostVoted ? 'class="most-voted"' : ''}>${targetName}: <strong>${count}</strong> phiếu</li>`;
+        });
+        summaryHtml += '</ul>';
+        voteResultsContainer.querySelector('#vote-results-summary').innerHTML = summaryHtml;
+
+        // Render Details
+        let detailsHtml = '<h4>Chi tiết:</h4><ul>';
+         for (const voterName in choices) {
+            const targetId = choices[voterName];
+            const targetName = targetId === 'skip_vote' ? 'Bỏ qua' : (roomPlayers.find(p => p.id === targetId)?.name || 'Không rõ');
+            const voter = roomPlayers.find(p => p.name === voterName);
+            const weight = voter ? (weights[voter.id] || 0) : 0;
+            detailsHtml += `<li><strong>${voterName}</strong> (x${weight}) → <strong>${targetName}</strong></li>`;
+        }
+        detailsHtml += '</ul>';
+        voteResultsContainer.querySelector('#vote-results-details').innerHTML = detailsHtml;
+    }
+
 
     const handleEvents = (e) => {
         const target = e.target;

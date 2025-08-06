@@ -18,6 +18,8 @@
     --font-main: 'Roboto', 'Segoe UI', 'Arial', sans-serif;
     --font-display: 'Montserrat', 'Segoe UI', 'Arial', sans-serif;
     --border-radius: 12px;
+    --special-color: #8257e5; /* Tím Copilot */
+    --special-hover-color: #a371f7;
 
     /* Màu tương tác đêm */
     --action-protect-bg: #1d3350;
@@ -75,6 +77,8 @@ button {
     transition: filter 0.2s, background-color 0.2s;
 }
 button:hover { filter: brightness(1.1); background-color: #2ea043; }
+button.btn-special { background-color: var(--special-color); }
+button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-color); }
 .btn-end-night { background-color: var(--protect-color); }
 #reset-night-btn { background-color: #484f58; }
 .btn-danger {
@@ -719,4 +723,104 @@ button:disabled {
 .action-item .action-type-conditional {
     color: #9370DB; /* Màu tím */
     font-weight: bold;
+}
+
+/* --- TÍCH HỢP MODULE VOTE: CSS cho module vote --- */
+#voting-section {
+    background-color: var(--secondary-bg);
+    border: 1px solid var(--special-color);
+}
+#voting-section h2 {
+    color: var(--special-color);
+    margin-top: 0;
+    border-bottom: 1px solid var(--special-color);
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+#voting-section h2 .fa-gavel {
+    margin-right: 10px;
+}
+.voting-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+.voting-controls input[type="text"],
+.voting-controls input[type="number"] {
+    padding: 10px;
+    background-color: var(--primary-bg);
+    border: 1px solid var(--border-color);
+    color: var(--light-text);
+    border-radius: 8px;
+    font-size: 1rem;
+}
+#vote-players-list {
+    margin-bottom: 20px;
+}
+#vote-players-list h4 {
+    margin-top: 0;
+    color: var(--light-text);
+    font-weight: 500;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+.vote-player-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+.vote-player-row:nth-child(even) {
+    background-color: var(--primary-bg);
+}
+.vote-player-row .vote-player-name {
+    font-weight: 600;
+}
+.vote-weight-wrapper label {
+    margin-right: 8px;
+    font-size: 0.9rem;
+}
+.vote-weight-wrapper input {
+    width: 60px;
+    padding: 5px 8px;
+    background-color: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    color: var(--light-text);
+    border-radius: 5px;
+    text-align: center;
+}
+#vote-results-container {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+#vote-results-container h3 {
+    grid-column: 1 / -1;
+    margin-top: 0;
+}
+#vote-results-container h4 {
+    color: var(--light-text);
+    margin: 0 0 10px 0;
+}
+#vote-results-container ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+#vote-results-container li {
+    margin-bottom: 5px;
+    padding: 4px;
+    border-radius: 4px;
+}
+#vote-results-summary .most-voted {
+    color: var(--danger-color);
+    font-weight: bold;
+    background-color: rgba(248, 81, 73, 0.15);
 }

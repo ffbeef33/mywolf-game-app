@@ -12,7 +12,6 @@
 </head>
 <body>
     <div class="container">
-        <!-- KHU VỰC ĐĂNG NHẬP (Chỉ hiện nếu chưa có session) -->
         <section id="login-section" class="card hidden">
             <header class="card-header">
                 <h1><span aria-hidden="true">🐺</span> Vào Game</h1>
@@ -25,7 +24,6 @@
             <p id="login-error" class="error-message"></p>
         </section>
 
-        <!-- KHU VỰC TRONG GAME -->
         <section id="game-section" class="hidden">
             <header class="player-header">
                 <h1><span id="player-name-display">...</span></h1>
@@ -34,7 +32,6 @@
 
             <main id="game-view">
                 <div id="game-state-cards">
-                    <!-- 1. Trạng thái chờ quản trò -->
                     <div id="waiting-section" class="game-card waiting-card">
                         <div class="spinner"></div>
                         <h2>Đang chờ Quản Trò...</h2>
@@ -42,7 +39,6 @@
                         <p>Vai trò của bạn sẽ sớm được tiết lộ.</p>
                     </div>
 
-                    <!-- 2. Khu vực chọn vai trò (Player Pick) -->
                     <div id="player-pick-section" class="game-card player-pick-card hidden">
                         <h2>Chọn Vai Trò Của Bạn</h2>
                         <p class="timer">Thời gian còn lại: <strong id="pick-timer-display">--</strong></p>
@@ -51,7 +47,6 @@
                         <p id="choice-status" class="choice-status-message"></p>
                     </div>
 
-                    <!-- 3. Thẻ bài vai trò -->
                     <div id="role-reveal-section" class="game-card role-card hidden">
                         <div class="card-inner">
                             <div class="card-front">
@@ -66,16 +61,23 @@
                             </div>
                         </div>
                     </div>
+
+                    <div id="voting-ui-section" class="game-card hidden">
+                        <h2 id="vote-title-display">...</h2>
+                        <p class="timer">Thời gian còn lại: <strong id="vote-timer-display">--</strong></p>
+                        <div id="vote-options-container" class="choices-grid">
+                            </div>
+                        <p id="vote-status-message" class="choice-status-message"></p>
+                    </div>
+
                 </div>
 
                 <div id="roles-in-game-display" class="roles-display-container hidden">
-                    <!-- JS sẽ chèn các box phe và thẻ vai trò vào đây -->
-                </div>
+                    </div>
             </main>
         </section>
     </div>
 
-    <!-- Modal để xem mô tả vai trò -->
     <div id="role-description-modal" class="modal hidden">
         <div class="modal-content">
             <span class="close-modal-btn">&times;</span>
@@ -85,7 +87,6 @@
         </div>
     </div>
 
-    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>

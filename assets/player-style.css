@@ -9,6 +9,9 @@
     --button-hover-bg: #2ea043;
     --input-bg: #161b22;
     --border-color: #30363d;
+    --secondary-button-bg: #21262c;
+    --secondary-button-hover-bg: #30363d;
+
 
     /* Bộ màu mới cho các phe */
     --wolf-color: #f85149;       /* Đỏ cảnh báo */
@@ -209,3 +212,51 @@ button:disabled {
 }
 #modal-role-faction { margin: 0 0 20px 0; color: var(--light-text); font-style: italic; }
 #modal-role-description { font-size: 1rem; line-height: 1.7; }
+
+/* --- TÍCH HỢP MODULE VOTE: CSS cho giao diện vote --- */
+#voting-ui-section h2 {
+    color: var(--text-color);
+    font-size: 1.8rem;
+    margin-bottom: 10px;
+}
+#voting-ui-section .timer {
+    font-size: 1.1rem;
+    color: var(--light-text);
+    margin-bottom: 20px;
+}
+.choices-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 15px;
+}
+.choices-grid .choice-btn {
+    width: 100%;
+    padding: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--secondary-bg);
+    color: var(--light-text);
+    font-size: 1.1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.choices-grid .choice-btn:hover:not(:disabled) {
+    background-color: var(--secondary-button-hover-bg);
+    border-color: var(--text-color);
+    color: var(--text-color);
+}
+.choices-grid .choice-btn.btn-secondary {
+    background-color: var(--secondary-button-bg);
+}
+.choices-grid .choice-btn.btn-secondary:hover:not(:disabled) {
+    background-color: var(--secondary-button-hover-bg);
+}
+
+.choice-status-message {
+    color: var(--light-text);
+    opacity: 0.8;
+    margin-top: 15px;
+    font-style: italic;
+}
