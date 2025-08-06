@@ -1,5 +1,5 @@
 // =================================================================
-// === admin.js - CẬP NHẬT GIAO DIỆN FAVORITE DECK SANG POPUP ===
+// === admin.js - KHÔI PHỤC LOGIC XÓA & CẬP NHẬT GIAO DIỆN POPUP ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -86,14 +86,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let pickTimerInterval = null;
     let allRolesData = [];
     let favoriteDecksData = [];
-    let deckModalContext = 'setup'; // 'setup' hoặc 'edit'
+    let deckModalContext = 'setup';
 
     // --- Các hàm xử lý logic ---
-
-    // (Các hàm nhỏ và các hàm không thay đổi sẽ được rút gọn ở đây để tiết kiệm không gian)
-    // ...
-    // --- Toàn bộ các hàm logic không thay đổi được đặt ở cuối file ---
-    // ...
     const handleStartNightNote = () => {
         if (currentRoomId) {
             const noteUrl = `night-note.html?roomId=${currentRoomId}`;
@@ -103,10 +98,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // MỚI: Mở Popup chọn Deck
     const openDeckModal = (context) => {
         deckModalContext = context;
-        deckModalGrid.innerHTML = ''; // Xóa grid cũ
+        deckModalGrid.innerHTML = ''; 
 
         if (favoriteDecksData.length === 0) {
             deckModalGrid.innerHTML = '<p>Không tìm thấy deck nào. Vui lòng kiểm tra lại Google Sheet.</p>';
@@ -116,13 +110,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     acc[role] = (acc[role] || 0) + 1;
                     return acc;
                 }, {});
-
                 let rolesHtml = '';
                 Object.keys(roleCounts).sort().forEach(roleName => {
                     const count = roleCounts[roleName];
                     rolesHtml += `<li>${roleName}${count > 1 ? ` (x${count})` : ''}</li>`;
                 });
-
                 const cardHtml = `
                     <div class="deck-card" data-index="${index}">
                         <div class="deck-card-header">
@@ -140,12 +132,10 @@ document.addEventListener('DOMContentLoaded', () => {
         deckModal.classList.remove('hidden');
     };
 
-    // MỚI: Đóng Popup chọn Deck
     const closeDeckModal = () => {
         if (deckModal) deckModal.classList.add('hidden');
     };
     
-    // Cập nhật: Hàm chỉ áp dụng deck cho chế độ setup
     const applyFavoriteDeck = (deckIndex) => {
         document.querySelectorAll('input[name="selected-role"]').forEach(cb => cb.checked = false);
         document.querySelectorAll('input[name="quantity-role"]').forEach(input => input.value = 0);
@@ -170,8 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updateCounters();
     };
-
-    // Cập nhật: Hàm chỉ áp dụng deck cho chế độ edit
+    
     const applyDeckToEditMode = (deckIndex) => {
         const selectedDeck = favoriteDecksData[deckIndex];
         if (!selectedDeck) return;
@@ -198,14 +187,9 @@ document.addEventListener('DOMContentLoaded', () => {
             favoriteDecksData = await response.json();
         } catch (error) {
             console.error("Lỗi tải Favorite Decks:", error);
-            // Có thể thêm thông báo lỗi ở đây nếu cần
         }
     };
 
-    // (Các hàm logic khác từ processPlayerPick đến resetAdminUI giữ nguyên, không thay đổi)
-    // ...
-    // --- Bỏ qua các hàm không thay đổi để cho gọn ---
-    // ...
     const processPlayerPick = async () => {
         if (!currentRoomId) return;
         if (!confirm('Bạn có chắc muốn xử lý và phân phối vai trò? Hành động này không thể hoàn tác.')) return;
@@ -668,11 +652,6 @@ document.addEventListener('DOMContentLoaded', () => {
         rolesToRemove.clear();
         playersToAdd.clear();
         rolesToAdd.clear();
-        if (editDeckSelect) editDeckSelect.value = '';
-        if (editDeckPreview) {
-            editDeckPreview.innerHTML = '';
-            editDeckPreview.classList.add('hidden');
-        }
         renderPendingAdditions();
 
         database.ref(`rooms/${currentRoomId}`).once('value', (snapshot) => {
@@ -686,6 +665,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     };
+    
+    // KHÔI PHỤC: Hàm updateActiveRoomUIForEditing đầy đủ
     const updateActiveRoomUIForEditing = (roomData) => {
         const playersInGame = roomData.players || {};
         const rolesInGame = roomData.rolesToAssign || [];
