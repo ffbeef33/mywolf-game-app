@@ -131,20 +131,29 @@ document.addEventListener('DOMContentLoaded', () => {
         
         return true;
     }
-    
-    // ===== HÀM ĐÃ CẬP NHẬT =====
+
+    // ===== HÀM ĐÃ CẬP NHẬT LOGIC SẮP XẾP =====
     function getSortPriority(player) {
         const isActive = player.activeRule !== '0';
-        const isWitch = player.roleName === 'Phù thuỷ';
         const isSaver = player.kind.includes('save');
-        const isAuditor = player.kind.includes('audit'); // Thêm điều kiện kiểm tra audit
+        const isAuditor = player.kind.includes('audit');
 
-        if (!isActive) return 5;      // Ưu tiên thấp nhất: vai trò không hoạt động
-        if (isWitch) return 1;          // Ưu tiên cao nhất
-        if (isSaver) return 2;          // Ưu tiên thứ 2: Các vai trò Cứu
-        if (isAuditor) return 3;        // Ưu tiên thứ 3: Các vai trò Soi (sau Cứu)
-        return 4;                       // Ưu tiên mặc định cho các vai trò khác
+        // Ưu tiên 4: Các vai trò không hoạt động sẽ ở cuối cùng
+        if (!isActive) {
+            return 4;
+        }
+        // Ưu tiên 3: Các vai trò Soi ('audit')
+        if (isAuditor) {
+            return 3;
+        }
+        // Ưu tiên 2: Các vai trò Cứu ('save')
+        if (isSaver) {
+            return 2;
+        }
+        // Ưu tiên 1: Tất cả các vai trò hoạt động khác sẽ ở trên cùng
+        return 1;
     }
+
 
     // --- Logic ---
     const calculateNightStatus = (nightState) => {
@@ -393,7 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (actor.kind === 'save_gather' && targetStatus.gatheredBy) {
                         const groupToSave = gatherGroups[targetStatus.gatheredBy];
                         if (groupToSave) {
-                            toSave.forEach(pId => {
+                            groupToSave.forEach(pId => {
                                 liveStatuses[pId].isSaved = true;
                             });
                         }
