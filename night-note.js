@@ -25,7 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let secretVoteWeights = {};
     let voteChoicesListener = null;
 
-    // --- CẬP NHẬT 06/08/2025: Biến ghi nhớ số phiếu đã thiết lập ---
     let rememberedVoteWeights = {};
 
 
@@ -802,17 +801,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             }
             
+            // --- CẬP NHẬT 07/08/2025: Sửa logic chuyển phe ---
             if (factionSelect) {
                 const handleFactionChange = function() {
                     const newFaction = factionSelect.value;
-                    database.ref(`rooms/${roomId}/players/${player.id}/factionOverride`).set(newFaction);
                     const nightState = nightStates[activeNightIndex];
+                    
                     if (!Array.isArray(nightState.factionChanges)) {
                         nightState.factionChanges = [];
                     }
+                    
+                    // Xóa thay đổi cũ của người chơi này trong đêm hiện tại (nếu có) và thêm thay đổi mới
                     nightState.factionChanges = nightState.factionChanges.filter(c => c.playerId !== player.id);
                     nightState.factionChanges.push({ playerId: player.id, oldFaction: player.faction, newFaction: newFaction });
+                    
                     saveNightNotes();
+                    // Không cần gọi render() vì listener của Firebase sẽ tự động cập nhật UI
                 };
                 factionSelect.onchange = handleFactionChange;
                 factionSelect.onblur = function() { 
@@ -829,7 +833,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (actionIndex > -1) {
                         nightState.actions.splice(actionIndex, 1);
                         saveNightNotes();
-                        render();
+                        // Không cần gọi render() vì listener của Firebase sẽ tự động cập nhật UI
                     }
                     e.preventDefault();
                     e.stopPropagation();
@@ -887,7 +891,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- TÍCH HỢP MODULE VOTE: Các hàm cho module vote ---
 
-    // --- CẬP NHẬT 06/08/2025 (Lần 4): Thêm bộ đếm ngược cho GM ---
     function createVotingModuleStructure() {
         if (document.getElementById('voting-section')) return;
 
@@ -978,7 +981,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- CẬP NHẬT 06/08/2025 (Lần 4): Cập nhật hàm để khởi động timer cho GM ---
     function handleStartVote() {
         if (!roomId) return;
 
@@ -1049,11 +1051,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- CẬP NHẬT 06/08/2025 (Lần 4): Cập nhật hàm để dọn dẹp timer ---
     function handleEndVote() {
         if (!roomId) return;
         
-        // Chỉ thực hiện nếu vote đang active để tránh gọi lại nhiều lần
         database.ref(`rooms/${roomId}/votingState/status`).once('value', (snapshot) => {
             if (snapshot.val() === 'active') {
                 database.ref(`rooms/${roomId}/votingState/status`).set('finished');
@@ -1238,22 +1238,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (actionIndex > -1) {
                 nightState.actions.splice(actionIndex, 1);
                 saveNightNotes();
-                render();
             }
         }
         else if (target.closest('#reset-night-btn')) {
             if (confirm(`Bạn có chắc muốn làm mới mọi hành động và trạng thái Sống/Chết trong Đêm ${activeNightIndex + 1}?`)) {
                 nightState.actions = [];
                 nightState.isFinished = false;
+                // --- CẬP NHẬT 07/08/2025: Xóa luôn các thay đổi phe trong đêm ---
+                nightState.factionChanges = [];
                 nightState.playersStatus = JSON.parse(JSON.stringify(nightState.initialPlayersStatus));
                 saveNightNotes();
-                render();
             }
         } else if (target.closest('#end-night-btn')) {
             if (!nightState.isFinished && confirm(`Bạn có chắc muốn kết thúc Đêm ${activeNightIndex + 1}?`)) {
                 nightState.isFinished = true;
                 saveNightNotes();
-                render();
             }
         } else {
             const row = target.closest('.player-row');
@@ -1262,11 +1261,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (target.closest('.status-btn.life')) {
                     nightState.playersStatus[actorId].isAlive = !nightState.playersStatus[actorId].isAlive;
                     saveNightNotes();
-                    render();
                 } else if (target.closest('.status-btn.disable')) {
                     nightState.playersStatus[actorId].isDisabled = !nightState.playersStatus[actorId].isDisabled;
                     saveNightNotes();
-                    render();
                 }
             }
         }
@@ -1357,6 +1354,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modalOverlay.classList.remove('hidden');
     }
 
+    // --- CẬP NHẬT 07/08/2025: Sửa logic lắng nghe Firebase ---
     const initialize = async (_roomId) => {
         roomId = _roomId;
         roomIdDisplay.textContent = roomId;
@@ -1368,40 +1366,51 @@ document.addEventListener('DOMContentLoaded', () => {
             if(!roomData) return;
 
             const playersData = roomData.players || {};
-            
-            roomPlayers = Object.keys(playersData).map(key => {
+            nightStates = roomData.nightNotes || []; // Lấy ghi chú đêm từ Firebase
+
+            // Xây dựng danh sách người chơi cơ bản
+            const basePlayers = Object.keys(playersData).map(key => {
                 const originalData = playersData[key];
                 const roleName = (originalData.roleName || '').trim();
                 const roleInfo = allRolesData[roleName] || { faction: 'Chưa phân loại', active: '0', kind: 'empty', quantity: 1 };
                 
-                let finalFaction = roleInfo.faction;
-
-                if (originalData.factionOverride) {
-                    finalFaction = originalData.factionOverride;
-                }
-                
                 return { 
                     id: key, 
-                    ...originalData, 
-                    faction: finalFaction,
+                    ...originalData,
+                    baseFaction: roleInfo.faction, // Lưu phe gốc
+                    faction: roleInfo.faction, // Phe hiện tại, sẽ được tính toán lại
                     activeRule: roleInfo.active,
                     kind: roleInfo.kind,
                     quantity: roleInfo.quantity
                 };
             });
+            
+            // Tính toán lại phe hiện tại của người chơi dựa trên nightNotes
+            const finalFactions = {};
+            basePlayers.forEach(p => finalFactions[p.id] = p.baseFaction);
 
-            const notes = roomData.nightNotes;
-            if (notes && Array.isArray(notes)) {
-                nightStates = notes;
-                nextActionId = Math.max(0, ...notes.flatMap(n => n.actions || []).map(a => a.id)) + 1;
-            } else if (roomPlayers.length > 0 && nightStates.length === 0) {
+            nightStates.forEach(night => {
+                if (Array.isArray(night.factionChanges)) {
+                    night.factionChanges.forEach(change => {
+                        finalFactions[change.playerId] = change.newFaction;
+                    });
+                }
+            });
+
+            roomPlayers = basePlayers.map(p => ({
+                ...p,
+                faction: finalFactions[p.id] || p.baseFaction
+            }));
+
+
+            // Logic khởi tạo night note nếu chưa có
+            if (roomPlayers.length > 0 && nightStates.length === 0) {
                  const initialStatus = Object.fromEntries(roomPlayers.map(p => {
-                    const player = roomPlayers.find(rp => rp.id === p.id);
                     return [p.id, { 
                         isAlive: p.isAlive, 
                         isDisabled: false,
-                        armor: (player?.kind === 'armor1') ? 2 : 1,
-                        delayKillAvailable: (player?.kind === 'delaykill'),
+                        armor: (p.kind === 'armor1') ? 2 : 1,
+                        delayKillAvailable: (p.kind === 'delaykill'),
                         isDoomed: false,
                         deathLinkTarget: null,
                         sacrificedBy: null,
@@ -1416,25 +1425,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     gmNote: ""
                 });
                 activeNightIndex = 0;
-                saveNightNotes();
+                saveNightNotes(); // Lưu lại night note đầu tiên
+            } else {
+                 // Đảm bảo nextActionId luôn đúng
+                nextActionId = Math.max(0, ...nightStates.flatMap(n => n.actions || []).map(a => a.id)) + 1;
             }
-
-            roomPlayers.forEach(player => {
-                nightStates.forEach(night => {
-                    if (night.playersStatus && !night.playersStatus[player.id]) {
-                        night.playersStatus[player.id] = {
-                            isAlive: player.isAlive,
-                            isDisabled: false,
-                            armor: (player.kind === 'armor1') ? 2 : 1,
-                            delayKillAvailable: (player.kind === 'delaykill'),
-                            isDoomed: false,
-                            deathLinkTarget: null,
-                            sacrificedBy: null,
-                            transformedTo: null
-                        };
-                    }
-                });
-            });
 
             render();
         });
