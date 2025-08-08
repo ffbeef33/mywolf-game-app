@@ -26,6 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let rememberedVoteWeights = {};
 
     let actionModal, currentActorInModal = null;
+    // --- CẬP NHẬT 08/08/2025: Thêm modal chọn phe ---
+    let factionChangeModal = null;
 
 
     // --- Config ---
@@ -37,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { display: 'Phe trung lập', factions: ['Phe trung lập'], className: 'faction-neutral' },
         { display: 'Khác', factions: ['Chức năng khác', 'Chưa phân loại'], className: 'faction-other' }
     ];
-    const SELECTABLE_FACTIONS = [ "Bầy Sói", "Phe Sói", "Phe Dân", "Phe trung lập" ];
+    const SELECTABLE_FACTIONS = [ "Bầy Sói", "Phe Sói", "Phe Dân" ]; // Phe có thể chuyển đến
     
     const KIND_TO_ACTION_MAP = {
         'shield': { key: 'protect', label: 'Bảo vệ', type: 'defense' },
@@ -110,6 +112,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function isActionAvailable(player, currentNightIndex) {
+        // --- CẬP NHẬT 08/08/2025: Xử lý cho pseudo-player Bầy Sói ---
+        if (player.id === 'wolf_group') return true;
+
         const rule = player.activeRule;
         const nightNumber = currentNightIndex + 1;
 
@@ -570,32 +575,8 @@ document.addEventListener('DOMContentLoaded', () => {
             wrapper.appendChild(header);
 
             if (group.factions.includes('Bầy Sói')) {
-                const wolfRow = document.createElement('div');
-                wolfRow.className = 'player-row wolf-bite-group-row';
-                wolfRow.innerHTML = `
-                    <div class="player-header">
-                        <div class="player-info"><div class="player-name">Hành Động Chung (Bầy Sói)</div></div>
-                        <div class="wolf-bite-controls" style="margin-top:10px;">
-                            <label style="font-weight:600; color:var(--danger-color); margin-right:8px;">Sói cắn:</label>
-                            <select multiple class="wolf-bite-target-select" style="min-width:120px; background:#21262c; color:#c9d1d9; border-radius:7px;">
-                                ${roomPlayers.filter(p => nightState.playersStatus[p.id]?.isAlive)
-                                    .map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-                            </select>
-                            <button class="wolf-bite-group-btn btn-danger" style="margin-left:12px;">Thêm hành động</button>
-                        </div>
-                    </div>
-                    <div class="action-list wolf-bite-group-list"></div>
-                `;
-                const wolfActionListDiv = wolfRow.querySelector('.wolf-bite-group-list');
-                if (nightStates[activeNightIndex] && Array.isArray(nightStates[activeNightIndex].actions)) {
-                    nightStates[activeNightIndex].actions.forEach(action => {
-                        if (action.action === 'wolf_bite_group') {
-                            const target = roomPlayers.find(p => p.id === action.targetId);
-                            wolfActionListDiv.innerHTML += `<div class="action-item" data-action-id="${action.id}"><i class="fas fa-arrow-right"></i><span class="action-type-damage">Sói cắn</span><span class="target-name">${target?.name || 'Không rõ'}</span><button class="remove-action-btn" title="Xóa">&times;</button></div>`;
-                        }
-                    });
-                }
-                wrapper.appendChild(wolfRow);
+                // --- CẬP NHẬT 08/08/2025: Sử dụng hàm mới để render Bầy Sói ---
+                wrapper.appendChild(createWolfGroupRow(nightState, nightState.isFinished));
             }
             
             groupPlayers.sort((a, b) => {
@@ -695,13 +676,11 @@ document.addEventListener('DOMContentLoaded', () => {
         renderVotingModule();
     };
     
-    // --- FIX: Cập nhật hàm createPlayerRow để phục hồi các chỉ báo trạng thái ---
     function createPlayerRow(player, playerState, liveStatus, isFinished) {
         const row = document.createElement('div');
         row.className = 'player-row';
         row.dataset.playerId = player.id;
 
-        // Thêm các class trạng thái để hiển thị màu nền
         if (!playerState.isAlive) {
             row.classList.add('status-dead');
         } else if (liveStatus) {
@@ -714,7 +693,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let actionDisplayHTML = buildActionList(player.id, nightStates[activeNightIndex]);
         
-        // Tạo HTML cho các icon trạng thái
         let statusIconsHTML = '';
         if (liveStatus) {
             if (liveStatus.isProtected) statusIconsHTML += '<i class="fas fa-shield-alt icon-protected" title="Được bảo vệ"></i>';
@@ -740,6 +718,38 @@ document.addEventListener('DOMContentLoaded', () => {
         
         return row;
     }
+
+    // --- CẬP NHẬT 08/08/2025: Hàm render Bầy Sói mới cho đồng bộ ---
+    function createWolfGroupRow(nightState, isFinished) {
+        const row = document.createElement('div');
+        row.className = 'player-row';
+        
+        const wolfBiteActions = (nightState.actions || []).filter(a => a.actorId === 'wolf_group');
+        let actionDisplayHTML = '';
+        if (wolfBiteActions.length > 0) {
+             actionDisplayHTML = wolfBiteActions.map(action => {
+                const target = roomPlayers.find(p => p.id === action.targetId);
+                return `<div class="action-display-item">
+                            <i class="fas fa-arrow-right"></i> Sói cắn <strong>${target?.name || ''}</strong>
+                            <button class="remove-action-btn" data-action-id="${action.id}">&times;</button>
+                        </div>`;
+            }).join('');
+        }
+
+        row.innerHTML = `
+            <div class="player-header">
+                <div class="player-info">
+                    <div class="player-name">Hành Động Chung</div>
+                    <div class="player-role">(Bầy Sói)</div>
+                    <div class="action-display-list">${actionDisplayHTML}</div>
+                </div>
+                <div class="player-controls">
+                     ${!isFinished ? `<button class="action-modal-btn wolf-bite-btn" data-player-id="wolf_group">Chọn người cắn</button>` : ''}
+                </div>
+            </div>
+        `;
+        return row;
+    }
     
     function buildActionList(playerId, nightState) {
         let html = '';
@@ -750,7 +760,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const target = roomPlayers.find(p => p.id === action.targetId);
                     const actionConfig = ALL_ACTIONS[action.action];
                     const actionLabel = actionConfig?.label || action.action;
-                    html += `<div class="action-display-item"><i class="fas fa-arrow-right"></i> ${actionLabel} <strong>${target?.name || ''}</strong></div>`;
+                    // --- CẬP NHẬT 08/08/2025: Thêm nút X vào đây ---
+                    html += `<div class="action-display-item">
+                                <i class="fas fa-arrow-right"></i> ${actionLabel} <strong>${target?.name || ''}</strong>
+                                <button class="remove-action-btn" data-action-id="${action.id}">&times;</button>
+                             </div>`;
                 });
             }
         }
@@ -1034,9 +1048,23 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (target.matches('.action-modal-btn')) {
             const playerId = target.dataset.playerId;
-            const actor = roomPlayers.find(p => p.id === playerId);
+            const actor = (playerId === 'wolf_group') 
+                ? { id: 'wolf_group', name: 'Bầy Sói', roleName: 'Hành động chung', kind: 'kill', quantity: 99 } 
+                : roomPlayers.find(p => p.id === playerId);
+
             if (actor) {
                 openActionModal(actor);
+            }
+            return;
+        }
+
+        // --- CẬP NHẬT 08/08/2025: Thêm handler cho nút X ---
+        if (target.matches('.remove-action-btn')) {
+            const actionId = parseInt(target.dataset.actionId, 10);
+            const nightState = nightStates[activeNightIndex];
+            if (nightState && nightState.actions) {
+                nightState.actions = nightState.actions.filter(a => a.id !== actionId);
+                saveNightNotes();
             }
             return;
         }
@@ -1098,30 +1126,6 @@ document.addEventListener('DOMContentLoaded', () => {
             activeNightIndex = parseInt(target.closest('.night-tab').dataset.index, 10);
             render();
         } 
-        else if (target.closest('.wolf-bite-group-btn')) {
-            const wolfRow = target.closest('.wolf-bite-group-row');
-            const select = wolfRow.querySelector('.wolf-bite-target-select');
-            const selectedIds = Array.from(select.selectedOptions).map(opt => opt.value);
-            if (selectedIds.length === 0) return;
-
-            selectedIds.forEach(targetId => {
-                nightState.actions.push({
-                    id: nextActionId++,
-                    actorId: 'wolf_group',
-                    action: 'wolf_bite_group',
-                    targetId: targetId
-                });
-            });
-            saveNightNotes();
-        }
-        else if (target.closest('.wolf-bite-group-list .remove-action-btn')) {
-            const actionId = parseInt(target.closest('.action-item').dataset.actionId, 10);
-            const actionIndex = nightState.actions.findIndex(a => a.id === actionId);
-            if (actionIndex > -1) {
-                nightState.actions.splice(actionIndex, 1);
-                saveNightNotes();
-            }
-        }
         else if (target.closest('#reset-night-btn')) {
             if (confirm(`Bạn có chắc muốn làm mới mọi hành động và trạng thái Sống/Chết trong Đêm ${activeNightIndex + 1}?`)) {
                 nightState.actions = [];
@@ -1154,7 +1158,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div id="action-modal-targets" class="target-grid"></div>
                 </div>
 
-                <div class="action-modal-section">
+                <div class="action-modal-section" id="gm-override-section">
                     <h4>Tác động lên bản thân</h4>
                     <div id="action-modal-gm-overrides" class="gm-override-grid">
                         <button data-override="gm_kill">Bị sát thương</button>
@@ -1184,19 +1188,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!currentActorInModal) return;
             const nightState = nightStates[activeNightIndex];
             
-            nightState.actions = nightState.actions.filter(a => a.actorId !== currentActorInModal.id || a.action.startsWith('gm_'));
+            const actionKey = (currentActorInModal.id === 'wolf_group') ? 'wolf_bite_group' : (KIND_TO_ACTION_MAP[currentActorInModal.kind.split('_')[0]]?.key);
+            
+            // Xóa hành động cũ của actor VÀ có cùng actionKey
+            nightState.actions = nightState.actions.filter(a => !(a.actorId === currentActorInModal.id && a.action === actionKey));
 
             const checkedTargets = actionModal.querySelectorAll('#action-modal-targets input:checked');
-            const kinds = currentActorInModal.kind.split('_');
-            const primaryActionKey = KIND_TO_ACTION_MAP[kinds[0]]?.key;
             
-            if (primaryActionKey) {
+            if (actionKey) {
                 checkedTargets.forEach(checkbox => {
                     nightState.actions.push({
                         id: nextActionId++,
                         actorId: currentActorInModal.id,
                         targetId: checkbox.value,
-                        action: primaryActionKey
+                        action: actionKey
                     });
                 });
             }
@@ -1219,15 +1224,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 nightState.playersStatus[targetId].armor = (nightState.playersStatus[targetId].armor || 1) + 1;
                 saveNightNotes();
             } else if (overrideAction === 'change_faction') {
-                const newFaction = prompt(`Chọn phe mới cho ${currentActorInModal.name}:`, currentActorInModal.faction);
-                if (newFaction && SELECTABLE_FACTIONS.includes(newFaction)) {
-                     if (!Array.isArray(nightState.factionChanges)) {
-                        nightState.factionChanges = [];
-                    }
-                    nightState.factionChanges = nightState.factionChanges.filter(c => c.playerId !== targetId);
-                    nightState.factionChanges.push({ playerId: targetId, oldFaction: currentActorInModal.faction, newFaction: newFaction });
-                    saveNightNotes();
-                }
+                openFactionChangeModal(currentActorInModal);
+                return; // Không đóng modal chính vội
             } else { 
                 nightState.actions.push({
                     id: nextActionId++,
@@ -1241,23 +1239,73 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- FIX: Cập nhật hàm openActionModal để lấy danh sách người chơi còn sống chính xác ---
+    // --- CẬP NHẬT 08/08/2025: Các hàm cho modal chọn phe ---
+    function createFactionChangeModal() {
+        if (document.getElementById('faction-change-modal-overlay')) return;
+        const modal = document.createElement('div');
+        modal.id = 'faction-change-modal-overlay';
+        modal.className = 'modal-overlay hidden';
+        
+        let buttonsHTML = SELECTABLE_FACTIONS.map(faction => 
+            `<button class="faction-change-btn" data-faction="${faction}">${faction}</button>`
+        ).join('');
+
+        modal.innerHTML = `
+            <div class="modal-content faction-change-modal">
+                <h4 id="faction-change-title">Chọn phe mới</h4>
+                <div class="faction-change-options">${buttonsHTML}</div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        factionChangeModal = modal;
+
+        factionChangeModal.addEventListener('click', e => {
+            if (e.target === factionChangeModal) {
+                factionChangeModal.classList.add('hidden');
+            }
+            if (e.target.matches('.faction-change-btn')) {
+                const newFaction = e.target.dataset.faction;
+                const nightState = nightStates[activeNightIndex];
+                const targetId = currentActorInModal.id;
+
+                if (!Array.isArray(nightState.factionChanges)) {
+                    nightState.factionChanges = [];
+                }
+                nightState.factionChanges = nightState.factionChanges.filter(c => c.playerId !== targetId);
+                nightState.factionChanges.push({ playerId: targetId, oldFaction: currentActorInModal.faction, newFaction: newFaction });
+                saveNightNotes();
+                
+                factionChangeModal.classList.add('hidden');
+                actionModal.classList.add('hidden');
+            }
+        });
+    }
+
+    function openFactionChangeModal(actor) {
+        factionChangeModal.querySelector('#faction-change-title').textContent = `Chuyển phe cho ${actor.name}`;
+        factionChangeModal.classList.remove('hidden');
+    }
+
     function openActionModal(actor) {
         currentActorInModal = actor;
         const nightState = nightStates[activeNightIndex];
         
-        // Lấy danh sách người chơi còn sống từ trạng thái ĐẦU ĐÊM, không phải kết quả dự kiến
         const livingPlayers = roomPlayers.filter(p => nightState.playersStatus[p.id]?.isAlive);
 
         actionModal.querySelector('#action-modal-title').textContent = `Hành động: ${actor.name} (${actor.roleName})`;
         
         const targetsContainer = actionModal.querySelector('#action-modal-targets');
-        targetsContainer.innerHTML = '';
         const playerActionSection = actionModal.querySelector('#player-action-section');
+        const gmOverrideSection = actionModal.querySelector('#gm-override-section');
 
-        if (isActionAvailable(actor, activeNightIndex)) {
+        const isWolfGroup = actor.id === 'wolf_group';
+
+        if (isWolfGroup || isActionAvailable(actor, activeNightIndex)) {
             playerActionSection.style.display = 'block';
-            const currentActions = (nightState.actions || []).filter(a => a.actorId === actor.id && !a.action.startsWith('gm_'));
+            targetsContainer.innerHTML = '';
+            
+            const actionKey = isWolfGroup ? 'wolf_bite_group' : (KIND_TO_ACTION_MAP[actor.kind.split('_')[0]]?.key);
+            const currentActions = (nightState.actions || []).filter(a => a.actorId === actor.id && a.action === actionKey);
             const currentTargetIds = new Set(currentActions.map(a => a.targetId));
 
             livingPlayers.forEach(p => {
@@ -1272,6 +1320,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             playerActionSection.style.display = 'none';
         }
+        
+        // Ẩn phần tác động GM cho Bầy Sói
+        gmOverrideSection.style.display = isWolfGroup ? 'none' : 'block';
         
         actionModal.classList.remove('hidden');
     }
@@ -1354,6 +1405,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.removeEventListener('click', handleEvents); 
         document.addEventListener('click', handleEvents);
         createActionModal();
+        createFactionChangeModal(); // Khởi tạo modal chọn phe
     };
 
     const urlRoomId = new URLSearchParams(window.location.search).get('roomId');

@@ -151,11 +151,33 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .action-display-item {
     font-size: 0.95rem;
     color: var(--light-text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 .action-display-item strong {
     color: var(--neutral-color);
     font-weight: 600;
 }
+/* --- CẬP NHẬT 08/08/2025: Thêm style cho nút X --- */
+.remove-action-btn {
+    background-color: var(--danger-color);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+    line-height: 18px;
+    padding: 0;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+.action-display-item:hover .remove-action-btn {
+    opacity: 1;
+}
+
 
 .player-controls { display: flex; align-items: center; gap: 10px; }
 .action-modal-btn {
@@ -164,6 +186,13 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     font-size: 0.9rem;
 }
 .action-modal-btn:hover { background-color: var(--special-hover-color); }
+.action-modal-btn.wolf-bite-btn {
+    background-color: var(--danger-color);
+}
+.action-modal-btn.wolf-bite-btn:hover {
+    background-color: #c73c3c;
+}
+
 
 .player-status-icon {
     width: 32px;
@@ -256,14 +285,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     border-radius: 12px;
     border: 1px solid var(--border-color);
 }
-.wolf-bite-group-row {
-    background: var(--secondary-bg);
-    border: 1px solid var(--danger-color);
-    border-radius: 10px;
-    margin-bottom: 15px;
-}
-.wolf-bite-controls { padding: 10px; }
-
 
 /* --- Modal Styles --- */
 .modal-overlay {
@@ -335,22 +356,47 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .gm-override-grid button {
     padding: 10px;
     font-size: 0.9rem;
-    background-color: var(--secondary-bg);
     border: 1px solid var(--border-color);
-    color: var(--light-text);
+    color: #fff;
+    font-weight: 600;
 }
 .gm-override-grid button:hover {
-    border-color: var(--light-text);
+    border-color: #fff;
+    filter: brightness(1.2);
 }
-.gm-override-grid button[data-override="gm_kill"] { background-color: #4a1c1c; }
-.gm-override-grid button[data-override="gm_save"] { background-color: #1c4a2a; }
-.gm-override-grid button[data-override="gm_protect"] { background-color: #1c364a; }
-.gm-override-grid button[data-override="gm_add_armor"] { background-color: #4a4a1c; }
-.gm-override-grid button[data-override="disable"] { background-color: #4a4a1c; }
-.gm-override-grid button[data-override="change_faction"] { background-color: #4a2c1c; }
+/* --- CẬP NHẬT 08/08/2025: Cập nhật màu sắc nút bấm --- */
+.gm-override-grid button[data-override="gm_kill"] { background-color: #a62626; border-color: #f85149; }
+.gm-override-grid button[data-override="gm_save"] { background-color: #1a632f; border-color: #2ea043; }
+.gm-override-grid button[data-override="gm_protect"] { background-color: #1a4c8a; border-color: #58a6ff; }
+.gm-override-grid button[data-override="gm_add_armor"] { background-color: #8a8a1c; border-color: #d29922; }
+.gm-override-grid button[data-override="disable"] { background-color: #8a8a1c; border-color: #d29922; }
+.gm-override-grid button[data-override="change_faction"] { background-color: #8a4a1c; border-color: #ffa500; }
 
 
 .modal-buttons { margin-top: 20px; text-align: right; }
+
+/* --- CẬP NHẬT 08/08/2025: CSS cho modal chọn phe --- */
+.modal-content.faction-change-modal {
+    max-width: 400px;
+}
+#faction-change-title {
+    margin-top: 0;
+    text-align: center;
+    color: var(--light-text);
+}
+.faction-change-options {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 20px;
+}
+.faction-change-options button {
+    width: 100%;
+}
+.faction-change-options button[data-faction="Bầy Sói"] { background-color: var(--danger-color); }
+.faction-change-options button[data-faction="Phe Sói"] { background-color: var(--danger-color); opacity: 0.8; }
+.faction-change-options button[data-faction="Phe Dân"] { background-color: var(--safe-color); }
+
 
 /* --- Vote Module --- */
 #voting-section {
@@ -396,7 +442,7 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     align-items: center;
     padding: 10px;
     border-radius: 6px;
-    transition: background-color 0.2s;
+    transition: background-color: 0.2s;
 }
 .vote-player-row:nth-child(even) { background-color: var(--primary-bg); }
 .vote-player-row .vote-player-name { font-weight: 600; }
