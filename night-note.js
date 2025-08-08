@@ -26,7 +26,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let rememberedVoteWeights = {};
 
     let actionModal, currentActorInModal = null;
-    // --- CẬP NHẬT 08/08/2025: Thêm modal chọn phe ---
     let factionChangeModal = null;
 
 
@@ -39,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { display: 'Phe trung lập', factions: ['Phe trung lập'], className: 'faction-neutral' },
         { display: 'Khác', factions: ['Chức năng khác', 'Chưa phân loại'], className: 'faction-other' }
     ];
-    const SELECTABLE_FACTIONS = [ "Bầy Sói", "Phe Sói", "Phe Dân" ]; // Phe có thể chuyển đến
+    const SELECTABLE_FACTIONS = [ "Bầy Sói", "Phe Sói", "Phe Dân" ];
     
     const KIND_TO_ACTION_MAP = {
         'shield': { key: 'protect', label: 'Bảo vệ', type: 'defense' },
@@ -99,6 +98,9 @@ document.addEventListener('DOMContentLoaded', () => {
             ALL_ACTIONS['gm_kill'] = { label: 'Bị sát thương (GM)', type: 'damage' };
             ALL_ACTIONS['gm_protect'] = { label: 'Được bảo vệ (GM)', type: 'defense' };
             ALL_ACTIONS['gm_save'] = { label: 'Được cứu (GM)', type: 'defense' };
+            // --- CẬP NHẬT 09/08/2025: Thêm action kind mới cho GM ---
+            ALL_ACTIONS['gm_add_armor'] = { label: 'Được 1 giáp (GM)', type: 'buff' };
+            ALL_ACTIONS['gm_disable'] = { label: 'Bị vô hiệu hoá (GM)', type: 'debuff' };
 
 
         } catch (error) {
@@ -112,7 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function isActionAvailable(player, currentNightIndex) {
-        // --- CẬP NHẬT 08/08/2025: Xử lý cho pseudo-player Bầy Sói ---
         if (player.id === 'wolf_group') return true;
 
         const rule = player.activeRule;
@@ -222,68 +223,72 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // --- CẬP NHẬT 09/08/2025: Thêm logic xử lý action mới của GM ---
         actions.forEach(({ actorId, targetId, action }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
-            if (!actor || (liveStatuses[actorId] && liveStatuses[actorId].isDisabled)) return;
-            const target = roomPlayers.find(p => p.id === targetId);
-            const targetStatus = liveStatuses[targetId];
+            if (!actor) return; // Bỏ qua nếu không tìm thấy actor (có thể là GM action)
             
+            const targetStatus = liveStatuses[targetId];
+            if (!targetStatus) return;
+
             const actionKind = ALL_ACTIONS[action]?.key || action;
 
-            if (actionKind === 'disable_action') { if(targetStatus) targetStatus.isDisabled = true; }
-            else if (actionKind === 'protect' || actionKind === 'gm_protect') {
-                if(targetStatus && !counterShieldedTargets.has(targetId)) {
+            if (actionKind === 'gm_disable' || (actionKind === 'disable_action' && !liveStatuses[actorId]?.isDisabled)) {
+                targetStatus.isDisabled = true;
+            } else if (actionKind === 'gm_add_armor') {
+                targetStatus.armor++;
+            }
+            // Các logic khác vẫn giữ nguyên
+            else if ((actionKind === 'protect' || actionKind === 'gm_protect') && !liveStatuses[actorId]?.isDisabled) {
+                if(!counterShieldedTargets.has(targetId)) {
                     targetStatus.isProtected = true;
                 }
             }
-            else if (actionKind === 'sacrifice') { damageRedirects[targetId] = actorId; }
-            else if (actionKind === 'checkcounter') { counterWards[targetId] = { actorId: actorId, triggered: false }; }
-            else if (actionKind === 'checkdmg') {
+            else if (actionKind === 'sacrifice'  && !liveStatuses[actorId]?.isDisabled) { damageRedirects[targetId] = actorId; }
+            else if (actionKind === 'checkcounter'  && !liveStatuses[actorId]?.isDisabled) { counterWards[targetId] = { actorId: actorId, triggered: false }; }
+            else if (actionKind === 'checkdmg'  && !liveStatuses[actorId]?.isDisabled) {
                 if (liveStatuses[actorId]) liveStatuses[actorId].deathLinkTarget = targetId;
             }
-            else if (actionKind === 'givekill') {
-                if (targetStatus) targetStatus.tempStatus.hasKillAbility = true;
+            else if (actionKind === 'givekill'  && !liveStatuses[actorId]?.isDisabled) {
+                targetStatus.tempStatus.hasKillAbility = true;
             }
-            else if (actionKind === 'givearmor') {
-                if (targetStatus) targetStatus.armor = 2;
-                const actorStatus = liveStatuses[actorId];
-                if (actorStatus) actorStatus.armor = 2;
+            else if (actionKind === 'givearmor'  && !liveStatuses[actorId]?.isDisabled) {
+                targetStatus.armor = 2;
+                if (liveStatuses[actorId]) liveStatuses[actorId].armor = 2;
                 damageRedirects[targetId] = actorId;
             }
-            else if (actionKind === 'choosesacrifier') {
+            else if (actionKind === 'choosesacrifier'  && !liveStatuses[actorId]?.isDisabled) {
                 if (finalStatus[actorId]) {
                     finalStatus[actorId].sacrificedBy = targetId;
                     damageRedirects[actorId] = targetId;
                     infoResults.push(`- ${actor.roleName} (${actor.name}) đã chọn ${target.name} làm người thế mạng.`);
                 }
             }
-            else if (actionKind === 'collect') {
+            else if (actionKind === 'collect'  && !liveStatuses[actorId]?.isDisabled) {
                 if (finalStatus[targetId]) {
                     finalStatus[targetId].faction = actor.faction;
                     infoResults.push(`- ${actor.roleName} (${actor.name}) đã cải đạo ${target.name} sang ${actor.faction}.`);
                 }
             }
-            else if (actionKind === 'transform') {
+            else if (actionKind === 'transform'  && !liveStatuses[actorId]?.isDisabled) {
                 if (finalStatus[actorId]) {
-                    if (target) {
-                        finalStatus[actorId].transformedTo = target.roleName;
-                        infoResults.push(`- ${actor.roleName} (${actor.name}) đã biến thành ${target.roleName}.`);
+                    if (roomPlayers.find(p => p.id === targetId)) {
+                        finalStatus[actorId].transformedTo = roomPlayers.find(p => p.id === targetId).roleName;
+                        infoResults.push(`- ${actor.roleName} (${actor.name}) đã biến thành ${finalStatus[actorId].transformedTo}.`);
                     }
                 }
             }
-            else if (actionKind === 'killdelay') {
+            else if (actionKind === 'killdelay'  && !liveStatuses[actorId]?.isDisabled) {
                 if (finalStatus[targetId]) {
                     finalStatus[targetId].markedForDelayKill = true;
                     infoResults.push(`- ${actor.roleName} (${actor.name}) đã nguyền rủa ${target.name}.`);
                 }
             }
-            else if (actionKind === 'gather') {
-                if (targetStatus) {
-                    targetStatus.gatheredBy = actorId;
-                }
+            else if (actionKind === 'gather'  && !liveStatuses[actorId]?.isDisabled) {
+                targetStatus.gatheredBy = actorId;
             }
-            else if (actionKind === 'noti') {
-                if (targetStatus) targetStatus.isNotified = true;
+            else if (actionKind === 'noti'  && !liveStatuses[actorId]?.isDisabled) {
+                targetStatus.isNotified = true;
                 if (!damageLinks[targetId]) {
                     damageLinks[targetId] = [];
                 }
@@ -575,7 +580,6 @@ document.addEventListener('DOMContentLoaded', () => {
             wrapper.appendChild(header);
 
             if (group.factions.includes('Bầy Sói')) {
-                // --- CẬP NHẬT 08/08/2025: Sử dụng hàm mới để render Bầy Sói ---
                 wrapper.appendChild(createWolfGroupRow(nightState, nightState.isFinished));
             }
             
@@ -687,7 +691,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isProtected) row.classList.add('status-protected');
             if (liveStatus.isSaved) row.classList.add('status-saved');
             if (liveStatus.isDead) row.classList.add('status-danger');
-            if (liveStatus.isDisabled && !playerState.isDisabled) row.classList.add('status-disabled-by-ability');
+            if (liveStatus.isDisabled) row.classList.add('status-disabled-by-ability'); // Cập nhật để dùng chung 1 class
         }
         if (playerState.isDisabled) row.classList.add('status-disabled');
 
@@ -698,7 +702,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isProtected) statusIconsHTML += '<i class="fas fa-shield-alt icon-protected" title="Được bảo vệ"></i>';
             if (liveStatus.isSaved) statusIconsHTML += '<i class="fas fa-plus-square icon-saved" title="Được cứu"></i>';
             if (liveStatus.isDead) statusIconsHTML += '<i class="fas fa-skull-crossbones icon-danger" title="Dự kiến chết"></i>';
-            if (liveStatus.isDisabled && !playerState.isDisabled) statusIconsHTML += '<i class="fas fa-exclamation-triangle icon-disabled-by-ability" title="Bị vô hiệu hóa bởi kỹ năng"></i>';
+            if (liveStatus.isDisabled) statusIconsHTML += '<i class="fas fa-exclamation-triangle icon-disabled-by-ability" title="Bị vô hiệu hóa"></i>';
+            if (liveStatus.armor > 1) statusIconsHTML += `<i class="fas fa-shield-alt icon-armor" title="Có ${liveStatus.armor - 1} giáp"></i>`;
         }
 
         row.innerHTML = `
@@ -719,22 +724,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return row;
     }
 
-    // --- CẬP NHẬT 08/08/2025: Hàm render Bầy Sói mới cho đồng bộ ---
     function createWolfGroupRow(nightState, isFinished) {
         const row = document.createElement('div');
         row.className = 'player-row';
         
-        const wolfBiteActions = (nightState.actions || []).filter(a => a.actorId === 'wolf_group');
-        let actionDisplayHTML = '';
-        if (wolfBiteActions.length > 0) {
-             actionDisplayHTML = wolfBiteActions.map(action => {
-                const target = roomPlayers.find(p => p.id === action.targetId);
-                return `<div class="action-display-item">
-                            <i class="fas fa-arrow-right"></i> Sói cắn <strong>${target?.name || ''}</strong>
-                            <button class="remove-action-btn" data-action-id="${action.id}">&times;</button>
-                        </div>`;
-            }).join('');
-        }
+        let actionDisplayHTML = buildActionList('wolf_group', nightState);
 
         row.innerHTML = `
             <div class="player-header">
@@ -760,7 +754,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const target = roomPlayers.find(p => p.id === action.targetId);
                     const actionConfig = ALL_ACTIONS[action.action];
                     const actionLabel = actionConfig?.label || action.action;
-                    // --- CẬP NHẬT 08/08/2025: Thêm nút X vào đây ---
                     html += `<div class="action-display-item">
                                 <i class="fas fa-arrow-right"></i> ${actionLabel} <strong>${target?.name || ''}</strong>
                                 <button class="remove-action-btn" data-action-id="${action.id}">&times;</button>
@@ -1058,7 +1051,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // --- CẬP NHẬT 08/08/2025: Thêm handler cho nút X ---
         if (target.matches('.remove-action-btn')) {
             const actionId = parseInt(target.dataset.actionId, 10);
             const nightState = nightStates[activeNightIndex];
@@ -1165,7 +1157,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button data-override="gm_save">Được cứu</button>
                         <button data-override="gm_protect">Được bảo vệ</button>
                         <button data-override="gm_add_armor">Được 1 giáp</button>
-                        <button data-override="disable">Bị vô hiệu hoá</button>
+                        <button data-override="gm_disable">Bị vô hiệu hoá</button>
                         <button data-override="change_faction">Chuyển phe</button>
                     </div>
                 </div>
@@ -1188,10 +1180,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!currentActorInModal) return;
             const nightState = nightStates[activeNightIndex];
             
-            const actionKey = (currentActorInModal.id === 'wolf_group') ? 'wolf_bite_group' : (KIND_TO_ACTION_MAP[currentActorInModal.kind.split('_')[0]]?.key);
+            const isWolfGroup = currentActorInModal.id === 'wolf_group';
+            const actionKey = isWolfGroup ? 'wolf_bite_group' : (KIND_TO_ACTION_MAP[currentActorInModal.kind.split('_')[0]]?.key);
             
-            // Xóa hành động cũ của actor VÀ có cùng actionKey
-            nightState.actions = nightState.actions.filter(a => !(a.actorId === currentActorInModal.id && a.action === actionKey));
+            // Xóa hành động cũ của actor VÀ có cùng actionKey, không xóa action của GM
+            nightState.actions = nightState.actions.filter(a => !(a.actorId === currentActorInModal.id && a.action === actionKey && !a.action.startsWith('gm_')));
 
             const checkedTargets = actionModal.querySelectorAll('#action-modal-targets input:checked');
             
@@ -1210,6 +1203,7 @@ document.addEventListener('DOMContentLoaded', () => {
             closeModal();
         });
 
+        // --- CẬP NHẬT 09/08/2025: Sửa lỗi click 2 lần và hợp nhất logic GM override ---
         actionModal.querySelector('#action-modal-gm-overrides').addEventListener('click', e => {
             if (e.target.tagName !== 'BUTTON' || !currentActorInModal) return;
             
@@ -1217,29 +1211,31 @@ document.addEventListener('DOMContentLoaded', () => {
             const nightState = nightStates[activeNightIndex];
             const targetId = currentActorInModal.id;
 
-            if (overrideAction === 'disable') {
-                nightState.playersStatus[targetId].isDisabled = !nightState.playersStatus[targetId].isDisabled;
-                saveNightNotes();
-            } else if (overrideAction === 'gm_add_armor') {
-                nightState.playersStatus[targetId].armor = (nightState.playersStatus[targetId].armor || 1) + 1;
-                saveNightNotes();
-            } else if (overrideAction === 'change_faction') {
+            if (overrideAction === 'change_faction') {
                 openFactionChangeModal(currentActorInModal);
-                return; // Không đóng modal chính vội
-            } else { 
-                nightState.actions.push({
+                return;
+            }
+
+            // Hợp nhất tất cả các hành động khác vào mảng actions
+            const existingActionIndex = nightState.actions.findIndex(a => a.action === overrideAction && a.actorId === targetId && a.targetId === targetId);
+
+            if (existingActionIndex > -1) {
+                // Nếu hành động đã tồn tại, xóa nó (toggle off)
+                nightState.actions.splice(existingActionIndex, 1);
+            } else {
+                // Nếu chưa, thêm nó vào (toggle on)
+                 nightState.actions.push({
                     id: nextActionId++,
                     actorId: targetId,
                     targetId: targetId,
                     action: overrideAction
                 });
-                saveNightNotes();
             }
+            saveNightNotes();
             closeModal();
         });
     }
 
-    // --- CẬP NHẬT 08/08/2025: Các hàm cho modal chọn phe ---
     function createFactionChangeModal() {
         if (document.getElementById('faction-change-modal-overlay')) return;
         const modal = document.createElement('div');
@@ -1281,11 +1277,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function openFactionChangeModal(actor) {
-        factionChangeModal.querySelector('#faction-change-title').textContent = `Chuyển phe cho ${actor.name}`;
-        factionChangeModal.classList.remove('hidden');
-    }
-
     function openActionModal(actor) {
         currentActorInModal = actor;
         const nightState = nightStates[activeNightIndex];
@@ -1321,7 +1312,6 @@ document.addEventListener('DOMContentLoaded', () => {
             playerActionSection.style.display = 'none';
         }
         
-        // Ẩn phần tác động GM cho Bầy Sói
         gmOverrideSection.style.display = isWolfGroup ? 'none' : 'block';
         
         actionModal.classList.remove('hidden');
@@ -1405,7 +1395,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.removeEventListener('click', handleEvents); 
         document.addEventListener('click', handleEvents);
         createActionModal();
-        createFactionChangeModal(); // Khởi tạo modal chọn phe
+        createFactionChangeModal();
     };
 
     const urlRoomId = new URLSearchParams(window.location.search).get('roomId');

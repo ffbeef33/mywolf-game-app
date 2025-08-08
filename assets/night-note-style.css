@@ -159,7 +159,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     color: var(--neutral-color);
     font-weight: 600;
 }
-/* --- CẬP NHẬT 08/08/2025: Thêm style cho nút X --- */
 .remove-action-btn {
     background-color: var(--danger-color);
     color: white;
@@ -238,6 +237,7 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .icon-saved { color: var(--safe-color); }
 .icon-danger { color: var(--danger-color); }
 .icon-disabled-by-ability { color: var(--disable-color); }
+.status-icons .icon-armor { color: var(--neutral-color); opacity: 0.8; }
 
 
 .night-tabs-container {
@@ -364,18 +364,16 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     border-color: #fff;
     filter: brightness(1.2);
 }
-/* --- CẬP NHẬT 08/08/2025: Cập nhật màu sắc nút bấm --- */
 .gm-override-grid button[data-override="gm_kill"] { background-color: #a62626; border-color: #f85149; }
 .gm-override-grid button[data-override="gm_save"] { background-color: #1a632f; border-color: #2ea043; }
 .gm-override-grid button[data-override="gm_protect"] { background-color: #1a4c8a; border-color: #58a6ff; }
 .gm-override-grid button[data-override="gm_add_armor"] { background-color: #8a8a1c; border-color: #d29922; }
-.gm-override-grid button[data-override="disable"] { background-color: #8a8a1c; border-color: #d29922; }
+.gm-override-grid button[data-override="gm_disable"] { background-color: #8a8a1c; border-color: #d29922; }
 .gm-override-grid button[data-override="change_faction"] { background-color: #8a4a1c; border-color: #ffa500; }
 
 
 .modal-buttons { margin-top: 20px; text-align: right; }
 
-/* --- CẬP NHẬT 08/08/2025: CSS cho modal chọn phe --- */
 .modal-content.faction-change-modal {
     max-width: 400px;
 }
