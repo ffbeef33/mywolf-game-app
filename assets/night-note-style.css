@@ -22,14 +22,6 @@
     --special-hover-color: #a371f7;
 
     /* Màu tương tác đêm */
-    --action-protect-bg: #1d3350;
-    --action-protect: #58a6ff;
-    --action-save-bg: #163d22;
-    --action-save: #2ecc71;
-    --action-disable-bg: #fff7c0;
-    --action-disable: #ffd33d;
-    --action-danger-bg: #3c1010;
-    --action-danger: #f85149;
     --status-protected-bg: rgba(88, 166, 255, 0.15);
     --status-saved-bg: rgba(46, 160, 67, 0.15);
     --status-danger-bg: rgba(248, 81, 73, 0.15);
@@ -126,7 +118,7 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 }
 .faction-header.faction-wolf { color: var(--danger-color); border-bottom-color: var(--danger-color); }
 
-/* --- CẢI TIẾN GIAO DIỆN LỚN: Player Row Styles --- */
+/* --- Player Row Styles --- */
 .player-row {
     display: flex; 
     flex-direction: column; 
@@ -138,8 +130,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .faction-group-wrapper .player-row:last-child {
     border-bottom: none;
 }
-.player-row.status-dead { opacity: 0.5; background-color: #111; }
-.player-row.status-dead .action-modal-btn { display: none; }
 
 .player-header {
     display: flex;
@@ -199,6 +189,28 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     border-color: var(--danger-color);
 }
 
+/* --- FIX: Phục hồi các chỉ báo trạng thái --- */
+.player-row.status-dead { opacity: 0.5; background-color: #111; }
+.player-row.status-dead .action-modal-btn { display: none; }
+.player-row.status-protected { background-color: var(--status-protected-bg); }
+.player-row.status-saved { background-color: var(--status-saved-bg); }
+.player-row.status-danger { background-color: var(--status-danger-bg); }
+.player-row.status-disabled { background-color: var(--status-disabled-bg); }
+.player-row.status-disabled-by-ability { background-color: var(--status-disabled-ability-bg); }
+
+.status-icons {
+    display: flex;
+    gap: 10px;
+    font-size: 1rem;
+    align-items: center;
+    margin-right: 10px;
+}
+.icon-protected { color: var(--protect-color); }
+.icon-saved { color: var(--safe-color); }
+.icon-danger { color: var(--danger-color); }
+.icon-disabled-by-ability { color: var(--disable-color); }
+
+
 .night-tabs-container {
     background-color: var(--secondary-bg); padding: 15px;
     border-radius: var(--border-radius); margin-bottom: 20px;
@@ -253,7 +265,7 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .wolf-bite-controls { padding: 10px; }
 
 
-/* --- CẢI TIẾN GIAO DIỆN LỚN: Modal Styles --- */
+/* --- Modal Styles --- */
 .modal-overlay {
     position: fixed;
     z-index: 1000;
@@ -282,7 +294,7 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     font-size: 28px; font-weight: bold; cursor: pointer;
 }
 
-/* --- ACTION MODAL --- */
+/* --- Action Modal --- */
 .modal-content.action-modal { max-width: 600px; background-color: #111; }
 #action-modal-title {
     margin-top: 0;
@@ -340,7 +352,7 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 
 .modal-buttons { margin-top: 20px; text-align: right; }
 
-/* --- VOTE MODULE --- */
+/* --- Vote Module --- */
 #voting-section {
     background-color: var(--secondary-bg);
     border: 1px solid var(--special-color);

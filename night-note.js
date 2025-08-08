@@ -25,7 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let voteChoicesListener = null;
     let rememberedVoteWeights = {};
 
-    // --- CẢI TIẾN GIAO DIỆN LỚN ---
     let actionModal, currentActorInModal = null;
 
 
@@ -95,7 +94,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return acc;
             }, {});
             ALL_ACTIONS['wolf_bite_group'] = { label: 'Sói cắn', type: 'damage' };
-            // Thêm các hành động GM vào để hiển thị tên cho đúng
             ALL_ACTIONS['gm_kill'] = { label: 'Bị sát thương (GM)', type: 'damage' };
             ALL_ACTIONS['gm_protect'] = { label: 'Được bảo vệ (GM)', type: 'defense' };
             ALL_ACTIONS['gm_save'] = { label: 'Được cứu (GM)', type: 'defense' };
@@ -690,7 +688,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     nightStates = [];
                     activeNightIndex = 0;
                     saveNightNotes();
-                    render();
                 }
             });
         }
@@ -698,18 +695,33 @@ document.addEventListener('DOMContentLoaded', () => {
         renderVotingModule();
     };
     
-    // --- CẢI TIẾN GIAO DIỆN LỚN: Hàm tạo Player Row được cập nhật ---
+    // --- FIX: Cập nhật hàm createPlayerRow để phục hồi các chỉ báo trạng thái ---
     function createPlayerRow(player, playerState, liveStatus, isFinished) {
         const row = document.createElement('div');
         row.className = 'player-row';
         row.dataset.playerId = player.id;
 
+        // Thêm các class trạng thái để hiển thị màu nền
         if (!playerState.isAlive) {
             row.classList.add('status-dead');
+        } else if (liveStatus) {
+            if (liveStatus.isProtected) row.classList.add('status-protected');
+            if (liveStatus.isSaved) row.classList.add('status-saved');
+            if (liveStatus.isDead) row.classList.add('status-danger');
+            if (liveStatus.isDisabled && !playerState.isDisabled) row.classList.add('status-disabled-by-ability');
         }
-        
+        if (playerState.isDisabled) row.classList.add('status-disabled');
+
         let actionDisplayHTML = buildActionList(player.id, nightStates[activeNightIndex]);
-        let statusIconHTML = `<div class="player-status-icon life ${playerState.isAlive ? 'alive' : 'dead'}" title="Sống/Chết"><i class="fas fa-heart"></i></div>`;
+        
+        // Tạo HTML cho các icon trạng thái
+        let statusIconsHTML = '';
+        if (liveStatus) {
+            if (liveStatus.isProtected) statusIconsHTML += '<i class="fas fa-shield-alt icon-protected" title="Được bảo vệ"></i>';
+            if (liveStatus.isSaved) statusIconsHTML += '<i class="fas fa-plus-square icon-saved" title="Được cứu"></i>';
+            if (liveStatus.isDead) statusIconsHTML += '<i class="fas fa-skull-crossbones icon-danger" title="Dự kiến chết"></i>';
+            if (liveStatus.isDisabled && !playerState.isDisabled) statusIconsHTML += '<i class="fas fa-exclamation-triangle icon-disabled-by-ability" title="Bị vô hiệu hóa bởi kỹ năng"></i>';
+        }
 
         row.innerHTML = `
             <div class="player-header">
@@ -719,8 +731,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="action-display-list">${actionDisplayHTML}</div>
                 </div>
                 <div class="player-controls">
-                    ${!isFinished ? `<button class="action-modal-btn" data-player-id="${player.id}">Hành động</button>` : ''}
-                    ${statusIconHTML}
+                    <div class="status-icons">${statusIconsHTML}</div>
+                    ${!isFinished && playerState.isAlive ? `<button class="action-modal-btn" data-player-id="${player.id}">Hành động</button>` : ''}
+                    <div class="player-status-icon life ${playerState.isAlive ? 'alive' : 'dead'}" title="Sống/Chết"><i class="fas fa-heart"></i></div>
                 </div>
             </div>
         `;
@@ -743,6 +756,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return html;
     }
+
 
     const renderNightTabs = () => {
         nightTabsContainer.innerHTML = '';
@@ -1018,7 +1032,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleEvents = (e) => {
         const target = e.target;
         
-        // --- CẢI TIẾN GIAO DIỆN LỚN: Xử lý sự kiện cho nút "Hành động" và các nút bên trong row ---
         if (target.matches('.action-modal-btn')) {
             const playerId = target.dataset.playerId;
             const actor = roomPlayers.find(p => p.id === playerId);
@@ -1125,7 +1138,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- CẢI TIẾN GIAO DIỆN LỚN: Các hàm cho Modal hành động mới ---
     function createActionModal() {
         if (document.getElementById('action-modal-overlay')) return;
 
@@ -1172,7 +1184,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!currentActorInModal) return;
             const nightState = nightStates[activeNightIndex];
             
-            // Lọc ra các hành động không phải của GM để chỉ xóa hành động của người chơi
             nightState.actions = nightState.actions.filter(a => a.actorId !== currentActorInModal.id || a.action.startsWith('gm_'));
 
             const checkedTargets = actionModal.querySelectorAll('#action-modal-targets input:checked');
@@ -1230,11 +1241,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- FIX: Cập nhật hàm openActionModal để lấy danh sách người chơi còn sống chính xác ---
     function openActionModal(actor) {
         currentActorInModal = actor;
         const nightState = nightStates[activeNightIndex];
-        const { finalStatus } = calculateNightStatus(nightState);
-        const livingPlayers = roomPlayers.filter(p => finalStatus[p.id]?.isAlive);
+        
+        // Lấy danh sách người chơi còn sống từ trạng thái ĐẦU ĐÊM, không phải kết quả dự kiến
+        const livingPlayers = roomPlayers.filter(p => nightState.playersStatus[p.id]?.isAlive);
 
         actionModal.querySelector('#action-modal-title').textContent = `Hành động: ${actor.name} (${actor.roleName})`;
         
