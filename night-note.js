@@ -95,9 +95,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 return acc;
             }, {});
             ALL_ACTIONS['wolf_bite_group'] = { label: 'Sói cắn', type: 'damage' };
-            ALL_ACTIONS['gm_kill'] = { label: 'Bị sát thương', type: 'damage' };
-            ALL_ACTIONS['gm_protect'] = { label: 'Được bảo vệ', type: 'defense' };
-            ALL_ACTIONS['gm_save'] = { label: 'Được cứu', type: 'defense' };
+            // Thêm các hành động GM vào để hiển thị tên cho đúng
+            ALL_ACTIONS['gm_kill'] = { label: 'Bị sát thương (GM)', type: 'damage' };
+            ALL_ACTIONS['gm_protect'] = { label: 'Được bảo vệ (GM)', type: 'defense' };
+            ALL_ACTIONS['gm_save'] = { label: 'Được cứu (GM)', type: 'defense' };
 
 
         } catch (error) {
@@ -131,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
             for (let i = 0; i < nightStates.length; i++) {
                 if (nightStates[i] && nightStates[i].actions) {
                     for (const action of nightStates[i].actions) {
-                        if (action.actorId === player.id && action.action !== 'wolf_bite_group') {
+                        if (action.actorId === player.id && action.action !== 'wolf_bite_group' && !action.action.startsWith('gm_')) {
                             timesUsed++;
                         }
                     }
@@ -173,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const infoResults = [];
 
         Object.keys(initialStatus).forEach(pId => {
-            if (initialStatus[pId].isAlive) {
+            if (initialStatus[pId] && initialStatus[pId].isAlive) {
                 liveStatuses[pId] = {
                     damage: 0, isProtected: false, isSaved: false,
                     isDisabled: initialStatus[pId].isDisabled || false,
@@ -204,14 +205,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const damageLinks = {};
 
         Object.keys(initialStatus).forEach(pId => {
-            if(initialStatus[pId].sacrificedBy) {
+            if(initialStatus[pId] && initialStatus[pId].sacrificedBy) {
                 damageRedirects[pId] = initialStatus[pId].sacrificedBy;
             }
         });
         
         actions.forEach(({ actorId, targetId, action }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
-            if (!actor || liveStatuses[actorId]?.isDisabled) return;
+            if (!actor || (liveStatuses[actorId] && liveStatuses[actorId].isDisabled)) return;
             const actionKind = ALL_ACTIONS[action]?.key || action;
             if (actionKind === 'countershield') {
                 counterShieldedTargets.add(targetId);
@@ -220,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         actions.forEach(({ actorId, targetId, action }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
-            if (!actor || liveStatuses[actorId]?.isDisabled) return;
+            if (!actor || (liveStatuses[actorId] && liveStatuses[actorId].isDisabled)) return;
             const target = roomPlayers.find(p => p.id === targetId);
             const targetStatus = liveStatuses[targetId];
             
@@ -295,15 +296,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const target = roomPlayers.find(p => p.id === targetId);
             const actionKind = ALL_ACTIONS[action]?.key || action;
 
-            if (actorId === 'wolf_group') {
+            if (actorId === 'wolf_group' || actionKind === 'gm_kill') {
                 const finalTargetId = damageRedirects[targetId] || targetId;
                 const targetStatus = liveStatuses[finalTargetId];
                 if (targetStatus) targetStatus.damage++;
                 return;
             }
-            if (!attacker || !target || liveStatuses[actorId]?.isDisabled) return;
+            if (!attacker || !target || (liveStatuses[actorId] && liveStatuses[actorId].isDisabled)) return;
             
-            const attackerHasKill = actionKind.includes('kill') || liveStatuses[actorId]?.tempStatus.hasKillAbility;
+            const attackerHasKill = actionKind.includes('kill') || (liveStatuses[actorId] && liveStatuses[actorId].tempStatus.hasKillAbility);
 
             if (attackerHasKill && actionKind !== 'killdelay') {
                 const finalTargetId = damageRedirects[targetId] || targetId;
@@ -328,14 +329,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(shouldDamage) finalTargetStatus.damage++;
                 
                 if (finalTarget.kind === 'counter') {
-                    if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
+                    if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
                 }
                 if (finalTargetId !== targetId) {
-                     if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
+                     if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
                 }
                 const ward = counterWards[finalTargetId];
                 if (ward && !ward.triggered) {
-                    if (liveStatuses[attackerId]) liveStatuses[attackerId].damage++;
+                    if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
                     ward.triggered = true;
                 }
             }
@@ -360,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
         killifActions.forEach(({ actorId, targetId }) => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             const target = roomPlayers.find(p => p.id === targetId);
-            if (!attacker || !target || liveStatuses[actorId]?.isDisabled) return;
+            if (!attacker || !target || (liveStatuses[actorId] && liveStatuses[actorId].isDisabled)) return;
             
             const finalTargetId = damageRedirects[targetId] || targetId;
             const targetStatus = liveStatuses[finalTargetId];
@@ -398,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         actions.forEach(({ actorId, targetId, action }) => {
              const actor = roomPlayers.find(p => p.id === actorId);
-             if (!actor || liveStatuses[actorId]?.isDisabled) return;
+             if (!actor || (liveStatuses[actorId] && liveStatuses[actorId].isDisabled)) return;
              
              const actionKind = ALL_ACTIONS[action]?.key || action;
              if (actionKind.includes('save') || actionKind === 'gm_save') {
@@ -487,7 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
             chainReactionOccurred = false;
             const newlyDead = [];
             roomPlayers.forEach(player => {
-                if (deadPlayerIdsThisNight.has(player.id) && finalStatus[player.id]?.deathLinkTarget) {
+                if (deadPlayerIdsThisNight.has(player.id) && finalStatus[player.id] && finalStatus[player.id].deathLinkTarget) {
                     const linkedTargetId = finalStatus[player.id].deathLinkTarget;
                     if (finalStatus[linkedTargetId] && finalStatus[linkedTargetId].isAlive) {
                         finalStatus[linkedTargetId].isAlive = false;
@@ -554,7 +555,7 @@ document.addEventListener('DOMContentLoaded', () => {
             nightState.factionChanges.forEach(change => {
                 const player = roomPlayers.find(p => p.id === change.playerId);
                 const playerName = player ? player.name : 'Người chơi không rõ';
-                infoResults.unshift(`- [GM] Đã chuyển phe của ${playerName} từ ${change.oldFaction} thành ${change.newFaction}.`);
+                infoResults.unshift(`- [GM] Đã chuyển phe của ${playerName} từ ${player ? player.faction : '?'} thành ${change.newFaction}.`);
             });
         }
 
@@ -696,19 +697,19 @@ document.addEventListener('DOMContentLoaded', () => {
         
         renderVotingModule();
     };
-
-    // --- CẢI TIẾN GIAO DIỆN LỚN: Hàm tạo Player Row được viết lại hoàn toàn ---
+    
+    // --- CẢI TIẾN GIAO DIỆN LỚN: Hàm tạo Player Row được cập nhật ---
     function createPlayerRow(player, playerState, liveStatus, isFinished) {
         const row = document.createElement('div');
         row.className = 'player-row';
         row.dataset.playerId = player.id;
 
-        if (!playerState.isAlive) row.classList.add('status-dead');
+        if (!playerState.isAlive) {
+            row.classList.add('status-dead');
+        }
         
-        const nightState = nightStates[activeNightIndex];
-        let actionDisplayHTML = buildActionList(player.id, nightState);
-        
-        let statusIconsHTML = `<div class="player-status-icon life ${playerState.isAlive ? 'alive' : 'dead'}" title="Trạng thái Sống/Chết"><i class="fas fa-heart"></i></div>`;
+        let actionDisplayHTML = buildActionList(player.id, nightStates[activeNightIndex]);
+        let statusIconHTML = `<div class="player-status-icon life ${playerState.isAlive ? 'alive' : 'dead'}" title="Sống/Chết"><i class="fas fa-heart"></i></div>`;
 
         row.innerHTML = `
             <div class="player-header">
@@ -718,8 +719,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="action-display-list">${actionDisplayHTML}</div>
                 </div>
                 <div class="player-controls">
-                    <button class="action-modal-btn" data-player-id="${player.id}">Hành động</button>
-                    ${statusIconsHTML}
+                    ${!isFinished ? `<button class="action-modal-btn" data-player-id="${player.id}">Hành động</button>` : ''}
+                    ${statusIconHTML}
                 </div>
             </div>
         `;
@@ -727,7 +728,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return row;
     }
     
-    // --- CẢI TIẾN GIAO DIỆN LỚN: Hàm build action list được sửa lại ---
     function buildActionList(playerId, nightState) {
         let html = '';
         if (nightState && Array.isArray(nightState.actions)) {
@@ -743,7 +743,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return html;
     }
-
 
     const renderNightTabs = () => {
         nightTabsContainer.innerHTML = '';
@@ -1019,7 +1018,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleEvents = (e) => {
         const target = e.target;
         
-        // --- CẢI TIẾN GIAO DIỆN LỚN: Xử lý sự kiện cho nút "Hành động" ---
+        // --- CẢI TIẾN GIAO DIỆN LỚN: Xử lý sự kiện cho nút "Hành động" và các nút bên trong row ---
         if (target.matches('.action-modal-btn')) {
             const playerId = target.dataset.playerId;
             const actor = roomPlayers.find(p => p.id === playerId);
@@ -1029,8 +1028,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-
         const nightState = nightStates[activeNightIndex];
+        if (target.closest('.player-status-icon.life')) {
+            const actorId = target.closest('.player-row').dataset.playerId;
+             if (nightState && !nightState.isFinished) {
+                 nightState.playersStatus[actorId].isAlive = !nightState.playersStatus[actorId].isAlive;
+                 saveNightNotes();
+             }
+            return;
+        }
+
 
         if (target.closest('#add-night-btn')) {
             const lastNight = nightStates[nightStates.length - 1];
@@ -1115,15 +1122,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 nightState.isFinished = true;
                 saveNightNotes();
             }
-        } else {
-            const row = target.closest('.player-row');
-            if (row && !nightState.isFinished) {
-                const actorId = row.dataset.playerId;
-                if (target.closest('.player-status-icon.life')) {
-                    nightState.playersStatus[actorId].isAlive = !nightState.playersStatus[actorId].isAlive;
-                    saveNightNotes();
-                } 
-            }
         }
     };
 
@@ -1174,7 +1172,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!currentActorInModal) return;
             const nightState = nightStates[activeNightIndex];
             
-            nightState.actions = nightState.actions.filter(a => a.actorId !== currentActorInModal.id);
+            // Lọc ra các hành động không phải của GM để chỉ xóa hành động của người chơi
+            nightState.actions = nightState.actions.filter(a => a.actorId !== currentActorInModal.id || a.action.startsWith('gm_'));
 
             const checkedTargets = actionModal.querySelectorAll('#action-modal-targets input:checked');
             const kinds = currentActorInModal.kind.split('_');
@@ -1245,7 +1244,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isActionAvailable(actor, activeNightIndex)) {
             playerActionSection.style.display = 'block';
-            const currentActions = (nightState.actions || []).filter(a => a.actorId === actor.id);
+            const currentActions = (nightState.actions || []).filter(a => a.actorId === actor.id && !a.action.startsWith('gm_'));
             const currentTargetIds = new Set(currentActions.map(a => a.targetId));
 
             livingPlayers.forEach(p => {
