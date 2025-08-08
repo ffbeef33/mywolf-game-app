@@ -20,12 +20,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let gmNoteArea, gmNoteBtn;
     let nightActionSummaryDiv;
     
-    // --- TÍCH HỢP MODULE VOTE: Thêm selectors cho module vote ---
     let votingSection, votePlayersList, startVoteBtn, endVoteBtn, voteResultsContainer, voteTimerInterval;
     let secretVoteWeights = {};
     let voteChoicesListener = null;
-
     let rememberedVoteWeights = {};
+
+    // --- CẢI TIẾN GIAO DIỆN LỚN ---
+    let actionModal, currentActorInModal = null;
 
 
     // --- Config ---
@@ -94,6 +95,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 return acc;
             }, {});
             ALL_ACTIONS['wolf_bite_group'] = { label: 'Sói cắn', type: 'damage' };
+            ALL_ACTIONS['gm_kill'] = { label: 'Bị sát thương', type: 'damage' };
+            ALL_ACTIONS['gm_protect'] = { label: 'Được bảo vệ', type: 'defense' };
+            ALL_ACTIONS['gm_save'] = { label: 'Được cứu', type: 'defense' };
+
 
         } catch (error) {
             console.error("Lỗi tải dữ liệu vai trò:", error);
@@ -167,7 +172,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const liveStatuses = {}; 
         const infoResults = [];
 
-        // --- Giai đoạn 0: Khởi tạo ---
         Object.keys(initialStatus).forEach(pId => {
             if (initialStatus[pId].isAlive) {
                 liveStatuses[pId] = {
@@ -194,7 +198,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // --- Giai đoạn 1: Các hiệu ứng thay đổi luồng & phòng thủ ưu tiên ---
         const damageRedirects = {}; 
         const counterWards = {};    
         const counterShieldedTargets = new Set();
@@ -224,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const actionKind = ALL_ACTIONS[action]?.key || action;
 
             if (actionKind === 'disable_action') { if(targetStatus) targetStatus.isDisabled = true; }
-            else if (actionKind === 'protect') {
+            else if (actionKind === 'protect' || actionKind === 'gm_protect') {
                 if(targetStatus && !counterShieldedTargets.has(targetId)) {
                     targetStatus.isProtected = true;
                 }
@@ -284,7 +287,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // --- Giai đoạn 2: Tấn công, Phản đòn & Kiểm tra ---
         const killifActions = actions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
         const otherActions = actions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) !== 'killif');
 
@@ -394,14 +396,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-
-        // --- Giai đoạn 3: Cứu ---
         actions.forEach(({ actorId, targetId, action }) => {
              const actor = roomPlayers.find(p => p.id === actorId);
              if (!actor || liveStatuses[actorId]?.isDisabled) return;
              
              const actionKind = ALL_ACTIONS[action]?.key || action;
-             if (actionKind.includes('save')) {
+             if (actionKind.includes('save') || actionKind === 'gm_save') {
                  const targetStatus = liveStatuses[targetId];
                  if (targetStatus) {
                     if (actor.kind === 'save_gather' && targetStatus.gatheredBy) {
@@ -418,7 +418,6 @@ document.addEventListener('DOMContentLoaded', () => {
              }
         });
 
-        // --- Giai đoạn 4: Tổng kết kết quả ---
         let deadPlayerIdsThisNight = new Set();
         const finalNightResolution = {};
 
@@ -453,8 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.keys(finalNightResolution).forEach(pId => {
             const res = finalNightResolution[pId];
             const player = roomPlayers.find(p => p.id === pId);
-            // --- SỬA LỖI 08/08/2025: Thêm kiểm tra an toàn trước khi truy cập `player` ---
-            if (!player) return; // Nếu người chơi không còn tồn tại trong phòng, bỏ qua
+            if (!player) return; 
 
             let finalDamage = res.effectiveDamage;
 
@@ -699,182 +697,53 @@ document.addEventListener('DOMContentLoaded', () => {
         renderVotingModule();
     };
 
+    // --- CẢI TIẾN GIAO DIỆN LỚN: Hàm tạo Player Row được viết lại hoàn toàn ---
     function createPlayerRow(player, playerState, liveStatus, isFinished) {
         const row = document.createElement('div');
         row.className = 'player-row';
         row.dataset.playerId = player.id;
 
-        if (!playerState.isAlive) {
-            row.classList.add('status-dead');
-        } else if (liveStatus) {
-            if (liveStatus.isProtected) row.classList.add('status-protected');
-            if (liveStatus.isSaved && !liveStatus.isProtected) row.classList.add('status-saved'); 
-            if (liveStatus.isDead) row.classList.add('status-danger'); 
-            if (liveStatus.isDisabled && !playerState.isDisabled) {
-                row.classList.add('status-disabled-by-ability');
-            }
-            if (liveStatus.isNotified) {
-                row.classList.add('status-notified');
-            }
-        }
-        
-        if (playerState.isDisabled) row.classList.add('status-disabled');
-
-        const factionSelectHTML = `<select class="player-faction-select" style="display:none;">${SELECTABLE_FACTIONS.map(f => `<option value="${f}"${player.faction===f?' selected':''}>${f}</option>`).join('')}</select>`;
-        const changeFactionBtnHTML = `<button class="change-faction-btn">Chuyển phe</button>`;
-
-        let optionsHTML = '';
-        if (isActionAvailable(player, activeNightIndex)) {
-            const kinds = player.kind.split('_');
-            optionsHTML += `<optgroup label="Hành động ${player.roleName}">`;
-            kinds.forEach(k => {
-                const actionInfo = KIND_TO_ACTION_MAP[k];
-                if (actionInfo) {
-                    optionsHTML += `<option value="${actionInfo.key}">${actionInfo.label}</option>`;
-                }
-            });
-            optionsHTML += `</optgroup>`;
-        }
-        
-        const showActionControls = playerState.isAlive && !isFinished && !playerState.isDisabled && optionsHTML.trim() !== '';
+        if (!playerState.isAlive) row.classList.add('status-dead');
         
         const nightState = nightStates[activeNightIndex];
-        const currentActions = nightState ? (nightState.actions || []).filter(a => a.actorId === player.id) : [];
-        const currentTargetNames = currentActions.map(action => {
-            const target = roomPlayers.find(p => p.id === action.targetId);
-            return target ? target.name : '';
-        }).filter(name => name).join(', ');
-
-        const actionControlsHTML = `
-            <div class="action-controls">
-                <select class="action-select"><option value="">-- Chọn hành động --</option>${optionsHTML}</select>
-                <button class="open-target-modal-btn">Chọn mục tiêu</button>
-                <span class="selected-targets">${currentTargetNames ? `Đã chọn: ${currentTargetNames}`: ''}</span>
-            </div>`;
-
-        let actionListHTML = buildActionList(player.id, nightStates[activeNightIndex]);
+        let actionDisplayHTML = buildActionList(player.id, nightState);
         
-        let statusIconsHTML = '<div class="status-icons">';
-        if (liveStatus) {
-            if (liveStatus.isProtected) {
-                statusIconsHTML += '<i class="fas fa-shield-alt icon-protected" title="Được bảo vệ"></i>';
-            }
-            if (liveStatus.isSaved) {
-                statusIconsHTML += '<i class="fas fa-heart icon-saved" title="Được cứu"></i>';
-            }
-            if (liveStatus.isDead) {
-                statusIconsHTML += '<i class="fas fa-skull-crossbones icon-danger" title="Dự kiến chết"></i>';
-            }
-            if (liveStatus.isDisabled && !playerState.isDisabled) {
-                statusIconsHTML += '<i class="fas fa-user-slash icon-disabled-by-ability" title="Bị vô hiệu hóa"></i>';
-            }
-             if (liveStatus.isNotified) {
-                statusIconsHTML += '<i class="fas fa-star icon-notified" title="Được đánh dấu"></i>';
-            }
-        }
-        statusIconsHTML += '</div>';
+        let statusIconsHTML = `<div class="player-status-icon life ${playerState.isAlive ? 'alive' : 'dead'}" title="Trạng thái Sống/Chết"><i class="fas fa-heart"></i></div>`;
 
         row.innerHTML = `
             <div class="player-header">
                 <div class="player-info">
                     <div class="player-name">${player.name}</div>
                     <div class="player-role">${player.roleName || 'Chưa có vai'} <span style="font-style:italic; opacity:0.8;">(${player.faction})</span></div>
-                    <div>${changeFactionBtnHTML}${factionSelectHTML}</div>
+                    <div class="action-display-list">${actionDisplayHTML}</div>
                 </div>
-                ${statusIconsHTML}
-                <div class="player-status-controls">
-                    <button class="status-btn life ${playerState.isAlive ? 'alive' : 'dead'}" title="Sống/Chết"><i class="fas fa-heart"></i></button>
-                    <button class="status-btn disable ${playerState.isDisabled ? 'disabled' : 'enabled'}" title="${playerState.isDisabled ? 'Bật lại chức năng' : 'Vô hiệu hóa'}"><i class="fas fa-user-slash"></i></button>
-                    ${playerState.isDisabled ? '<span class="disable-label">VÔ HIỆU</span>' : ''}
+                <div class="player-controls">
+                    <button class="action-modal-btn" data-player-id="${player.id}">Hành động</button>
+                    ${statusIconsHTML}
                 </div>
-                ${showActionControls ? actionControlsHTML : ''}
             </div>
-            <div class="action-list">${actionListHTML}</div>
         `;
-        
-        setTimeout(() => {
-            const changeFactionBtn = row.querySelector('.change-faction-btn');
-            const factionSelect = row.querySelector('.player-faction-select');
-            
-            if (changeFactionBtn) {
-                changeFactionBtn.onclick = function() {
-                    factionSelect.style.display = 'inline-block';
-                    changeFactionBtn.style.display = 'none';
-                    factionSelect.focus();
-                };
-            }
-            
-            if (factionSelect) {
-                const handleFactionChange = function() {
-                    const newFaction = factionSelect.value;
-                    const nightState = nightStates[activeNightIndex];
-                    
-                    if (!Array.isArray(nightState.factionChanges)) {
-                        nightState.factionChanges = [];
-                    }
-                    
-                    nightState.factionChanges = nightState.factionChanges.filter(c => c.playerId !== player.id);
-                    nightState.factionChanges.push({ playerId: player.id, oldFaction: player.faction, newFaction: newFaction });
-                    
-                    saveNightNotes();
-                };
-                factionSelect.onchange = handleFactionChange;
-                factionSelect.onblur = function() { 
-                    factionSelect.style.display = 'none';
-                    changeFactionBtn.style.display = 'inline-block';
-                };
-            }
-
-            row.querySelectorAll('.remove-action-btn').forEach(btn => {
-                btn.onclick = function(e) {
-                    const actionId = parseInt(btn.closest('.action-item').dataset.actionId, 10);
-                    const nightState = nightStates[activeNightIndex];
-                    const actionIndex = nightState.actions.findIndex(a => a.id === actionId);
-                    if (actionIndex > -1) {
-                        nightState.actions.splice(actionIndex, 1);
-                        saveNightNotes();
-                    }
-                    e.preventDefault();
-                    e.stopPropagation();
-                }
-            });
-
-            if (showActionControls && nightState && Array.isArray(nightState.actions)) {
-                const actionsTakenThisTurn = nightState.actions.filter(a => a.actorId === player.id).length;
-                const quantityLimit = player.quantity || 1;
-
-                if (actionsTakenThisTurn >= quantityLimit) {
-                    const openModalBtn = row.querySelector('.open-target-modal-btn');
-                    if(openModalBtn) openModalBtn.disabled = true;
-                }
-            }
-
-        }, 10);
         
         return row;
     }
     
+    // --- CẢI TIẾN GIAO DIỆN LỚN: Hàm build action list được sửa lại ---
     function buildActionList(playerId, nightState) {
         let html = '';
         if (nightState && Array.isArray(nightState.actions)) {
-            nightState.actions.forEach(action => {
-                if (action.actorId === playerId) {
+            const playerActions = nightState.actions.filter(action => action.actorId === playerId);
+            if(playerActions.length > 0){
+                playerActions.forEach(action => {
                     const target = roomPlayers.find(p => p.id === action.targetId);
                     const actionConfig = ALL_ACTIONS[action.action];
                     const actionLabel = actionConfig?.label || action.action;
-                    const actionType = actionConfig?.type || 'custom';
-                    html += `
-                        <div class="action-item" data-action-id="${action.id}">
-                            <i class="fas fa-arrow-right"></i>
-                            <span class="action-type-${actionType}">${actionLabel}</span>
-                            <span class="target-name">${target?.name || 'Không rõ'}</span>
-                            <button class="remove-action-btn" title="Xóa">&times;</button>
-                        </div>`;
-                }
-            });
+                    html += `<div class="action-display-item"><i class="fas fa-arrow-right"></i> ${actionLabel} <strong>${target?.name || ''}</strong></div>`;
+                });
+            }
         }
         return html;
     }
+
 
     const renderNightTabs = () => {
         nightTabsContainer.innerHTML = '';
@@ -1149,6 +1018,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const handleEvents = (e) => {
         const target = e.target;
+        
+        // --- CẢI TIẾN GIAO DIỆN LỚN: Xử lý sự kiện cho nút "Hành động" ---
+        if (target.matches('.action-modal-btn')) {
+            const playerId = target.dataset.playerId;
+            const actor = roomPlayers.find(p => p.id === playerId);
+            if (actor) {
+                openActionModal(actor);
+            }
+            return;
+        }
+
+
         const nightState = nightStates[activeNightIndex];
 
         if (target.closest('#add-night-btn')) {
@@ -1158,12 +1039,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             const prevStatus = lastNight ? calculateNightStatus(lastNight).finalStatus : Object.fromEntries(roomPlayers.map(p => {
-                const player = roomPlayers.find(rp => rp.id === p.id);
                 return [p.id, { 
                     isAlive: true, 
                     isDisabled: false, 
-                    armor: (player?.kind === 'armor1' ? 2 : 1),
-                    delayKillAvailable: (player?.kind === 'delaykill'),
+                    armor: (p.kind === 'armor1' ? 2 : 1),
+                    delayKillAvailable: (p.kind === 'delaykill'),
                     isDoomed: false,
                     deathLinkTarget: null,
                     sacrificedBy: null,
@@ -1198,19 +1078,6 @@ document.addEventListener('DOMContentLoaded', () => {
             activeNightIndex = parseInt(target.closest('.night-tab').dataset.index, 10);
             render();
         } 
-        else if (target.closest('.open-target-modal-btn')) {
-            const row = target.closest('.player-row');
-            const actorId = row.dataset.playerId;
-            const actor = roomPlayers.find(p => p.id === actorId);
-            const actionKey = row.querySelector('.action-select').value;
-
-            if (!actionKey) {
-                alert('Vui lòng chọn một hành động trước.');
-                return;
-            }
-
-            openTargetModal(actor, actionKey);
-        }
         else if (target.closest('.wolf-bite-group-btn')) {
             const wolfRow = target.closest('.wolf-bite-group-row');
             const select = wolfRow.querySelector('.wolf-bite-target-select');
@@ -1252,100 +1119,149 @@ document.addEventListener('DOMContentLoaded', () => {
             const row = target.closest('.player-row');
             if (row && !nightState.isFinished) {
                 const actorId = row.dataset.playerId;
-                if (target.closest('.status-btn.life')) {
+                if (target.closest('.player-status-icon.life')) {
                     nightState.playersStatus[actorId].isAlive = !nightState.playersStatus[actorId].isAlive;
                     saveNightNotes();
-                } else if (target.closest('.status-btn.disable')) {
-                    nightState.playersStatus[actorId].isDisabled = !nightState.playersStatus[actorId].isDisabled;
-                    saveNightNotes();
-                }
+                } 
             }
         }
     };
 
-    function createTargetModal() {
-        if (document.getElementById('target-modal-overlay')) return;
+    // --- CẢI TIẾN GIAO DIỆN LỚN: Các hàm cho Modal hành động mới ---
+    function createActionModal() {
+        if (document.getElementById('action-modal-overlay')) return;
 
-        const modalOverlay = document.createElement('div');
-        modalOverlay.id = 'target-modal-overlay';
-        modalOverlay.className = 'modal-overlay hidden';
+        const modal = document.createElement('div');
+        modal.id = 'action-modal-overlay';
+        modal.className = 'modal-overlay hidden';
+        modal.innerHTML = `
+            <div class="modal-content action-modal">
+                <span class="close-modal-btn">&times;</span>
+                <h3 id="action-modal-title">Hành động</h3>
+                
+                <div class="action-modal-section" id="player-action-section">
+                    <h4>Chọn mục tiêu</h4>
+                    <div id="action-modal-targets" class="target-grid"></div>
+                </div>
 
-        modalOverlay.innerHTML = `
-            <div class="modal-content">
-                <span id="close-target-modal-btn" class="close-modal-btn">&times;</span>
-                <h3 id="target-modal-title">Chọn mục tiêu</h3>
-                <p id="target-modal-limit"></p>
-                <div id="target-modal-list" class="target-list"></div>
+                <div class="action-modal-section">
+                    <h4>Tác động lên bản thân</h4>
+                    <div id="action-modal-gm-overrides" class="gm-override-grid">
+                        <button data-override="gm_kill">Bị sát thương</button>
+                        <button data-override="gm_save">Được cứu</button>
+                        <button data-override="gm_protect">Được bảo vệ</button>
+                        <button data-override="gm_add_armor">Được 1 giáp</button>
+                        <button data-override="disable">Bị vô hiệu hoá</button>
+                        <button data-override="change_faction">Chuyển phe</button>
+                    </div>
+                </div>
+
                 <div class="modal-buttons">
-                    <button id="confirm-targets-btn" class="btn-end-night">Xác nhận</button>
+                    <button id="action-modal-confirm" class="btn-primary">Xác Nhận</button>
                 </div>
             </div>
         `;
-        document.body.appendChild(modalOverlay);
+        document.body.appendChild(modal);
+        actionModal = modal;
 
-        const closeModal = () => modalOverlay.classList.add('hidden');
-        modalOverlay.onclick = (e) => { if (e.target === modalOverlay) closeModal(); };
-        document.getElementById('close-target-modal-btn').onclick = closeModal;
-    }
-
-    function openTargetModal(actor, actionKey) {
-        const modalOverlay = document.getElementById('target-modal-overlay');
-        const modalList = document.getElementById('target-modal-list');
-        const modalTitle = document.getElementById('target-modal-title');
-        const modalLimit = document.getElementById('target-modal-limit');
-        const confirmBtn = document.getElementById('confirm-targets-btn');
-
-        const quantityLimit = actor.quantity || 1;
-        modalTitle.textContent = `Chọn mục tiêu cho ${actor.roleName} (${actor.name})`;
-        modalLimit.textContent = `(Chọn tối đa: ${quantityLimit})`;
-
-        const nightState = nightStates[activeNightIndex];
-        const livingPlayers = roomPlayers.filter(p => nightState?.playersStatus[p.id]?.isAlive);
-        const currentTargetIds = new Set(
-            (nightState?.actions || [])
-                .filter(a => a.actorId === actor.id && a.action === actionKey)
-                .map(a => a.targetId)
-        );
-
-        modalList.innerHTML = '';
-        livingPlayers.forEach(player => {
-            const isChecked = currentTargetIds.has(player.id);
-            const item = document.createElement('div');
-            item.className = 'target-item';
-            item.innerHTML = `
-                <input type="checkbox" id="target-${player.id}" value="${player.id}" ${isChecked ? 'checked' : ''}>
-                <label for="target-${player.id}">${player.name}</label>
-            `;
-            modalList.appendChild(item);
+        const closeModal = () => actionModal.classList.add('hidden');
+        actionModal.querySelector('.close-modal-btn').addEventListener('click', closeModal);
+        actionModal.addEventListener('click', e => {
+            if (e.target === actionModal) closeModal();
         });
-        
-        modalList.onchange = () => {
-            const checkedCount = modalList.querySelectorAll('input:checked').length;
-            if (checkedCount >= quantityLimit) {
-                modalList.querySelectorAll('input:not(:checked)').forEach(cb => cb.disabled = true);
-            } else {
-                modalList.querySelectorAll('input:not(:checked)').forEach(cb => cb.disabled = false);
-            }
-        };
-        modalList.onchange();
 
-        confirmBtn.onclick = () => {
-            const selectedIds = Array.from(modalList.querySelectorAll('input:checked')).map(cb => cb.value);
+        actionModal.querySelector('#action-modal-confirm').addEventListener('click', () => {
+            if (!currentActorInModal) return;
+            const nightState = nightStates[activeNightIndex];
             
-            let actions = nightState.actions || [];
-            actions = actions.filter(a => !(a.actorId === actor.id && a.action === actionKey));
+            nightState.actions = nightState.actions.filter(a => a.actorId !== currentActorInModal.id);
 
-            selectedIds.forEach(targetId => {
-                actions.push({ id: nextActionId++, actorId: actor.id, action: actionKey, targetId });
-            });
-            nightState.actions = actions;
+            const checkedTargets = actionModal.querySelectorAll('#action-modal-targets input:checked');
+            const kinds = currentActorInModal.kind.split('_');
+            const primaryActionKey = KIND_TO_ACTION_MAP[kinds[0]]?.key;
+            
+            if (primaryActionKey) {
+                checkedTargets.forEach(checkbox => {
+                    nightState.actions.push({
+                        id: nextActionId++,
+                        actorId: currentActorInModal.id,
+                        targetId: checkbox.value,
+                        action: primaryActionKey
+                    });
+                });
+            }
 
             saveNightNotes();
-            render();
-            modalOverlay.classList.add('hidden');
-        };
+            closeModal();
+        });
 
-        modalOverlay.classList.remove('hidden');
+        actionModal.querySelector('#action-modal-gm-overrides').addEventListener('click', e => {
+            if (e.target.tagName !== 'BUTTON' || !currentActorInModal) return;
+            
+            const overrideAction = e.target.dataset.override;
+            const nightState = nightStates[activeNightIndex];
+            const targetId = currentActorInModal.id;
+
+            if (overrideAction === 'disable') {
+                nightState.playersStatus[targetId].isDisabled = !nightState.playersStatus[targetId].isDisabled;
+                saveNightNotes();
+            } else if (overrideAction === 'gm_add_armor') {
+                nightState.playersStatus[targetId].armor = (nightState.playersStatus[targetId].armor || 1) + 1;
+                saveNightNotes();
+            } else if (overrideAction === 'change_faction') {
+                const newFaction = prompt(`Chọn phe mới cho ${currentActorInModal.name}:`, currentActorInModal.faction);
+                if (newFaction && SELECTABLE_FACTIONS.includes(newFaction)) {
+                     if (!Array.isArray(nightState.factionChanges)) {
+                        nightState.factionChanges = [];
+                    }
+                    nightState.factionChanges = nightState.factionChanges.filter(c => c.playerId !== targetId);
+                    nightState.factionChanges.push({ playerId: targetId, oldFaction: currentActorInModal.faction, newFaction: newFaction });
+                    saveNightNotes();
+                }
+            } else { 
+                nightState.actions.push({
+                    id: nextActionId++,
+                    actorId: targetId,
+                    targetId: targetId,
+                    action: overrideAction
+                });
+                saveNightNotes();
+            }
+            closeModal();
+        });
+    }
+
+    function openActionModal(actor) {
+        currentActorInModal = actor;
+        const nightState = nightStates[activeNightIndex];
+        const { finalStatus } = calculateNightStatus(nightState);
+        const livingPlayers = roomPlayers.filter(p => finalStatus[p.id]?.isAlive);
+
+        actionModal.querySelector('#action-modal-title').textContent = `Hành động: ${actor.name} (${actor.roleName})`;
+        
+        const targetsContainer = actionModal.querySelector('#action-modal-targets');
+        targetsContainer.innerHTML = '';
+        const playerActionSection = actionModal.querySelector('#player-action-section');
+
+        if (isActionAvailable(actor, activeNightIndex)) {
+            playerActionSection.style.display = 'block';
+            const currentActions = (nightState.actions || []).filter(a => a.actorId === actor.id);
+            const currentTargetIds = new Set(currentActions.map(a => a.targetId));
+
+            livingPlayers.forEach(p => {
+                const isChecked = currentTargetIds.has(p.id);
+                targetsContainer.innerHTML += `
+                    <div class="target-item">
+                        <input type="checkbox" id="modal-target-${p.id}" value="${p.id}" ${isChecked ? 'checked' : ''}>
+                        <label for="modal-target-${p.id}">${p.name}</label>
+                    </div>
+                `;
+            });
+        } else {
+            playerActionSection.style.display = 'none';
+        }
+        
+        actionModal.classList.remove('hidden');
     }
 
     const initialize = async (_roomId) => {
@@ -1425,7 +1341,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.removeEventListener('click', handleEvents); 
         document.addEventListener('click', handleEvents);
-        createTargetModal();
+        createActionModal();
     };
 
     const urlRoomId = new URLSearchParams(window.location.search).get('roomId');
