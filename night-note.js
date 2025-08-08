@@ -27,9 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let actionModal, currentActorInModal = null;
     let factionChangeModal = null;
-    
-    // --- CẬP NHẬT 10/08/2025: Biến lưu thứ tự sắp xếp ---
-    let playerSortOrder = {};
+
+    // --- CẬP NHẬT MỚI: Elements cho Group Modal ---
+    let groupModal, groupModalTitle, groupNameInput, groupModalPlayers, groupModalConfirmBtn, currentGroupEditingPlayerId;
 
     // --- Config ---
     const FACTIONS = [ "Bầy Sói", "Phe Sói", "Phe Dân", "Phe trung lập", "Chức năng khác", "Chưa phân loại" ];
@@ -71,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- State ---
     let roomPlayers = [], allRolesData = {}, nightStates = [], activeNightIndex = 0, nextActionId = 0, roomId = null;
+    let customPlayerOrder = []; // CẬP NHẬT MỚI: Lưu thứ tự người chơi
 
     // --- Data Fetching ---
     const fetchAllRolesData = async () => {
@@ -114,6 +115,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (roomId) database.ref(`rooms/${roomId}/nightNotes`).set(nightStates);
     }
     
+    // CẬP NHẬT MỚI: Hàm lưu thứ tự người chơi
+    function savePlayerOrder() {
+        if (roomId) database.ref(`rooms/${roomId}/playerOrder`).set(customPlayerOrder);
+    }
+
     function isActionAvailable(player, currentNightIndex) {
         if (player.id === 'wolf_group') return true;
 
@@ -189,15 +195,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     deathLinkTarget: initialStatus[pId].deathLinkTarget || null,
                     gatheredBy: null,
                     markedForDelayKill: initialStatus[pId].markedForDelayKill || false,
-                    tempStatus: { hasKillAbility: false },
+                    tempStatus: {
+                        hasKillAbility: false,
+                    },
                     isSavedByKillif: false,
-                    isNotified: false
+                    isNotified: false,
+                    // CẬP NHẬT MỚI: Thêm groupId vào liveStatuses
+                    groupId: initialStatus[pId].groupId || null,
                 };
-                if (liveStatuses[pId].isDoomed) liveStatuses[pId].damage = 99;
-                if (liveStatuses[pId].markedForDelayKill) liveStatuses[pId].damage = 99;
+                if (liveStatuses[pId].isDoomed) {
+                    liveStatuses[pId].damage = 99;
+                }
+                if (liveStatuses[pId].markedForDelayKill) {
+                    liveStatuses[pId].damage = 99;
+                }
             }
         });
 
+        // Giai đoạn 1: Xử lý các hành động buff/debuff và phi sát thương
         const damageRedirects = {}; 
         const counterWards = {};    
         const counterShieldedTargets = new Set();
@@ -213,12 +228,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const actor = roomPlayers.find(p => p.id === actorId);
             if (!actor || (liveStatuses[actorId] && liveStatuses[actorId].isDisabled)) return;
             const actionKind = ALL_ACTIONS[action]?.key || action;
-            if (actionKind === 'countershield') counterShieldedTargets.add(targetId);
+            if (actionKind === 'countershield') {
+                counterShieldedTargets.add(targetId);
+            }
         });
 
         actions.forEach(({ actorId, targetId, action }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
-            if (!actor) return;
+            if (!actor) return; 
             
             const targetStatus = liveStatuses[targetId];
             if (!targetStatus) return;
@@ -230,8 +247,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (actionKind === 'gm_add_armor') {
                 targetStatus.armor++;
             }
-            else if ((actionKind === 'protect' || actionKind === 'gm_protect') && (!liveStatuses[actorId] || !liveStatuses[actorId].isDisabled)) {
-                if(!counterShieldedTargets.has(targetId)) targetStatus.isProtected = true;
+            else if ((actionKind === 'protect' || actionKind === 'gm_protect') && !liveStatuses[actorId]?.isDisabled) {
+                if(!counterShieldedTargets.has(targetId)) {
+                    targetStatus.isProtected = true;
+                }
             }
             else if (actionKind === 'sacrifice'  && !liveStatuses[actorId]?.isDisabled) { damageRedirects[targetId] = actorId; }
             else if (actionKind === 'checkcounter'  && !liveStatuses[actorId]?.isDisabled) { counterWards[targetId] = { actorId: actorId, triggered: false }; }
@@ -288,6 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const killifActions = actions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
         const otherActions = actions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) !== 'killif');
 
+        // Giai đoạn 2: Tính toán sát thương ban đầu (chưa áp dụng shield/save)
         otherActions.forEach(({ actorId, targetId, action }) => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             const target = roomPlayers.find(p => p.id === targetId);
@@ -295,7 +315,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (actorId === 'wolf_group' || actionKind === 'gm_kill') {
                 const finalTargetId = damageRedirects[targetId] || targetId;
-                if (liveStatuses[finalTargetId]) liveStatuses[finalTargetId].damage++;
+                const targetStatus = liveStatuses[finalTargetId];
+                if (targetStatus && !targetStatus.isProtected) targetStatus.damage++;
                 return;
             }
             if (!attacker || !target || (liveStatuses[actorId] && liveStatuses[actorId].isDisabled)) return;
@@ -307,36 +328,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 const finalTarget = roomPlayers.find(p => p.id === finalTargetId);
                 const finalTargetStatus = liveStatuses[finalTargetId];
                 
-                if (!finalTarget || !finalTargetStatus) return;
+                if (!finalTarget || !finalTargetStatus || finalTargetStatus.isProtected) return;
                 
                 let shouldDamage = true;
                 if(actionKind === 'killwolf' && !(finalTarget.faction === 'Bầy Sói' || finalTarget.faction === 'Phe Sói')){
                     shouldDamage = false;
                 }
                 if(actionKind === 'killvillager'){
-                    if(finalTarget.roleName === 'Dân') shouldDamage = true;
-                    else {
+                    if(finalTarget.roleName === 'Dân') {
+                        shouldDamage = true;
+                    } else {
                         shouldDamage = false;
-                        if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
+                        if (liveStatuses[actorId] && !liveStatuses[actorId].isProtected) liveStatuses[actorId].damage++;
                     }
                 }
                 
                 if(shouldDamage) finalTargetStatus.damage++;
                 
-                if (finalTarget.kind === 'counter') {
+                if (finalTarget.kind === 'counter' && !liveStatuses[attacker.id].isProtected) {
                     if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
                 }
-                if (finalTargetId !== targetId) {
+                if (finalTargetId !== targetId && !liveStatuses[attacker.id].isProtected) {
                      if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
                 }
                 const ward = counterWards[finalTargetId];
-                if (ward && !ward.triggered) {
+                if (ward && !ward.triggered && !liveStatuses[attacker.id].isProtected) {
                     if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
                     ward.triggered = true;
                 }
             }
             
-            if (actionKind === 'audit' && target) {
+            if (actionKind === 'audit') {
                 let isWolf = (target.faction === 'Bầy Sói' || target.faction === 'Phe Sói');
                 if (target.kind.includes('reverse') || target.kind.includes('counteraudit')) {
                     isWolf = !isWolf;
@@ -344,15 +366,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const result = isWolf ? "thuộc Phe Sói" : "KHÔNG thuộc Phe Sói";
                 infoResults.push(`- ${attacker.roleName} (${attacker.name}) soi ${target.name}: ${result}.`);
             }
-            if (actionKind === 'invest' && target) {
+            if (actionKind === 'invest') {
                 const result = (target.faction !== 'Phe Dân') ? "KHÔNG thuộc Phe Dân" : "thuộc Phe Dân";
                 infoResults.push(`- ${attacker.roleName} (${attacker.name}) điều tra ${target.name}: ${result}.`);
             }
-            if (actionKind === 'check' && target) {
+            if (actionKind === 'check') {
                 infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã kiểm tra ${target.name}.`);
             }
         });
-        
+
+        // Xử lý killif sau khi sát thương ban đầu được tính
         killifActions.forEach(({ actorId, targetId }) => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             const target = roomPlayers.find(p => p.id === targetId);
@@ -366,49 +389,63 @@ document.addEventListener('DOMContentLoaded', () => {
                     targetStatus.isSavedByKillif = true;
                     infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã CỨU ${target.name} (do mục tiêu đã bị tấn công).`);
                 } else {
-                    targetStatus.damage++;
+                    if(!targetStatus.isProtected) targetStatus.damage++;
                 }
             }
         });
-        
-        const groups = nightState.groups || {};
-        const groupDamage = {};
 
-        for (const groupName in groups) {
-            groupDamage[groupName] = 0;
-            let groupIsProtected = false;
-            const memberIds = groups[groupName];
+        // Giai đoạn 3: Lan truyền sát thương theo nhóm (CẬP NHẬT MỚI)
+        const damageGroups = nightState.damageGroups || {};
+        const groupTotalDamage = {};
 
-            memberIds.forEach(memberId => {
-                const memberStatus = liveStatuses[memberId];
-                if (memberStatus && memberStatus.damage > 0) {
-                    if (memberStatus.isProtected) {
-                        groupIsProtected = true;
-                        infoResults.push(`- Nhóm ${groupName} được bảo vệ vì ${roomPlayers.find(p=>p.id===memberId).name} có khiên.`);
-                    }
-                }
-            });
-            
-            if (!groupIsProtected) {
-                memberIds.forEach(memberId => {
-                    const memberStatus = liveStatuses[memberId];
-                    if (memberStatus && memberStatus.damage > 0) {
-                         groupDamage[groupName] += memberStatus.damage;
-                    }
-                });
-            }
-        }
-        for (const groupName in groups) {
-            if (groupDamage[groupName] > 0) {
-                 const memberIds = groups[groupName];
-                memberIds.forEach(memberId => {
+        // Tính tổng sát thương mà mỗi nhóm phải nhận
+        for (const groupId in damageGroups) {
+            groupTotalDamage[groupId] = 0;
+            const group = damageGroups[groupId];
+            if (group && group.members) {
+                group.members.forEach(memberId => {
                     if (liveStatuses[memberId]) {
-                        liveStatuses[memberId].damage = groupDamage[groupName];
+                        groupTotalDamage[groupId] += liveStatuses[memberId].damage;
                     }
                 });
             }
         }
-
+        
+        // Phân phối tổng sát thương của nhóm cho từng thành viên
+        for (const groupId in damageGroups) {
+            const group = damageGroups[groupId];
+            if (group && group.members) {
+                group.members.forEach(memberId => {
+                    if (liveStatuses[memberId]) {
+                        // Sát thương của người chơi = sát thương cá nhân + tổng sát thương của cả nhóm
+                        // Trừ đi sát thương cá nhân đã tính để tránh nhân đôi
+                        liveStatuses[memberId].damage += (groupTotalDamage[groupId] - liveStatuses[memberId].damage);
+                    }
+                });
+            }
+        }
+        
+        // Giai đoạn 4: Xử lý Tụ tập (gather) và Cứu (save)
+        const gatherGroups = {};
+        Object.keys(liveStatuses).forEach(pId => {
+            const status = liveStatuses[pId];
+            if(status.gatheredBy) {
+                if(!gatherGroups[status.gatheredBy]) {
+                    gatherGroups[status.gatheredBy] = [];
+                }
+                gatherGroups[status.gatheredBy].push(pId);
+            }
+        });
+        
+        Object.values(gatherGroups).forEach(group => {
+            let totalDamage = 0;
+            group.forEach(pId => {
+                totalDamage += liveStatuses[pId].damage;
+            });
+            group.forEach(pId => {
+                liveStatuses[pId].damage = totalDamage;
+            });
+        });
 
         actions.forEach(({ actorId, targetId, action }) => {
              const actor = roomPlayers.find(p => p.id === actorId);
@@ -418,25 +455,47 @@ document.addEventListener('DOMContentLoaded', () => {
              if (actionKind.includes('save') || actionKind === 'gm_save') {
                  const targetStatus = liveStatuses[targetId];
                  if (targetStatus) {
-                     targetStatus.isSaved = true;
+                    if (actor.kind === 'save_gather' && targetStatus.gatheredBy) {
+                        const groupToSave = gatherGroups[targetStatus.gatheredBy];
+                        if (groupToSave) {
+                            groupToSave.forEach(pId => {
+                                liveStatuses[pId].isSaved = true;
+                            });
+                        }
+                    } else {
+                        targetStatus.isSaved = true;
+                    }
                  }
              }
         });
 
+        // Giai đoạn 5: Tính toán kết quả cuối cùng
         let deadPlayerIdsThisNight = new Set();
         const finalNightResolution = {};
 
         Object.keys(liveStatuses).forEach(pId => {
             const status = liveStatuses[pId];
-            let initialEffectiveDamage = status.damage;
-            if (status.isProtected) {
-                initialEffectiveDamage = 0;
-            }
+            // effectiveDamage giờ chỉ là damage, vì isProtected đã được xét ở GĐ 2
             finalNightResolution[pId] = {
-                effectiveDamage: initialEffectiveDamage,
+                effectiveDamage: status.damage,
                 armor: status.armor,
                 isSaved: status.isSaved || status.isSavedByKillif
             };
+        });
+
+        Object.keys(damageLinks).forEach(sourceId => {
+            if (finalNightResolution[sourceId]) {
+                const damageToTransfer = finalNightResolution[sourceId].effectiveDamage;
+                if (damageToTransfer > 0) {
+                    const receivers = damageLinks[sourceId];
+                    receivers.forEach(receiverId => {
+                        if (finalNightResolution[receiverId]) {
+                            finalNightResolution[receiverId].effectiveDamage += damageToTransfer;
+                            infoResults.push(`- ${roomPlayers.find(p=>p.id===receiverId).name} nhận sát thương chung từ ${roomPlayers.find(p=>p.id===sourceId).name}.`);
+                        }
+                    });
+                }
+            }
         });
         
         Object.keys(finalNightResolution).forEach(pId => {
@@ -469,6 +528,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (liveStatuses[pId].deathLinkTarget) {
                     finalStatus[pId].deathLinkTarget = liveStatuses[pId].deathLinkTarget;
                 }
+                // CẬP NHẬT MỚI: Đảm bảo groupId được lưu lại cho đêm sau
+                if (liveStatuses[pId].groupId) {
+                    finalStatus[pId].groupId = liveStatuses[pId].groupId;
+                }
             }
         });
         
@@ -494,6 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return { liveStatuses, finalStatus, deadPlayerNames, infoResults };
     };
 
+
     function buildNightActionSummary(nightState) {
         if (!nightState || !Array.isArray(nightState.actions)) return "<em>Chưa có hành động nào trong đêm này.</em>";
         let result = "";
@@ -502,17 +566,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (wolfBiteActions.length) {
             const targets = wolfBiteActions.map(a => {
                 const p = roomPlayers.find(x => x.id === a.targetId);
-                return p ? `${p.name}` : "???";
+                return p ? `${p.name}${p.roleName ? " ("+p.roleName+")" : ""}` : "???";
             });
-            result += `<div class="night-action-summary-item"><strong>Bầy Sói</strong> chọn cắn: ${targets.join(', ')}</div>`;
+            result += `<div class="night-action-summary-item"><strong style="color:#f85149;">Bầy Sói</strong> chọn cắn: ${targets.join(', ')}</div>`;
         }
 
         nightState.actions.filter(a => a.action !== 'wolf_bite_group').forEach(({ action, targetId, actorId }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
             const target = roomPlayers.find(p => p.id === targetId);
             let actorName = actor ? actor.name : "???";
+            let actorRole = actor && actor.roleName ? actor.roleName : "";
             let targetName = target ? target.name : "???";
-            let text = `${actorName} chọn ${ALL_ACTIONS[action]?.label || action} ${targetName}`;
+            let targetRole = target && target.roleName ? target.roleName : "";
+            let text = `${actorName}${actorRole ? " ("+actorRole+")" : ""} chọn ${ALL_ACTIONS[action]?.label || action} ${targetName}${targetRole ? " ("+targetRole+")" : ""}`;
             result += `<div class="night-action-summary-item">${text}</div>`;
         });
 
@@ -520,11 +586,32 @@ document.addEventListener('DOMContentLoaded', () => {
             nightState.factionChanges.forEach(change => {
                 const player = roomPlayers.find(p => p.id === change.playerId);
                 const name = player ? player.name : "???";
-                result += `<div class="night-action-summary-item"><span style="color:#d29922;"><strong>${name}</strong> chuyển sang phe <strong>${change.newFaction}</strong></span></div>`;
+                const role = player ? (player.roleName || "") : "";
+                result += `<div class="night-action-summary-item"><span style="color:#d29922;"><strong>${name}${role ? " ("+role+")" : ""}</strong> chuyển sang phe <strong>${change.newFaction}</strong></span></div>`;
             });
         }
 
         return result || "<em>Chưa có hành động nào trong đêm này.</em>";
+    }
+
+    // --- CẬP NHẬT MỚI: Hàm khởi tạo kéo thả ---
+    function initializeSortable() {
+        const factionGroups = document.querySelectorAll('.faction-player-list');
+        factionGroups.forEach(groupEl => {
+            new Sortable(groupEl, {
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onEnd: function (evt) {
+                    const newOrderedIds = Array.from(evt.to.children).map(row => row.dataset.playerId);
+                    
+                    // Cập nhật lại mảng customPlayerOrder đầy đủ
+                    const allPlayerIdsInOrder = Array.from(interactionTable.querySelectorAll('.player-row')).map(row => row.dataset.playerId);
+                    
+                    customPlayerOrder = allPlayerIdsInOrder;
+                    savePlayerOrder(); // Lưu vào Firebase
+                }
+            });
+        });
     }
 
     // --- Rendering ---
@@ -537,15 +624,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const { liveStatuses, infoResults, deadPlayerNames } = calculateNightStatus(nightState);
 
-        const groups = nightState.groups || {};
-        const playerToGroupMap = {};
-        for(const groupName in groups) {
-            groups[groupName].forEach(playerId => {
-                playerToGroupMap[playerId] = groupName;
-            });
-        }
-
-
         if (nightState.factionChanges && Array.isArray(nightState.factionChanges)) {
             nightState.factionChanges.forEach(change => {
                 const player = roomPlayers.find(p => p.id === change.playerId);
@@ -553,21 +631,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 infoResults.unshift(`- [GM] Đã chuyển phe của ${playerName} từ ${player ? player.faction : '?'} thành ${change.newFaction}.`);
             });
         }
+        
+        // CẬP NHẬT MỚI: Sắp xếp lại roomPlayers theo customPlayerOrder nếu có
+        let sortedPlayers = [...roomPlayers];
+        if (customPlayerOrder && customPlayerOrder.length === roomPlayers.length) {
+            sortedPlayers.sort((a, b) => {
+                return customPlayerOrder.indexOf(a.id) - customPlayerOrder.indexOf(b.id);
+            });
+        }
 
         FACTION_GROUPS.forEach(group => {
-            let groupPlayers = roomPlayers.filter(p => group.factions.includes(p.faction));
-            if (groupPlayers.length === 0 && !group.factions.includes('Bầy Sói')) return;
+            const groupPlayers = sortedPlayers.filter(p => group.factions.includes(p.faction));
+            if (groupPlayers.length === 0) return;
             
-            const factionSortOrder = playerSortOrder[group.display];
-            if (factionSortOrder) {
-                groupPlayers.sort((a, b) => factionSortOrder.indexOf(a.id) - factionSortOrder.indexOf(b.id));
-            } else {
-                groupPlayers.sort((a, b) => a.name.localeCompare(b.name));
-            }
-
             const wrapper = document.createElement('div');
             wrapper.className = `faction-group-wrapper ${group.className || ''}`;
-            wrapper.dataset.faction = group.display;
 
             const header = document.createElement('div');
             header.className = `faction-header ${group.className || ''}`;
@@ -578,18 +656,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 wrapper.appendChild(createWolfGroupRow(nightState, nightState.isFinished));
             }
             
+            // CẬP NHẬT MỚI: Tạo một container để chứa danh sách người chơi cho SortableJS
+            const playerListContainer = document.createElement('div');
+            playerListContainer.className = 'faction-player-list'; // Class để SortableJS nhận diện
+
             groupPlayers.forEach(player => {
                 const playerState = nightState.playersStatus[player.id];
                 const lStatus = liveStatuses ? liveStatuses[player.id] : null;
-                const groupName = playerToGroupMap[player.id];
                 if (playerState) {
-                    wrapper.appendChild(createPlayerRow(player, playerState, lStatus, nightState.isFinished, groupName));
+                    playerListContainer.appendChild(createPlayerRow(player, playerState, lStatus, nightState.isFinished));
                 }
             });
 
+            wrapper.appendChild(playerListContainer);
             interactionTable.appendChild(wrapper);
         });
         
+        // CẬP NHẬT MỚI: Khởi tạo SortableJS sau khi render xong
+        initializeSortable();
+
         renderNightTabs();
         
         if (deadPlayerNames.length > 0) {
@@ -603,23 +688,77 @@ document.addEventListener('DOMContentLoaded', () => {
                     : '<p>Không có ai chết trong đêm nay.</p>';
         }
 
-        const votingPlaceholder = document.getElementById('voting-section-placeholder');
-        if (votingPlaceholder) {
-            if (!document.getElementById('voting-section')) {
-                 createVotingModuleStructure();
-            }
-            if(!votingPlaceholder.contains(document.getElementById('voting-section'))){
-                 votingPlaceholder.appendChild(document.getElementById('voting-section'));
+        let gmInfoLogDiv = document.getElementById('gm-info-log');
+        if (!gmInfoLogDiv) {
+            gmInfoLogDiv = document.createElement('div');
+            gmInfoLogDiv.id = 'gm-info-log';
+            gmInfoLogDiv.className = 'card';
+            nightResultsDiv.parentNode.insertBefore(gmInfoLogDiv, nightResultsDiv.nextSibling);
+        }
+        
+        if (infoResults && infoResults.length > 0) {
+            gmInfoLogDiv.style.display = 'block';
+            gmInfoLogDiv.innerHTML = `<h4>Kết quả kiểm tra đêm nay:</h4><ul>${infoResults.map(res => `<li>${res}</li>`).join('')}</ul>`;
+        } else {
+            gmInfoLogDiv.style.display = 'none';
+        }
+
+        if (!nightActionSummaryDiv) {
+            nightActionSummaryDiv = document.createElement('div');
+            nightActionSummaryDiv.id = "night-action-summary";
+            nightResultsDiv.parentNode.insertBefore(nightActionSummaryDiv, gmInfoLogDiv.nextSibling);
+        }
+        nightActionSummaryDiv.style.display = "block";
+        nightActionSummaryDiv.innerHTML = `<div style="font-weight:700; color:#58a6ff; margin-bottom:8px;">Tất cả hành động trong đêm:</div>${buildNightActionSummary(nightState)}`;
+
+        if (!gmNoteArea) {
+            gmNoteArea = document.createElement('textarea');
+            gmNoteArea.id = "gm-night-note";
+            gmNoteArea.rows = 2;
+            gmNoteArea.placeholder = "Ghi chú của quản trò cho đêm này...";
+            nightResultsDiv.parentNode.insertBefore(gmNoteArea, nightActionSummaryDiv.nextSibling);
+        }
+        if (!gmNoteBtn) {
+            gmNoteBtn = document.createElement('button');
+            gmNoteBtn.id = "save-gm-night-note-btn";
+            gmNoteBtn.textContent = "Lưu ghi chú đêm";
+            gmNoteBtn.className = "btn-end-night";
+            gmNoteBtn.onclick = function() {
+                nightStates[activeNightIndex].gmNote = gmNoteArea.value;
+                saveNightNotes();
+                gmNoteBtn.textContent = "Đã lưu!";
+                setTimeout(()=>gmNoteBtn.textContent="Lưu ghi chú đêm",1000);
             }
         }
+        gmNoteArea.style.display = "block";
+        gmNoteBtn.style.display = "inline-block";
+        gmNoteArea.value = nightState.gmNote || "";
+
+        let deleteBtn = document.getElementById('delete-nightnote-btn');
+        if (!deleteBtn) {
+            deleteBtn = document.createElement('button');
+            deleteBtn.id = "delete-nightnote-btn";
+            deleteBtn.className = "btn-danger";
+            deleteBtn.textContent = "Xóa Night Note";
+            deleteBtn.style.marginBottom = "10px";
+            interactionTable.parentNode.insertBefore(deleteBtn, interactionTable);
+            deleteBtn.addEventListener('click', function() {
+                if (confirm('Bạn có chắc chắn muốn xóa toàn bộ night note không?')) {
+                    nightStates = [];
+                    activeNightIndex = 0;
+                    saveNightNotes();
+                    database.ref(`rooms/${roomId}/playerOrder`).set(null); // Xóa luôn order
+                }
+            });
+        }
+        
         renderVotingModule();
-        initializeSortable();
     };
     
-    function createPlayerRow(player, playerState, liveStatus, isFinished, groupName) {
+    function createPlayerRow(player, playerState, liveStatus, isFinished) {
         const row = document.createElement('div');
         row.className = 'player-row';
-        row.dataset.playerId = player.id; 
+        row.dataset.playerId = player.id;
 
         if (!playerState.isAlive) {
             row.classList.add('status-dead');
@@ -627,7 +766,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isProtected) row.classList.add('status-protected');
             if (liveStatus.isSaved) row.classList.add('status-saved');
             if (liveStatus.isDead) row.classList.add('status-danger');
-            if (liveStatus.isDisabled) row.classList.add('status-disabled-by-ability'); 
+            if (liveStatus.isDisabled) row.classList.add('status-disabled-by-ability');
         }
         if (playerState.isDisabled) row.classList.add('status-disabled');
 
@@ -642,22 +781,30 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.armor > 1) statusIconsHTML += `<i class="fas fa-shield-alt icon-armor" title="Có ${liveStatus.armor - 1} giáp"></i>`;
         }
 
+        // CẬP NHẬT MỚI: Hiển thị tag nhóm
+        let groupTagHTML = '';
+        const nightState = nightStates[activeNightIndex];
+        if (playerState.groupId && nightState.damageGroups && nightState.damageGroups[playerState.groupId]) {
+            const groupName = nightState.damageGroups[playerState.groupId].name;
+            groupTagHTML = `<span class="player-group-tag" title="Nhóm: ${groupName}">${playerState.groupId}</span>`;
+        }
+
         row.innerHTML = `
             <div class="player-header">
-                 <div class="player-select">
-                    <input type="checkbox" class="player-select-checkbox" data-player-id="${player.id}">
-                 </div>
                 <div class="player-info">
-                    <div class="player-name">
-                        ${groupName ? `<span class="player-group-tag">${groupName}</span>` : ''}
-                        ${player.name}
+                    <div class="player-name-wrapper">
+                        ${groupTagHTML}
+                        <div class="player-name">${player.name}</div>
                     </div>
                     <div class="player-role">${player.roleName || 'Chưa có vai'} <span style="font-style:italic; opacity:0.8;">(${player.faction})</span></div>
                     <div class="action-display-list">${actionDisplayHTML}</div>
                 </div>
                 <div class="player-controls">
                     <div class="status-icons">${statusIconsHTML}</div>
-                    ${!isFinished && playerState.isAlive ? `<button class="action-modal-btn" data-player-id="${player.id}">Hành động</button>` : ''}
+                    ${!isFinished && playerState.isAlive ? `
+                        <button class="action-modal-btn" data-player-id="${player.id}">Hành động</button>
+                        <button class="action-modal-btn group-btn" data-player-id="${player.id}">Nhóm</button>
+                    ` : ''}
                     <div class="player-status-icon life ${playerState.isAlive ? 'alive' : 'dead'}" title="Sống/Chết"><i class="fas fa-heart"></i></div>
                 </div>
             </div>
@@ -665,19 +812,15 @@ document.addEventListener('DOMContentLoaded', () => {
         
         return row;
     }
-
+    
     function createWolfGroupRow(nightState, isFinished) {
         const row = document.createElement('div');
         row.className = 'player-row';
-        row.dataset.playerId = "wolf_group";
         
         let actionDisplayHTML = buildActionList('wolf_group', nightState);
 
         row.innerHTML = `
             <div class="player-header">
-                 <div class="player-select" style="visibility: hidden;">
-                    <input type="checkbox">
-                 </div>
                 <div class="player-info">
                     <div class="player-name">Hành Động Chung</div>
                     <div class="player-role">(Bầy Sói)</div>
@@ -710,31 +853,27 @@ document.addEventListener('DOMContentLoaded', () => {
         return html;
     }
 
-    function initializeSortable() {
-        const groups = interactionTable.querySelectorAll('.faction-group-wrapper');
-        groups.forEach(group => {
-            new Sortable(group, {
-                animation: 150,
-                ghostClass: 'sortable-ghost',
-                onEnd: (evt) => {
-                    const playerIdsInOrder = Array.from(evt.to.children)
-                        .map(el => el.dataset.playerId)
-                        .filter(id => id); 
-                    const faction = FACTION_GROUPS.find(fg => group.classList.contains(fg.className))?.display;
-                    if(faction) {
-                        playerSortOrder[faction] = playerIdsInOrder;
-                        render(); 
-                    }
-                }
-            });
+
+    const renderNightTabs = () => {
+        nightTabsContainer.innerHTML = '';
+        nightStates.forEach((_, index) => {
+            const tab = document.createElement('button');
+            tab.className = 'night-tab';
+            if (index === activeNightIndex) tab.classList.add('active');
+            tab.textContent = `Đêm ${index + 1}`;
+            tab.dataset.index = index;
+            nightTabsContainer.appendChild(tab);
         });
-    }
+    };
     
     function createVotingModuleStructure() {
         if (document.getElementById('voting-section')) return;
 
         const mainContainer = document.querySelector('.container');
-        if (!mainContainer) return;
+        if (!mainContainer) {
+            console.error("Lỗi nghiêm trọng: Không tìm thấy '.container' để chèn module vote.");
+            return;
+        }
 
         const votingModuleEl = document.createElement('div');
         votingModuleEl.id = 'voting-section';
@@ -755,16 +894,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div id="vote-results-details"></div>
             </div>
         `;
-        mainContainer.appendChild(votingModuleEl);
 
         startVoteBtn = votingModuleEl.querySelector('#start-vote-btn');
         endVoteBtn = votingModuleEl.querySelector('#end-vote-btn');
+        startVoteBtn.addEventListener('click', handleStartVote);
+        endVoteBtn.addEventListener('click', handleEndVote);
+        
         votingSection = votingModuleEl;
         votePlayersList = votingModuleEl.querySelector('#vote-players-list');
         voteResultsContainer = votingModuleEl.querySelector('#vote-results-container');
         
-        startVoteBtn.addEventListener('click', handleStartVote);
-        endVoteBtn.addEventListener('click', handleEndVote);
         votePlayersList.addEventListener('click', (e) => {
             if (e.target.classList.contains('weight-btn')) {
                 const playerId = e.target.dataset.playerId;
@@ -782,10 +921,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 rememberedVoteWeights[playerId] = currentValue;
             }
         });
+
+        mainContainer.appendChild(votingModuleEl);
     }
 
     function renderVotingModule() {
-        if (!document.getElementById('voting-section')) createVotingModuleStructure();
+        createVotingModuleStructure();
 
         const lastNight = nightStates[nightStates.length - 1];
         if (!lastNight || !votePlayersList) return;
@@ -983,12 +1124,17 @@ document.addEventListener('DOMContentLoaded', () => {
         voteResultsContainer.querySelector('#vote-results-summary').innerHTML = summaryHtml;
     }
 
-
     const handleEvents = (e) => {
         const target = e.target;
         
         if (target.matches('.action-modal-btn')) {
             const playerId = target.dataset.playerId;
+            // CẬP NHẬT MỚI: Phân biệt nút "Hành động" và "Nhóm"
+            if (target.classList.contains('group-btn')) {
+                openGroupModal(playerId);
+                return;
+            }
+
             const actor = (playerId === 'wolf_group') 
                 ? { id: 'wolf_group', name: 'Bầy Sói', roleName: 'Hành động chung', kind: 'kill', quantity: 99 } 
                 : roomPlayers.find(p => p.id === playerId);
@@ -1019,37 +1165,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (target.matches('#create-group-btn')) {
-            const selectedCheckboxes = interactionTable.querySelectorAll('.player-select-checkbox:checked');
-            if (selectedCheckboxes.length < 2) {
-                alert("Vui lòng chọn ít nhất 2 người chơi để tạo nhóm.");
-                return;
-            }
-            const groupName = prompt("Nhập tên cho nhóm (ví dụ: A, B, Tình nhân):");
-            if (groupName && groupName.trim() !== "") {
-                const memberIds = Array.from(selectedCheckboxes).map(cb => cb.dataset.playerId);
-                const nightState = nightStates[activeNightIndex];
-                if (!nightState.groups) {
-                    nightState.groups = {};
-                }
-                
-                for(const gName in nightState.groups) {
-                    nightState.groups[gName] = nightState.groups[gName].filter(id => !memberIds.includes(id));
-                    if(nightState.groups[gName].length === 0) {
-                        delete nightState.groups[gName];
-                    }
-                }
-
-                nightState.groups[groupName.trim()] = memberIds;
-                saveNightNotes();
-            }
-             selectedCheckboxes.forEach(cb => cb.checked = false); 
-            return;
-        }
-
 
         if (target.closest('#add-night-btn')) {
-             const lastNight = nightStates[nightStates.length - 1];
+            const lastNight = nightStates[nightStates.length - 1];
             if (lastNight && !lastNight.isFinished) {
                 alert(`Vui lòng kết thúc Đêm ${nightStates.length} trước khi thêm đêm mới.`);
                 return;
@@ -1064,7 +1182,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     deathLinkTarget: null,
                     sacrificedBy: null,
                     transformedTo: null,
-                    markedForDelayKill: false
+                    markedForDelayKill: false,
+                    groupId: null, // Thêm groupId
                 }];
             }));
             
@@ -1079,7 +1198,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 initialPlayersStatus: JSON.parse(JSON.stringify(initialStatusForNewNight)),
                 isFinished: false,
                 gmNote: "",
-                groups: lastNight ? JSON.parse(JSON.stringify(lastNight.groups || {})) : {} // Chuyển nhóm qua đêm mới
+                damageGroups: lastNight ? (lastNight.damageGroups || {}) : {} // Chuyển damageGroups sang đêm sau
             });
             activeNightIndex = nightStates.length - 1;
             saveNightNotes();
@@ -1100,8 +1219,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 nightState.actions = [];
                 nightState.isFinished = false;
                 nightState.factionChanges = [];
-                nightState.groups = {};
                 nightState.playersStatus = JSON.parse(JSON.stringify(nightState.initialPlayersStatus));
+                nightState.damageGroups = {}; // Reset cả nhóm
                 saveNightNotes();
             }
         } else if (target.closest('#end-night-btn')) {
@@ -1209,86 +1328,110 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function createFactionChangeModal() {
-        if (document.getElementById('faction-change-modal-overlay')) return;
-        const modal = document.createElement('div');
-        modal.id = 'faction-change-modal-overlay';
-        modal.className = 'modal-overlay hidden';
-        
-        let buttonsHTML = SELECTABLE_FACTIONS.map(faction => 
-            `<button class="faction-change-btn" data-faction="${faction}">${faction}</button>`
-        ).join('');
+    // --- CẬP NHẬT MỚI: Các hàm cho Group Modal ---
+    function createGroupModal() {
+        if (document.getElementById('group-modal-overlay')) return;
+        // Lấy modal từ HTML đã thêm ở trên
+        groupModal = document.getElementById('group-modal-overlay');
+        groupModalTitle = document.getElementById('group-modal-title');
+        groupNameInput = document.getElementById('group-name-input');
+        groupModalPlayers = document.getElementById('group-modal-players');
+        groupModalConfirmBtn = document.getElementById('group-modal-confirm');
 
-        modal.innerHTML = `
-            <div class="modal-content faction-change-modal">
-                <h4 id="faction-change-title">Chọn phe mới</h4>
-                <div class="faction-change-options">${buttonsHTML}</div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-        factionChangeModal = modal;
-
-        factionChangeModal.addEventListener('click', e => {
-            if (e.target === factionChangeModal) {
-                factionChangeModal.classList.add('hidden');
-            }
-            if (e.target.matches('.faction-change-btn')) {
-                const newFaction = e.target.dataset.faction;
-                const nightState = nightStates[activeNightIndex];
-                const targetId = currentActorInModal.id;
-
-                if (!Array.isArray(nightState.factionChanges)) {
-                    nightState.factionChanges = [];
-                }
-                nightState.factionChanges = nightState.factionChanges.filter(c => c.playerId !== targetId);
-                nightState.factionChanges.push({ playerId: targetId, oldFaction: currentActorInModal.faction, newFaction: newFaction });
-                saveNightNotes();
-                
-                factionChangeModal.classList.add('hidden');
-                actionModal.classList.add('hidden');
-            }
+        const closeModal = () => groupModal.classList.add('hidden');
+        groupModal.querySelector('.close-modal-btn').addEventListener('click', closeModal);
+        groupModal.addEventListener('click', (e) => {
+            if (e.target === groupModal) closeModal();
         });
+        
+        groupModalConfirmBtn.addEventListener('click', handleConfirmGroup);
     }
 
-    function openActionModal(actor) {
-        currentActorInModal = actor;
+    function openGroupModal(playerId) {
+        currentGroupEditingPlayerId = playerId;
         const nightState = nightStates[activeNightIndex];
+        const playerState = nightState.playersStatus[playerId];
+        const player = roomPlayers.find(p => p.id === playerId);
         
+        groupModalTitle.textContent = `Thiết lập nhóm cho ${player.name}`;
+        
+        const currentGroupId = playerState.groupId;
+        const currentGroup = (currentGroupId && nightState.damageGroups) ? nightState.damageGroups[currentGroupId] : null;
+
+        groupNameInput.value = currentGroupId || '';
+        
+        groupModalPlayers.innerHTML = '';
         const livingPlayers = roomPlayers.filter(p => nightState.playersStatus[p.id]?.isAlive);
-
-        actionModal.querySelector('#action-modal-title').textContent = `Hành động: ${actor.name} (${actor.roleName})`;
         
-        const targetsContainer = actionModal.querySelector('#action-modal-targets');
-        const playerActionSection = actionModal.querySelector('#player-action-section');
-        const gmOverrideSection = actionModal.querySelector('#gm-override-section');
-
-        const isWolfGroup = actor.id === 'wolf_group';
-
-        if (isWolfGroup || isActionAvailable(actor, activeNightIndex)) {
-            playerActionSection.style.display = 'block';
-            targetsContainer.innerHTML = '';
+        livingPlayers.forEach(p => {
+            let isChecked = false;
+            if (currentGroup && currentGroup.members.includes(p.id)) {
+                isChecked = true;
+            } else if (!currentGroup && p.id === playerId) {
+                // Nếu chưa có nhóm, mặc định chọn chính người chơi đang chỉnh sửa
+                isChecked = true;
+            }
             
-            const actionKey = isWolfGroup ? 'wolf_bite_group' : (KIND_TO_ACTION_MAP[actor.kind.split('_')[0]]?.key);
-            const currentActions = (nightState.actions || []).filter(a => a.actorId === actor.id && a.action === actionKey);
-            const currentTargetIds = new Set(currentActions.map(a => a.targetId));
+            groupModalPlayers.innerHTML += `
+                <div class="target-item">
+                    <input type="checkbox" id="modal-group-target-${p.id}" value="${p.id}" ${isChecked ? 'checked' : ''}>
+                    <label for="modal-group-target-${p.id}">${p.name}</label>
+                </div>
+            `;
+        });
 
-            livingPlayers.forEach(p => {
-                const isChecked = currentTargetIds.has(p.id);
-                targetsContainer.innerHTML += `
-                    <div class="target-item">
-                        <input type="checkbox" id="modal-target-${p.id}" value="${p.id}" ${isChecked ? 'checked' : ''}>
-                        <label for="modal-target-${p.id}">${p.name}</label>
-                    </div>
-                `;
+        groupModal.classList.remove('hidden');
+    }
+
+    function handleConfirmGroup() {
+        const nightState = nightStates[activeNightIndex];
+        const newGroupId = groupNameInput.value.trim().toUpperCase();
+        
+        const selectedPlayerIds = Array.from(groupModalPlayers.querySelectorAll('input:checked')).map(cb => cb.value);
+
+        // Xóa người chơi khỏi nhóm cũ của họ nếu có
+        const playerState = nightState.playersStatus[currentGroupEditingPlayerId];
+        const oldGroupId = playerState.groupId;
+        if (oldGroupId && nightState.damageGroups && nightState.damageGroups[oldGroupId]) {
+            // Xóa tất cả thành viên trong nhóm cũ để tạo lại
+            nightState.damageGroups[oldGroupId].members.forEach(memberId => {
+                if (nightState.playersStatus[memberId]) {
+                    nightState.playersStatus[memberId].groupId = null;
+                }
             });
-        } else {
-            playerActionSection.style.display = 'none';
+            delete nightState.damageGroups[oldGroupId];
         }
         
-        gmOverrideSection.style.display = isWolfGroup ? 'none' : 'block';
-        
-        actionModal.classList.remove('hidden');
+        // Nếu không nhập tên nhóm mới hoặc không chọn ai, coi như là xóa nhóm
+        if (!newGroupId || selectedPlayerIds.length <= 1) {
+            // Đảm bảo người chơi hiện tại cũng được xóa khỏi nhóm
+            if (playerState) playerState.groupId = null;
+            saveNightNotes();
+            groupModal.classList.add('hidden');
+            return;
+        }
+
+        // Tạo hoặc cập nhật nhóm mới
+        if (!nightState.damageGroups) {
+            nightState.damageGroups = {};
+        }
+
+        nightState.damageGroups[newGroupId] = {
+            name: newGroupId, // Tạm thời dùng ID làm tên
+            members: selectedPlayerIds
+        };
+
+        selectedPlayerIds.forEach(pId => {
+            if (nightState.playersStatus[pId]) {
+                nightState.playersStatus[pId].groupId = newGroupId;
+            }
+        });
+
+        saveNightNotes();
+        groupModal.classList.add('hidden');
     }
+
+    // --- Các hàm khởi tạo ---
 
     const initialize = async (_roomId) => {
         roomId = _roomId;
@@ -1302,6 +1445,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const playersData = roomData.players || {};
             nightStates = roomData.nightNotes || [];
+            customPlayerOrder = roomData.playerOrder || []; // CẬP NHẬT MỚI: Lấy thứ tự người chơi
 
             const basePlayers = Object.keys(playersData).map(key => {
                 const originalData = playersData[key];
@@ -1335,6 +1479,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 faction: finalFactions[p.id] || p.baseFaction
             }));
 
+            // CẬP NHẬT MỚI: Nếu chưa có custom order, tạo một order mặc định
+            if (customPlayerOrder.length !== roomPlayers.length) {
+                customPlayerOrder = roomPlayers.map(p => p.id);
+            }
 
             if (roomPlayers.length > 0 && nightStates.length === 0) {
                  const initialStatus = Object.fromEntries(roomPlayers.map(p => {
@@ -1346,7 +1494,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         isDoomed: false,
                         deathLinkTarget: null,
                         sacrificedBy: null,
-                        transformedTo: null
+                        transformedTo: null,
+                        groupId: null,
                     }];
                  }));
                  nightStates.push({
@@ -1354,7 +1503,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     playersStatus: initialStatus,
                     initialPlayersStatus: JSON.parse(JSON.stringify(initialStatus)),
                     isFinished: false,
-                    gmNote: ""
+                    gmNote: "",
+                    damageGroups: {}
                 });
                 activeNightIndex = 0;
                 saveNightNotes();
@@ -1369,6 +1519,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('click', handleEvents);
         createActionModal();
         createFactionChangeModal();
+        createGroupModal(); // CẬP NHẬT MỚI: Khởi tạo group modal
     };
 
     const urlRoomId = new URLSearchParams(window.location.search).get('roomId');
