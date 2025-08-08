@@ -453,6 +453,9 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.keys(finalNightResolution).forEach(pId => {
             const res = finalNightResolution[pId];
             const player = roomPlayers.find(p => p.id === pId);
+            // --- SỬA LỖI 08/08/2025: Thêm kiểm tra an toàn trước khi truy cập `player` ---
+            if (!player) return; // Nếu người chơi không còn tồn tại trong phòng, bỏ qua
+
             let finalDamage = res.effectiveDamage;
 
             if (finalDamage > 0 && res.armor > 1) {
@@ -801,7 +804,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             }
             
-            // --- CẬP NHẬT 07/08/2025: Sửa logic chuyển phe ---
             if (factionSelect) {
                 const handleFactionChange = function() {
                     const newFaction = factionSelect.value;
@@ -811,12 +813,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         nightState.factionChanges = [];
                     }
                     
-                    // Xóa thay đổi cũ của người chơi này trong đêm hiện tại (nếu có) và thêm thay đổi mới
                     nightState.factionChanges = nightState.factionChanges.filter(c => c.playerId !== player.id);
                     nightState.factionChanges.push({ playerId: player.id, oldFaction: player.faction, newFaction: newFaction });
                     
                     saveNightNotes();
-                    // Không cần gọi render() vì listener của Firebase sẽ tự động cập nhật UI
                 };
                 factionSelect.onchange = handleFactionChange;
                 factionSelect.onblur = function() { 
@@ -833,7 +833,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (actionIndex > -1) {
                         nightState.actions.splice(actionIndex, 1);
                         saveNightNotes();
-                        // Không cần gọi render() vì listener của Firebase sẽ tự động cập nhật UI
                     }
                     e.preventDefault();
                     e.stopPropagation();
@@ -889,8 +888,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
     
-    // --- TÍCH HỢP MODULE VOTE: Các hàm cho module vote ---
-
     function createVotingModuleStructure() {
         if (document.getElementById('voting-section')) return;
 
@@ -1189,7 +1186,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             activeNightIndex = nightStates.length - 1;
             saveNightNotes();
-            render();
             return;
         }
 
@@ -1230,7 +1226,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
             saveNightNotes();
-            render();
         }
         else if (target.closest('.wolf-bite-group-list .remove-action-btn')) {
             const actionId = parseInt(target.closest('.action-item').dataset.actionId, 10);
@@ -1244,7 +1239,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (confirm(`Bạn có chắc muốn làm mới mọi hành động và trạng thái Sống/Chết trong Đêm ${activeNightIndex + 1}?`)) {
                 nightState.actions = [];
                 nightState.isFinished = false;
-                // --- CẬP NHẬT 07/08/2025: Xóa luôn các thay đổi phe trong đêm ---
                 nightState.factionChanges = [];
                 nightState.playersStatus = JSON.parse(JSON.stringify(nightState.initialPlayersStatus));
                 saveNightNotes();
@@ -1354,7 +1348,6 @@ document.addEventListener('DOMContentLoaded', () => {
         modalOverlay.classList.remove('hidden');
     }
 
-    // --- CẬP NHẬT 07/08/2025: Sửa logic lắng nghe Firebase ---
     const initialize = async (_roomId) => {
         roomId = _roomId;
         roomIdDisplay.textContent = roomId;
@@ -1366,9 +1359,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if(!roomData) return;
 
             const playersData = roomData.players || {};
-            nightStates = roomData.nightNotes || []; // Lấy ghi chú đêm từ Firebase
+            nightStates = roomData.nightNotes || [];
 
-            // Xây dựng danh sách người chơi cơ bản
             const basePlayers = Object.keys(playersData).map(key => {
                 const originalData = playersData[key];
                 const roleName = (originalData.roleName || '').trim();
@@ -1377,15 +1369,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 return { 
                     id: key, 
                     ...originalData,
-                    baseFaction: roleInfo.faction, // Lưu phe gốc
-                    faction: roleInfo.faction, // Phe hiện tại, sẽ được tính toán lại
+                    baseFaction: roleInfo.faction, 
+                    faction: roleInfo.faction, 
                     activeRule: roleInfo.active,
                     kind: roleInfo.kind,
                     quantity: roleInfo.quantity
                 };
             });
             
-            // Tính toán lại phe hiện tại của người chơi dựa trên nightNotes
             const finalFactions = {};
             basePlayers.forEach(p => finalFactions[p.id] = p.baseFaction);
 
@@ -1403,7 +1394,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }));
 
 
-            // Logic khởi tạo night note nếu chưa có
             if (roomPlayers.length > 0 && nightStates.length === 0) {
                  const initialStatus = Object.fromEntries(roomPlayers.map(p => {
                     return [p.id, { 
@@ -1425,15 +1415,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     gmNote: ""
                 });
                 activeNightIndex = 0;
-                saveNightNotes(); // Lưu lại night note đầu tiên
+                saveNightNotes();
             } else {
-                 // Đảm bảo nextActionId luôn đúng
                 nextActionId = Math.max(0, ...nightStates.flatMap(n => n.actions || []).map(a => a.id)) + 1;
             }
 
             render();
         });
 
+        document.removeEventListener('click', handleEvents); 
         document.addEventListener('click', handleEvents);
         createTargetModal();
     };
