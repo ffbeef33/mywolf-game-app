@@ -217,7 +217,7 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     border-color: var(--danger-color);
 }
 
-/* --- FIX: Phục hồi các chỉ báo trạng thái --- */
+/* --- Trạng thái người chơi --- */
 .player-row.status-dead { opacity: 0.5; background-color: #111; }
 .player-row.status-dead .action-modal-btn { display: none; }
 .player-row.status-protected { background-color: var(--status-protected-bg); }
@@ -225,6 +225,23 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .player-row.status-danger { background-color: var(--status-danger-bg); }
 .player-row.status-disabled { background-color: var(--status-disabled-bg); }
 .player-row.status-disabled-by-ability { background-color: var(--status-disabled-ability-bg); }
+
+/* --- Hiệu ứng cho VÔ HIỆU HOÁ VĨNH VIỄN --- */
+.player-row.status-permanently-disabled {
+    background-image: repeating-linear-gradient(
+        -45deg,
+        var(--status-disabled-bg),
+        var(--status-disabled-bg) 10px,
+        rgba(0, 0, 0, 0.1) 10px,
+        rgba(0, 0, 0, 0.1) 20px
+    );
+}
+
+.player-row.status-permanently-disabled .player-name {
+    color: var(--disable-color);
+    text-decoration: line-through;
+}
+
 
 .status-icons {
     display: flex;
@@ -368,7 +385,8 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .gm-override-grid button[data-override="gm_save"] { background-color: #1a632f; border-color: #2ea043; }
 .gm-override-grid button[data-override="gm_protect"] { background-color: #1a4c8a; border-color: #58a6ff; }
 .gm-override-grid button[data-override="gm_add_armor"] { background-color: #8a8a1c; border-color: #d29922; }
-.gm-override-grid button[data-override="gm_disable"] { background-color: #8a8a1c; border-color: #d29922; }
+.gm-override-grid button[data-override="gm_disable_night"],
+.gm-override-grid button[data-override="gm_disable_perm"] { background-color: #8a8a1c; border-color: #d29922; }
 .gm-override-grid button[data-override="change_faction"] { background-color: #8a4a1c; border-color: #ffa500; }
 
 
@@ -527,19 +545,4 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     border-radius: 8px;
     font-size: 1rem;
     margin-bottom: 15px;
-}
-
-.player-row.status-permanently-disabled {
-    background-image: repeating-linear-gradient(
-        -45deg,
-        var(--status-disabled-bg),
-        var(--status-disabled-bg) 10px,
-        rgba(0, 0, 0, 0.1) 10px,
-        rgba(0, 0, 0, 0.1) 20px
-    );
-}
-
-.player-row.status-permanently-disabled .player-name {
-    color: var(--disable-color);
-    text-decoration: line-through;
 }

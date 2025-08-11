@@ -39,7 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
         { display: 'Phe trung lập', factions: ['Phe trung lập'], className: 'faction-neutral' },
         { display: 'Khác', factions: ['Chức năng khác', 'Chưa phân loại'], className: 'faction-other' }
     ];
-    // FIX: Cập nhật danh sách phe có thể chuyển
     const SELECTABLE_FACTIONS = [ "Bầy Sói", "Phe Sói", "Phe Dân", "Phe trung lập" ];
     
     const KIND_TO_ACTION_MAP = {
@@ -102,10 +101,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ALL_ACTIONS['gm_protect'] = { label: 'Được bảo vệ (GM)', type: 'defense' };
             ALL_ACTIONS['gm_save'] = { label: 'Được cứu (GM)', type: 'defense' };
             ALL_ACTIONS['gm_add_armor'] = { label: 'Được 1 giáp (GM)', type: 'buff' };
-            // FIX: Đổi tên action cũ và thêm action mới
             ALL_ACTIONS['gm_disable_night'] = { label: 'Bị vô hiệu hoá (1 Đêm)', type: 'debuff' };
             ALL_ACTIONS['gm_disable_perm'] = { label: 'Bị vô hiệu hoá (Vĩnh viễn)', type: 'debuff' };
-
 
         } catch (error) {
             console.error("Lỗi tải dữ liệu vai trò:", error);
@@ -172,7 +169,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (initialStatus[pId] && initialStatus[pId].isAlive) {
                 liveStatuses[pId] = {
                     damage: 0, isProtected: false, isSaved: false,
-                    // FIX: Kiểm tra cả trạng thái vĩnh viễn
                     isDisabled: initialStatus[pId].isDisabled || initialStatus[pId].isPermanentlyDisabled || false,
                     armor: initialStatus[pId].armor || 1,
                     isDoomed: initialStatus[pId].isDoomed || false,
@@ -227,8 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const actionKind = ALL_ACTIONS[action]?.key || action;
             
-            // FIX: Phân biệt vô hiệu hóa 1 đêm và các loại khác
-            if (actionKind === 'gm_disable_night' || (actionKind === 'disable_action' && !liveStatuses[actorId]?.isDisabled)) {
+            if (actionKind === 'disable_action' && !liveStatuses[actorId]?.isDisabled) {
                 targetStatus.isDisabled = true;
             } else if (actionKind === 'gm_add_armor') {
                 targetStatus.armor++;
@@ -508,7 +503,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (liveStatuses[pId].groupId) {
                     finalStatus[pId].groupId = liveStatuses[pId].groupId;
                 }
-                // FIX: Đảm bảo trạng thái Vô hiệu hóa vĩnh viễn được lưu lại
                 if (initialStatus[pId].isPermanentlyDisabled) {
                     finalStatus[pId].isPermanentlyDisabled = true;
                 }
@@ -748,7 +742,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isDisabled) row.classList.add('status-disabled-by-ability');
         }
         if (playerState.isDisabled) row.classList.add('status-disabled');
-        // FIX: Thêm class cho trạng thái vô hiệu hóa vĩnh viễn
         if (playerState.isPermanentlyDisabled) {
             row.classList.add('status-permanently-disabled');
         }
@@ -1165,7 +1158,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return [p.id, { 
                     isAlive: true, 
                     isDisabled: false, 
-                    isPermanentlyDisabled: false, // Thêm trạng thái mới
+                    isPermanentlyDisabled: false,
                     armor: (p.kind === 'armor1' ? 2 : 1),
                     delayKillAvailable: (p.kind === 'delaykill'),
                     isDoomed: false,
@@ -1177,7 +1170,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }];
             }));
             
-            // Khi qua đêm mới, chỉ reset isDisabled, không reset isPermanentlyDisabled
             Object.keys(prevStatus).forEach(pId => {
                 if(prevStatus[pId]) prevStatus[pId].isDisabled = false;
             });
@@ -1190,7 +1182,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 isFinished: false,
                 gmNote: "",
                 damageGroups: lastNight ? (lastNight.damageGroups || {}) : {},
-                factionChanges: [] // Thêm mảng factionChanges
+                factionChanges: []
             });
             activeNightIndex = nightStates.length - 1;
             saveNightNotes();
@@ -1213,7 +1205,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 nightState.factionChanges = [];
                 nightState.playersStatus = JSON.parse(JSON.stringify(nightState.initialPlayersStatus));
                 
-                // Khi reset, phe của người chơi cũng được reset
                 recalculateAllPlayerFactions();
                 
                 nightState.damageGroups = {};
@@ -1294,7 +1285,9 @@ document.addEventListener('DOMContentLoaded', () => {
             actionModal.classList.add('hidden');
         });
 
-        // FIX: Tách logic xử lý GM Override để fix lỗi 2 click
+        // =================================================================
+        // === START: SỬA LỖI LOGIC VÔ HIỆU HÓA ============================
+        // =================================================================
         actionModal.querySelector('#action-modal-gm-overrides').addEventListener('click', e => {
             if (e.target.tagName !== 'BUTTON' || !currentActorInModal) return;
             
@@ -1307,8 +1300,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Xử lý các trạng thái BẬT/TẮT
-            if (['gm_kill', 'gm_save', 'gm_protect', 'gm_add_armor', 'gm_disable_night'].includes(overrideAction)) {
+            // Xử lý các action BẬT/TẮT bằng cách thêm/xóa khỏi mảng actions
+            if (['gm_kill', 'gm_save', 'gm_protect', 'gm_add_armor'].includes(overrideAction)) {
                 const existingActionIndex = nightState.actions.findIndex(a => a.action === overrideAction && a.actorId === targetId && a.targetId === targetId);
                 if (existingActionIndex > -1) {
                     nightState.actions.splice(existingActionIndex, 1);
@@ -1318,7 +1311,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
             } 
-            // Xử lý trạng thái vĩnh viễn
+            // Xử lý Vô hiệu hóa 1 đêm bằng cách thay đổi trực tiếp trạng thái
+            else if (overrideAction === 'gm_disable_night') {
+                const playerStatus = nightState.playersStatus[targetId];
+                if (playerStatus) {
+                    // Toggle trạng thái vô hiệu hóa tạm thời (chỉ trong đêm nay)
+                    playerStatus.isDisabled = !playerStatus.isDisabled;
+                }
+            }
+            // Xử lý Vô hiệu hóa vĩnh viễn
             else if (overrideAction === 'gm_disable_perm') {
                 const playerStatus = nightState.playersStatus[targetId];
                 if (playerStatus) {
@@ -1326,10 +1327,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            // Cập nhật và render lại ngay lập tức
+            // Cập nhật và render lại ngay lập tức để thấy thay đổi
             render();
             saveNightNotes();
         });
+        // =================================================================
+        // === END: SỬA LỖI LOGIC VÔ HIỆU HÓA ==============================
+        // =================================================================
     }
 
     function handleConfirmGroup() {
@@ -1430,7 +1434,6 @@ document.addEventListener('DOMContentLoaded', () => {
         actionModal.classList.remove('hidden');
     }
 
-    // FIX: Hoàn thiện logic chuyển phe
     function createFactionChangeModal() {
         if (document.getElementById('faction-change-modal-overlay')) return;
         const modal = document.createElement('div');
@@ -1465,16 +1468,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!Array.isArray(nightState.factionChanges)) {
                     nightState.factionChanges = [];
                 }
-                // Xóa thay đổi cũ của người chơi này trong đêm nay (nếu có) và thêm thay đổi mới
                 nightState.factionChanges = nightState.factionChanges.filter(c => c.playerId !== targetId);
                 nightState.factionChanges.push({ playerId: targetId, newFaction: newFaction });
                 
-                // Cập nhật lại phe ngay lập tức trên giao diện
                 const playerInClient = roomPlayers.find(p => p.id === targetId);
                 if(playerInClient) playerInClient.faction = newFaction;
 
                 saveNightNotes();
-                render(); // Vẽ lại giao diện để hiển thị phe mới
+                render();
                 closeModal();
                 if (actionModal) actionModal.classList.add('hidden');
             }
@@ -1487,13 +1488,11 @@ document.addEventListener('DOMContentLoaded', () => {
         factionChangeModal.classList.remove('hidden');
     }
     
-    // Hàm mới để tính toán lại phe của tất cả người chơi
     function recalculateAllPlayerFactions() {
         const basePlayers = roomPlayers.map(p => ({...p, faction: p.baseFaction}));
         const finalFactions = {};
         basePlayers.forEach(p => finalFactions[p.id] = p.baseFaction);
 
-        // Duyệt qua tất cả các đêm TRƯỚC đêm hiện tại để áp dụng lại các thay đổi phe
         for(let i = 0; i < activeNightIndex; i++) {
             const night = nightStates[i];
             if (Array.isArray(night.factionChanges)) {
@@ -1503,7 +1502,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Áp dụng lại cho mảng roomPlayers
         roomPlayers.forEach(p => {
             p.faction = finalFactions[p.id] || p.baseFaction;
         });
@@ -1564,7 +1562,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return [p.id, { 
                         isAlive: p.isAlive, 
                         isDisabled: false,
-                        isPermanentlyDisabled: false, // Thêm trạng thái mới
+                        isPermanentlyDisabled: false,
                         armor: (p.kind === 'armor1') ? 2 : 1,
                         delayKillAvailable: (p.kind === 'delaykill'),
                         isDoomed: false,
@@ -1582,7 +1580,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     isFinished: false,
                     gmNote: "",
                     damageGroups: {},
-                    factionChanges: [] // Thêm mảng factionChanges
+                    factionChanges: []
                 });
                 activeNightIndex = 0;
                 saveNightNotes();
@@ -1607,7 +1605,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.innerHTML = '<h1>Lỗi: Không tìm thấy ID phòng trong URL.</h1>';
     }
 
-    // Các hàm không thay đổi giữ nguyên ở đây...
     function createGroupModal(){
         groupModal = document.getElementById('group-modal-overlay');
         if (!groupModal) return;
