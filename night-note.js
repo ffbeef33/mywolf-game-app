@@ -75,6 +75,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let customPlayerOrder = [];
 
     // --- Data Fetching ---
+    /**
+     * === HÀM ĐƯỢC CẬP NHẬT 1 ===
+     * Sửa lại logic đọc cột Quantity để xử lý giá trị 'n'.
+     */
     const fetchAllRolesData = async () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Roles`);
@@ -84,11 +88,23 @@ document.addEventListener('DOMContentLoaded', () => {
             allRolesData = rawData.reduce((acc, role) => {
                 const roleName = (role.RoleName || '').trim();
                 if (roleName) {
+                    // Logic mới để đọc Quantity
+                    const quantityRaw = (role.Quantity || '1').toString().trim().toLowerCase();
+                    let quantityValue;
+                    if (quantityRaw === 'n') {
+                        quantityValue = Infinity;
+                    } else {
+                        quantityValue = parseInt(quantityRaw, 10);
+                        if (isNaN(quantityValue)) {
+                            quantityValue = 1; // Mặc định là 1 nếu không phải số
+                        }
+                    }
+
                     acc[roleName] = {
                         faction: (role.Faction || 'Chưa phân loại').trim(),
                         active: (role.Active || '0').trim(),
                         kind: (role.Kind || 'empty').trim(),
-                        quantity: parseInt(role.Quantity, 10) || 1
+                        quantity: quantityValue
                     };
                 }
                 return acc;
@@ -120,16 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (roomId) database.ref(`rooms/${roomId}/playerOrder`).set(customPlayerOrder);
     }
 
-    /**
-     * === HÀM MỚI: KIỂM TRA HÀNH ĐỘNG CÓ SẴN THEO LOGIC MỚI ===
-     * Kiểm tra một hành động cụ thể có thể sử dụng trong đêm hiện tại không.
-     * @param {object} player - Đối tượng người chơi.
-     * @param {string} actionKey - Key của hành động (vd: 'save', 'kill').
-     * @param {number} currentNightIndex - Index của đêm hiện tại (bắt đầu từ 0).
-     * @returns {boolean} - True nếu hành động có sẵn.
-     */
     function isActionCurrentlyAvailable(player, actionKey, currentNightIndex) {
-        const rule = player.activeRule; // vd: '1_3', '1', 'n', 'n_2', '0'
+        const rule = player.activeRule;
         const nightNumber = currentNightIndex + 1;
 
         if (!rule || rule === '0' || player.kind === 'empty') {
@@ -137,39 +145,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const parts = rule.split('_');
-        const usesRule = parts[0]; // '1' hoặc 'n'
+        const usesRule = parts[0];
         const nightRule = parts.length > 1 ? parseInt(parts[1], 10) : null;
 
-        // 1. Kiểm tra điều kiện về đêm
         if (nightRule !== null) {
-            // Trường hợp '1_x': chỉ dùng 1 lần VÀO ĐÚNG đêm x
             if (usesRule === '1') {
-                if (nightNumber !== nightRule) {
-                    return false;
-                }
+                if (nightNumber !== nightRule) return false;
             }
-            // Trường hợp 'n_x': dùng nhiều lần KỂ TỪ đêm x
             else if (usesRule === 'n') {
-                if (nightNumber < nightRule) {
-                    return false;
-                }
+                if (nightNumber < nightRule) return false;
             }
         }
 
-        // 2. Kiểm tra giới hạn số lần sử dụng
-        // Trường hợp '1' hoặc '1_x': chỉ được dùng 1 lần duy nhất
         if (usesRule === '1') {
             let timesUsed = 0;
             for (const night of nightStates) {
                 if (night.actions) {
-                    // Đếm chính xác số lần hành động này đã được dùng
                     timesUsed += night.actions.filter(a => a.actorId === player.id && a.action === actionKey).length;
                 }
             }
-            return timesUsed === 0; // Có sẵn nếu chưa dùng lần nào
+            return timesUsed === 0;
         }
 
-        // Trường hợp 'n' or 'n_x': dùng được nhiều lần, đã qua kiểm tra đêm ở trên
         return true;
     }
 
@@ -588,7 +585,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const { liveStatuses, infoResults, deadPlayerNames } = calculateNightStatus(nightState);
         
-        // Cập nhật kết quả chết
         if (nightState.isFinished) {
             nightResultsDiv.innerHTML = deadPlayerNames.length > 0
                     ? `<strong>Đã chết:</strong> ${deadPlayerNames.map(name => `<span class="dead-player">${name}</span>`).join(', ')}`
@@ -599,14 +595,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 : '<p>Không có ai chết trong đêm nay.</p>';
         }
         
-        // Cập nhật ghi chú GM
         gmNoteArea.value = nightState.gmNote || "";
-        
-        // Cập nhật các log
         gmLogContent.innerHTML = buildGmActionLog(nightState);
         playerLogContent.innerHTML = buildPlayerActionLog(nightState, infoResults);
 
-        // Render bảng tương tác
         let sortedPlayers = [...roomPlayers];
         if (customPlayerOrder && customPlayerOrder.length > 0) {
              sortedPlayers.sort((a, b) => {
@@ -1065,7 +1057,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const actor = (playerId === 'wolf_group') 
-                ? { id: 'wolf_group', name: 'Bầy Sói', roleName: 'Hành động chung', kind: 'kill', quantity: 99, activeRule: 'n' } 
+                ? { id: 'wolf_group', name: 'Bầy Sói', roleName: 'Hành động chung', kind: 'kill', quantity: Infinity, activeRule: 'n' } 
                 : roomPlayers.find(p => p.id === playerId);
 
             if (actor) {
@@ -1164,6 +1156,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
+    /**
+     * === HÀM ĐƯỢC CẬP NHẬT 2 ===
+     * Thêm logic kiểm tra số lượng mục tiêu đã chọn.
+     */
     function renderTargetsForSelectedAction() {
         if (!currentActorInModal) return;
 
@@ -1179,7 +1175,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const actionKey = selectedActionButton ? selectedActionButton.dataset.actionKey : possibleActionKeys[0];
         
-        if (!actionKey) return;
+        if (!actionKey) {
+            targetsContainer.innerHTML = '<p>Hành động không hợp lệ.</p>';
+            return;
+        }
 
         const actionConfig = ALL_ACTIONS[actionKey];
         const hasMultipleChoices = actionModal.querySelector('#action-selection-section').style.display === 'block';
@@ -1201,8 +1200,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
         });
+
+        // Áp dụng giới hạn mục tiêu ngay khi render
+        const limit = currentActorInModal.quantity;
+        if (limit !== Infinity) {
+            const allCheckboxes = targetsContainer.querySelectorAll('input[type="checkbox"]');
+            if (currentTargetIds.size >= limit) {
+                allCheckboxes.forEach(cb => {
+                    if (!cb.checked) cb.disabled = true;
+                });
+            }
+        }
     }
 
+    /**
+     * === HÀM ĐƯỢC CẬP NHẬT 3 ===
+     * Thêm trình lắng nghe sự kiện để kiểm soát việc chọn mục tiêu.
+     */
     function createActionModal() {
         if (document.getElementById('action-modal-overlay')) return;
 
@@ -1255,6 +1269,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 Array.from(actionChoicesContainer.children).forEach(child => child.classList.remove('selected'));
                 e.target.classList.add('selected');
                 renderTargetsForSelectedAction(); 
+            }
+        });
+
+        // Trình lắng nghe sự kiện cho việc chọn mục tiêu
+        const targetsContainer = actionModal.querySelector('#action-modal-targets');
+        targetsContainer.addEventListener('change', (e) => {
+            if (e.target.type !== 'checkbox' || !currentActorInModal) return;
+
+            const limit = currentActorInModal.quantity;
+            if (limit === Infinity) return;
+
+            const allCheckboxes = targetsContainer.querySelectorAll('input[type="checkbox"]');
+            const checkedCheckboxes = targetsContainer.querySelectorAll('input[type="checkbox"]:checked');
+
+            if (checkedCheckboxes.length >= limit) {
+                allCheckboxes.forEach(cb => {
+                    if (!cb.checked) {
+                        cb.disabled = true;
+                    }
+                });
+            } else {
+                allCheckboxes.forEach(cb => {
+                    cb.disabled = false;
+                });
             }
         });
 
@@ -1390,10 +1428,6 @@ document.addEventListener('DOMContentLoaded', () => {
         groupModal.classList.add('hidden');
     }
     
-    /**
-     * === HÀM ĐƯỢC CẬP NHẬT CHÍNH ===
-     * Mở modal hành động và hiển thị các lựa chọn dựa trên logic mới.
-     */
     function openActionModal(actor) {
         currentActorInModal = actor;
         
@@ -1411,12 +1445,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         actionChoicesContainer.innerHTML = '';
 
-        // Lọc ra các hành động thực sự có sẵn để dùng trong đêm nay
         const currentlyAvailableActions = allPossibleActions.filter(action => {
             return isWolfGroup || isActionCurrentlyAvailable(actor, action.key, activeNightIndex);
         });
 
-        // Hiển thị các nút lựa chọn nếu có nhiều hơn 1 hành động tiềm năng
         if (allPossibleActions.length > 1) {
             actionSelectionSection.style.display = 'block';
             allPossibleActions.forEach(action => {
@@ -1425,7 +1457,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.dataset.actionKey = action.key;
                 if (action.type) btn.classList.add(`action-type-${action.type}`);
 
-                // Kiểm tra xem hành động này có nằm trong danh sách có sẵn không
                 const isAvailable = currentlyAvailableActions.some(a => a.key === action.key);
 
                 if (!isAvailable) {
@@ -1433,7 +1464,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     btn.title = "Không có sẵn hoặc đã sử dụng";
                 }
 
-                // Tự động chọn nút đầu tiên có sẵn
                 if (isAvailable && !actionChoicesContainer.querySelector('.selected')) {
                     btn.classList.add('selected');
                 }
@@ -1444,7 +1474,6 @@ document.addEventListener('DOMContentLoaded', () => {
             actionSelectionSection.style.display = 'none';
         }
 
-        // Hiển thị khu vực chọn mục tiêu nếu có ít nhất một hành động có thể dùng
         if (currentlyAvailableActions.length > 0) {
             playerActionSection.style.display = 'block';
             renderTargetsForSelectedAction();
