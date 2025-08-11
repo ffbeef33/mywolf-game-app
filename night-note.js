@@ -156,9 +156,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Logic ---
-    // =================================================================
-    // === START: SỬA LỖI LOGIC NHÓM SÁT THƯƠNG ========================
-    // =================================================================
     const calculateNightStatus = (nightState) => {
         if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [], infoResults: [] };
         
@@ -355,12 +352,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // ======================= LOGIC MỚI CHO SÁT THƯƠNG NHÓM =======================
         const damageGroups = nightState.damageGroups || {};
         const groupDamageTotals = {};
 
         // 1. Tính tổng sát thương cho mỗi nhóm dựa trên sát thương đã được tính ở các bước trên
-        // (Sát thương này đã loại trừ các trường hợp được bảo vệ - isProtected)
         for (const groupId in damageGroups) {
             groupDamageTotals[groupId] = 0;
             const group = damageGroups[groupId];
@@ -377,11 +372,17 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.keys(liveStatuses).forEach(pId => {
             const playerStatus = liveStatuses[pId];
             if (playerStatus.groupId && groupDamageTotals.hasOwnProperty(playerStatus.groupId)) {
-                // Gán thẳng tổng sát thương của nhóm cho người chơi
-                playerStatus.damage = groupDamageTotals[playerStatus.groupId];
+                const totalGroupDamage = groupDamageTotals[playerStatus.groupId];
+                
+                // *** FIX: CHỈ GÁN SÁT THƯƠNG NHÓM NẾU NGƯỜI CHƠI KHÔNG ĐƯỢC BẢO VỆ ***
+                // Nếu một thành viên trong nhóm được bảo vệ, họ sẽ không nhận thêm sát thương từ nhóm.
+                // Sát thương của họ vẫn là 0 (vì được bảo vệ ngay từ đầu),
+                // và họ không nhận thêm sát thương từ những người khác.
+                if (!playerStatus.isProtected) {
+                    playerStatus.damage = totalGroupDamage;
+                }
             }
         });
-        // ======================= KẾT THÚC LOGIC MỚI =======================
         
         const gatherGroups = {};
         Object.keys(liveStatuses).forEach(pId => {
@@ -496,9 +497,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         return { liveStatuses, finalStatus, deadPlayerNames, infoResults };
     };
-    // =================================================================
-    // === END: SỬA LỖI LOGIC NHÓM SÁT THƯƠNG ==========================
-    // =================================================================
     
     function buildNightActionSummary(nightState) {
         if (!nightState || !Array.isArray(nightState.actions)) return "<em>Chưa có hành động nào trong đêm này.</em>";
