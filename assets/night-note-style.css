@@ -528,3 +528,18 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     font-size: 1rem;
     margin-bottom: 15px;
 }
+
+.player-row.status-permanently-disabled {
+    background-image: repeating-linear-gradient(
+        -45deg,
+        var(--status-disabled-bg),
+        var(--status-disabled-bg) 10px,
+        rgba(0, 0, 0, 0.1) 10px,
+        rgba(0, 0, 0, 0.1) 20px
+    );
+}
+
+.player-row.status-permanently-disabled .player-name {
+    color: var(--disable-color);
+    text-decoration: line-through;
+}
