@@ -115,6 +115,7 @@ button {
     background-color: var(--button-bg); color: white;
     font-size: 1rem; font-weight: 700; cursor: pointer;
     transition: filter 0.2s, background-color 0.2s;
+    white-space: nowrap; /* Ngăn chữ trên nút xuống dòng */
 }
 button:hover { filter: brightness(1.1); }
 button.btn-primary { background-color: var(--text-color); color: var(--primary-bg); }
@@ -164,14 +165,13 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 }
 .faction-header.faction-wolf { color: var(--danger-color); border-bottom-color: var(--danger-color); }
 
+/* ============ START: UPDATED PLAYER ROW STYLES ============ */
 .player-row {
-    display: flex; 
-    flex-direction: column; 
-    align-items: flex-start;
     padding: 12px 10px; 
     border-bottom: 1px solid var(--border-color);
     transition: background-color 0.3s;
 }
+
 .faction-group-wrapper .player-row:last-child {
     border-bottom: none;
 }
@@ -179,27 +179,51 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .player-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: center; /* Quan trọng: Căn giữa các mục theo chiều dọc */
     width: 100%;
+    gap: 10px;
 }
-.player-info { flex-grow: 1; }
-.player-info .player-name { font-size: 1.2rem; font-weight: 700; color: var(--light-text); }
-.player-info .player-role { font-size: 0.9rem; opacity: 0.7; }
+
+.player-info {
+    flex-grow: 1; /* Cho phép phần thông tin chiếm hết không gian trống */
+    min-width: 0; /* Cần thiết để text-overflow hoạt động trong flexbox */
+}
+
+.player-info .player-name-wrapper,
+.player-info .player-role {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Hiển thị '...' nếu tên/vai trò quá dài */
+}
+
+.player-info .player-name { 
+    font-size: 1.2rem; 
+    font-weight: 700; 
+    color: var(--light-text); 
+}
+.player-info .player-role { 
+    font-size: 0.9rem; 
+    opacity: 0.7; 
+}
 
 .action-display-list {
-    margin-top: 8px;
-    padding-left: 10px;
+    margin-top: 5px;
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
+
 .action-display-item {
     font-size: 0.95rem;
     color: var(--light-text);
     display: flex;
     align-items: center;
     gap: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
+
 .action-display-item strong {
     color: var(--neutral-color);
     font-weight: 600;
@@ -217,19 +241,26 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     cursor: pointer;
     opacity: 0.7;
     transition: opacity 0.2s;
+    flex-shrink: 0;
 }
 .action-display-item:hover .remove-action-btn {
     opacity: 1;
 }
 
+.player-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0; /* Ngăn không cho khu vực nút bị co lại */
+}
 
-.player-controls { display: flex; align-items: center; gap: 10px; }
 .action-modal-btn {
-    background-color: var(--special-color);
     padding: 6px 12px;
     font-size: 0.9rem;
 }
-.action-modal-btn:hover { background-color: var(--special-hover-color); }
+
+/* ============= END: UPDATED PLAYER ROW STYLES ============= */
+
 .action-modal-btn.wolf-bite-btn {
     background-color: var(--danger-color);
 }
@@ -249,6 +280,7 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     border: 2px solid;
     cursor: pointer;
     transition: all 0.2s;
+    flex-shrink: 0;
 }
 .player-status-icon:hover {
     transform: scale(1.1);
