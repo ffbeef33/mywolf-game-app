@@ -656,3 +656,35 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     opacity: 0.5;
     font-style: italic;
 }
+
+/* === CSS CHO NÚT CHỌN HÀNH ĐỘNG TRONG MODAL === */
+#action-modal-choices {
+    justify-content: center;
+}
+
+#action-modal-choices button {
+    background-color: #30363d;
+    border: 1px solid #484f58;
+    transition: all 0.2s ease;
+}
+
+#action-modal-choices button:hover {
+    filter: brightness(1.2);
+}
+
+/* Style cho nút hành động đang được chọn */
+#action-modal-choices button.selected {
+    border-color: var(--special-color);
+    background-color: var(--special-color);
+    color: white;
+    transform: scale(1.05);
+    box-shadow: 0 0 10px var(--special-color);
+}
+
+/* Style theo loại hành động (tùy chọn nhưng nên có) */
+#action-modal-choices button.action-type-damage { background-color: #a62626; border-color: #f85149; }
+#action-modal-choices button.action-type-defense { background-color: #1a632f; border-color: #2ea043; }
+#action-modal-choices button.action-type-info { background-color: #1a4c8a; border-color: #58a6ff; }
+#action-modal-choices button.action-type-debuff { background-color: #8a8a1c; border-color: #d29922; }
+#action-modal-choices button.action-type-buff { background-color: var(--special-color); border-color: var(--special-hover-color); }
+#action-modal-choices button.action-type-conditional { background-color: #8a4a1c; border-color: #ffa500; }

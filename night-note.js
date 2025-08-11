@@ -1151,7 +1151,48 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     };
+    
+    // ============= NEW FUNCTION =============
+    function renderTargetsForSelectedAction() {
+        if (!currentActorInModal) return;
 
+        const nightState = nightStates[activeNightIndex];
+        const livingPlayers = roomPlayers.filter(p => nightState.playersStatus[p.id]?.isAlive);
+        const playerActionTitle = actionModal.querySelector('#player-action-section-title');
+        const targetsContainer = actionModal.querySelector('#action-modal-targets');
+        
+        const selectedActionButton = actionModal.querySelector('#action-modal-choices button.selected');
+        const possibleActionKeys = currentActorInModal.id === 'wolf_group' 
+            ? ['wolf_bite_group'] 
+            : currentActorInModal.kind.split('_').map(k => KIND_TO_ACTION_MAP[k]?.key).filter(Boolean);
+        
+        const actionKey = selectedActionButton ? selectedActionButton.dataset.actionKey : possibleActionKeys[0];
+        
+        if (!actionKey) return;
+
+        const actionConfig = ALL_ACTIONS[actionKey];
+        const hasMultipleChoices = actionModal.querySelector('#action-selection-section').style.display === 'block';
+
+        playerActionTitle.textContent = hasMultipleChoices
+            ? `Chọn mục tiêu cho "${actionConfig.label}"`
+            : 'Chọn mục tiêu';
+
+        targetsContainer.innerHTML = '';
+        const currentActions = (nightState.actions || []).filter(a => a.actorId === currentActorInModal.id && a.action === actionKey);
+        const currentTargetIds = new Set(currentActions.map(a => a.targetId));
+
+        livingPlayers.forEach(p => {
+            const isChecked = currentTargetIds.has(p.id);
+            targetsContainer.innerHTML += `
+                <div class="target-item">
+                    <input type="checkbox" id="modal-target-${p.id}" value="${p.id}" ${isChecked ? 'checked' : ''}>
+                    <label for="modal-target-${p.id}">${p.name}</label>
+                </div>
+            `;
+        });
+    }
+
+    // ============= MODIFIED FUNCTION =============
     function createActionModal() {
         if (document.getElementById('action-modal-overlay')) return;
 
@@ -1163,8 +1204,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span class="close-modal-btn">&times;</span>
                 <h3 id="action-modal-title">Hành động</h3>
                 
+                <div class="action-modal-section" id="action-selection-section" style="display: none;">
+                    <h4>Chọn hành động</h4>
+                    <div id="action-modal-choices" class="gm-override-grid"></div>
+                </div>
+
                 <div class="action-modal-section" id="player-action-section">
-                    <h4>Chọn mục tiêu</h4>
+                    <h4 id="player-action-section-title">Chọn mục tiêu</h4>
                     <div id="action-modal-targets" class="target-grid"></div>
                 </div>
 
@@ -1193,19 +1239,35 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target === actionModal) actionModal.classList.add('hidden');
         });
 
+        // Listener for action choice buttons
+        const actionChoicesContainer = actionModal.querySelector('#action-modal-choices');
+        actionChoicesContainer.addEventListener('click', e => {
+            if (e.target.tagName === 'BUTTON' && currentActorInModal) {
+                Array.from(actionChoicesContainer.children).forEach(child => child.classList.remove('selected'));
+                e.target.classList.add('selected');
+                renderTargetsForSelectedAction(); 
+            }
+        });
+
         actionModal.querySelector('#action-modal-confirm').addEventListener('click', () => {
             if (!currentActorInModal) return;
             const nightState = nightStates[activeNightIndex];
             
-            const isWolfGroup = currentActorInModal.id === 'wolf_group';
-            const actionKey = isWolfGroup ? 'wolf_bite_group' : (KIND_TO_ACTION_MAP[currentActorInModal.kind.split('_')[0]]?.key);
+            const possibleKinds = currentActorInModal.id === 'wolf_group' ? ['wolf_bite_group'] : currentActorInModal.kind.split('_');
+            const possibleActionKeys = possibleKinds.map(k => KIND_TO_ACTION_MAP[k]?.key || 'wolf_bite_group').filter(Boolean);
             
-            nightState.actions = nightState.actions.filter(a => !(a.actorId === currentActorInModal.id && a.action === actionKey && !a.action.startsWith('gm_')));
+            nightState.actions = nightState.actions.filter(a => 
+                !(a.actorId === currentActorInModal.id && possibleActionKeys.includes(a.action) && !a.action.startsWith('gm_'))
+            );
 
-            const checkedTargets = actionModal.querySelectorAll('#action-modal-targets input:checked');
-            
+            const selectedActionButton = actionModal.querySelector('#action-modal-choices button.selected');
+            const actionKey = selectedActionButton 
+                ? selectedActionButton.dataset.actionKey 
+                : possibleActionKeys[0];
+
             if (actionKey) {
-                checkedTargets.forEach(checkbox => {
+                 const checkedTargets = actionModal.querySelectorAll('#action-modal-targets input:checked');
+                 checkedTargets.forEach(checkbox => {
                     nightState.actions.push({
                         id: nextActionId++,
                         actorId: currentActorInModal.id,
@@ -1317,37 +1379,45 @@ document.addEventListener('DOMContentLoaded', () => {
         groupModal.classList.add('hidden');
     }
 
+    // ============= MODIFIED FUNCTION =============
     function openActionModal(actor) {
         currentActorInModal = actor;
-        const nightState = nightStates[activeNightIndex];
         
-        const livingPlayers = roomPlayers.filter(p => nightState.playersStatus[p.id]?.isAlive);
-    
         actionModal.querySelector('#action-modal-title').textContent = `Hành động: ${actor.name} (${actor.roleName})`;
         
-        const targetsContainer = actionModal.querySelector('#action-modal-targets');
+        const actionSelectionSection = actionModal.querySelector('#action-selection-section');
+        const actionChoicesContainer = actionModal.querySelector('#action-modal-choices');
         const playerActionSection = actionModal.querySelector('#player-action-section');
         const gmOverrideSection = actionModal.querySelector('#gm-override-section');
-    
+
         const isWolfGroup = actor.id === 'wolf_group';
-    
+
+        const possibleKinds = isWolfGroup ? ['wolf_bite_group'] : actor.kind.split('_');
+        const availableActions = possibleKinds.map(k => KIND_TO_ACTION_MAP[k] || { key: 'wolf_bite_group', label: 'Sói cắn' }).filter(Boolean);
+        
+        actionChoicesContainer.innerHTML = '';
+
+        if (availableActions.length > 1) {
+            actionSelectionSection.style.display = 'block';
+            availableActions.forEach((action, index) => {
+                const btn = document.createElement('button');
+                btn.textContent = action.label;
+                btn.dataset.actionKey = action.key;
+                if (action.type) {
+                    btn.classList.add(`action-type-${action.type}`);
+                }
+                if (index === 0) {
+                    btn.classList.add('selected'); 
+                }
+                actionChoicesContainer.appendChild(btn);
+            });
+        } else {
+            actionSelectionSection.style.display = 'none';
+        }
+        
         if (isWolfGroup || isActionAvailable(actor, activeNightIndex)) {
             playerActionSection.style.display = 'block';
-            targetsContainer.innerHTML = '';
-            
-            const actionKey = isWolfGroup ? 'wolf_bite_group' : (KIND_TO_ACTION_MAP[actor.kind.split('_')[0]]?.key);
-            const currentActions = (nightState.actions || []).filter(a => a.actorId === actor.id && a.action === actionKey);
-            const currentTargetIds = new Set(currentActions.map(a => a.targetId));
-    
-            livingPlayers.forEach(p => {
-                const isChecked = currentTargetIds.has(p.id);
-                targetsContainer.innerHTML += `
-                    <div class="target-item">
-                        <input type="checkbox" id="modal-target-${p.id}" value="${p.id}" ${isChecked ? 'checked' : ''}>
-                        <label for="modal-target-${p.id}">${p.name}</label>
-                    </div>
-                `;
-            });
+            renderTargetsForSelectedAction();
         } else {
             playerActionSection.style.display = 'none';
         }
