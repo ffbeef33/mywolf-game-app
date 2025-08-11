@@ -700,14 +700,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${groupTagHTML}
                         <div class="player-name">${player.name}</div>
                     </div>
-                    <div class="player-role">${player.roleName || 'Chưa có vai'} <span style="font-style:italic; opacity:0.8;">(${player.faction})</span></div>
+                    <div class="player-role">${player.roleName || 'Chưa có vai'}</div>
                     <div class="action-display-list">${actionDisplayHTML}</div>
                 </div>
                 <div class="player-controls">
                     <div class="status-icons">${statusIconsHTML}</div>
                     ${!isFinished && playerState.isAlive ? `
-                        <button class="action-modal-btn" data-player-id="${player.id}">Hành động</button>
-                        <button class="action-modal-btn group-btn" data-player-id="${player.id}">Nhóm</button>
+                        <button class="action-modal-btn" data-player-id="${player.id}">Action</button>
+                        <button class="action-modal-btn group-btn" data-player-id="${player.id}">Link</button>
                     ` : ''}
                     <div class="player-status-icon life ${playerState.isAlive ? 'alive' : 'dead'}" title="Sống/Chết"><i class="fas fa-heart"></i></div>
                 </div>
@@ -782,7 +782,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Lỗi nghiêm trọng: Không tìm thấy '.container' để chèn module vote.");
             return;
         }
-        const containerAfterPlayers = document.querySelector('.players-card');
+        const logSection = document.getElementById('night-logs-section');
 
         const votingModuleEl = document.createElement('div');
         votingModuleEl.id = 'voting-section';
@@ -831,7 +831,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        const logSection = document.getElementById('night-logs-section');
         if (logSection) {
             logSection.parentNode.insertBefore(votingModuleEl, logSection.nextSibling);
         } else {
