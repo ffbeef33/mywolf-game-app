@@ -120,10 +120,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (roomId) database.ref(`rooms/${roomId}/playerOrder`).set(customPlayerOrder);
     }
 
-    function isActionAvailable(player, currentNightIndex) {
-        if (player.id === 'wolf_group') return true;
-
-        const rule = player.activeRule;
+    /**
+     * === HÀM MỚI: KIỂM TRA HÀNH ĐỘNG CÓ SẴN THEO LOGIC MỚI ===
+     * Kiểm tra một hành động cụ thể có thể sử dụng trong đêm hiện tại không.
+     * @param {object} player - Đối tượng người chơi.
+     * @param {string} actionKey - Key của hành động (vd: 'save', 'kill').
+     * @param {number} currentNightIndex - Index của đêm hiện tại (bắt đầu từ 0).
+     * @returns {boolean} - True nếu hành động có sẵn.
+     */
+    function isActionCurrentlyAvailable(player, actionKey, currentNightIndex) {
+        const rule = player.activeRule; // vd: '1_3', '1', 'n', 'n_2', '0'
         const nightNumber = currentNightIndex + 1;
 
         if (!rule || rule === '0' || player.kind === 'empty') {
@@ -131,29 +137,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const parts = rule.split('_');
-        const uses = parts[0];
-        const startNight = parts.length > 1 ? parseInt(parts[1], 10) : 1;
+        const usesRule = parts[0]; // '1' hoặc 'n'
+        const nightRule = parts.length > 1 ? parseInt(parts[1], 10) : null;
 
-        if (nightNumber < startNight) {
-            return false;
-        }
-
-        if (uses === '1') {
-            let timesUsed = 0;
-            for (let i = 0; i < nightStates.length; i++) {
-                if (nightStates[i] && nightStates[i].actions) {
-                    for (const action of nightStates[i].actions) {
-                        if (action.actorId === player.id && action.action !== 'wolf_bite_group' && !action.action.startsWith('gm_')) {
-                            timesUsed++;
-                        }
-                    }
+        // 1. Kiểm tra điều kiện về đêm
+        if (nightRule !== null) {
+            // Trường hợp '1_x': chỉ dùng 1 lần VÀO ĐÚNG đêm x
+            if (usesRule === '1') {
+                if (nightNumber !== nightRule) {
+                    return false;
                 }
             }
-            if (timesUsed > 0) {
-                return false;
+            // Trường hợp 'n_x': dùng nhiều lần KỂ TỪ đêm x
+            else if (usesRule === 'n') {
+                if (nightNumber < nightRule) {
+                    return false;
+                }
             }
         }
-        
+
+        // 2. Kiểm tra giới hạn số lần sử dụng
+        // Trường hợp '1' hoặc '1_x': chỉ được dùng 1 lần duy nhất
+        if (usesRule === '1') {
+            let timesUsed = 0;
+            for (const night of nightStates) {
+                if (night.actions) {
+                    // Đếm chính xác số lần hành động này đã được dùng
+                    timesUsed += night.actions.filter(a => a.actorId === player.id && a.action === actionKey).length;
+                }
+            }
+            return timesUsed === 0; // Có sẵn nếu chưa dùng lần nào
+        }
+
+        // Trường hợp 'n' or 'n_x': dùng được nhiều lần, đã qua kiểm tra đêm ở trên
         return true;
     }
 
@@ -657,7 +673,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderVotingModule();
     };
     
-    // ================== START: UPDATED createPlayerRow function ==================
     function createPlayerRow(player, playerState, liveStatus, isFinished) {
         const row = document.createElement('div');
         row.className = 'player-row';
@@ -694,7 +709,6 @@ document.addEventListener('DOMContentLoaded', () => {
             groupTagHTML = `<span class="player-group-tag" title="Nhóm: ${groupName}">${playerState.groupId}</span>`;
         }
 
-        // --- HTML structure updated here ---
         row.innerHTML = `
             <div class="player-header">
                 <div class="player-info">
@@ -718,8 +732,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         return row;
     }
-    // ================== END: UPDATED createPlayerRow function ==================
-
 
     function createWolfGroupRow(nightState, isFinished) {
         const row = document.createElement('div');
@@ -1053,7 +1065,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const actor = (playerId === 'wolf_group') 
-                ? { id: 'wolf_group', name: 'Bầy Sói', roleName: 'Hành động chung', kind: 'kill', quantity: 99 } 
+                ? { id: 'wolf_group', name: 'Bầy Sói', roleName: 'Hành động chung', kind: 'kill', quantity: 99, activeRule: 'n' } 
                 : roomPlayers.find(p => p.id === playerId);
 
             if (actor) {
@@ -1152,7 +1164,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // ============= NEW FUNCTION =============
     function renderTargetsForSelectedAction() {
         if (!currentActorInModal) return;
 
@@ -1192,7 +1203,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ============= MODIFIED FUNCTION =============
     function createActionModal() {
         if (document.getElementById('action-modal-overlay')) return;
 
@@ -1239,10 +1249,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target === actionModal) actionModal.classList.add('hidden');
         });
 
-        // Listener for action choice buttons
         const actionChoicesContainer = actionModal.querySelector('#action-modal-choices');
         actionChoicesContainer.addEventListener('click', e => {
-            if (e.target.tagName === 'BUTTON' && currentActorInModal) {
+            if (e.target.tagName === 'BUTTON' && currentActorInModal && !e.target.disabled) {
                 Array.from(actionChoicesContainer.children).forEach(child => child.classList.remove('selected'));
                 e.target.classList.add('selected');
                 renderTargetsForSelectedAction(); 
@@ -1261,11 +1270,13 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
             const selectedActionButton = actionModal.querySelector('#action-modal-choices button.selected');
+            
             const actionKey = selectedActionButton 
                 ? selectedActionButton.dataset.actionKey 
-                : possibleActionKeys[0];
+                : (possibleActionKeys.length > 0 ? possibleActionKeys[0] : null);
 
-            if (actionKey) {
+
+            if (actionKey && isActionCurrentlyAvailable(currentActorInModal, actionKey, activeNightIndex)) {
                  const checkedTargets = actionModal.querySelectorAll('#action-modal-targets input:checked');
                  checkedTargets.forEach(checkbox => {
                     nightState.actions.push({
@@ -1378,44 +1389,63 @@ document.addEventListener('DOMContentLoaded', () => {
         saveNightNotes();
         groupModal.classList.add('hidden');
     }
-
-    // ============= MODIFIED FUNCTION =============
+    
+    /**
+     * === HÀM ĐƯỢC CẬP NHẬT CHÍNH ===
+     * Mở modal hành động và hiển thị các lựa chọn dựa trên logic mới.
+     */
     function openActionModal(actor) {
         currentActorInModal = actor;
         
-        actionModal.querySelector('#action-modal-title').textContent = `Hành động: ${actor.name} (${actor.roleName})`;
-        
+        const actionModalTitle = actionModal.querySelector('#action-modal-title');
         const actionSelectionSection = actionModal.querySelector('#action-selection-section');
         const actionChoicesContainer = actionModal.querySelector('#action-modal-choices');
         const playerActionSection = actionModal.querySelector('#player-action-section');
         const gmOverrideSection = actionModal.querySelector('#gm-override-section');
-
-        const isWolfGroup = actor.id === 'wolf_group';
-
-        const possibleKinds = isWolfGroup ? ['wolf_bite_group'] : actor.kind.split('_');
-        const availableActions = possibleKinds.map(k => KIND_TO_ACTION_MAP[k] || { key: 'wolf_bite_group', label: 'Sói cắn' }).filter(Boolean);
         
+        actionModalTitle.textContent = `Hành động: ${actor.name} (${actor.roleName})`;
+        
+        const isWolfGroup = actor.id === 'wolf_group';
+        const possibleKinds = isWolfGroup ? ['wolf_bite_group'] : actor.kind.split('_');
+        const allPossibleActions = possibleKinds.map(k => KIND_TO_ACTION_MAP[k] || { key: 'wolf_bite_group', label: 'Sói cắn' }).filter(Boolean);
+
         actionChoicesContainer.innerHTML = '';
 
-        if (availableActions.length > 1) {
+        // Lọc ra các hành động thực sự có sẵn để dùng trong đêm nay
+        const currentlyAvailableActions = allPossibleActions.filter(action => {
+            return isWolfGroup || isActionCurrentlyAvailable(actor, action.key, activeNightIndex);
+        });
+
+        // Hiển thị các nút lựa chọn nếu có nhiều hơn 1 hành động tiềm năng
+        if (allPossibleActions.length > 1) {
             actionSelectionSection.style.display = 'block';
-            availableActions.forEach((action, index) => {
+            allPossibleActions.forEach(action => {
                 const btn = document.createElement('button');
                 btn.textContent = action.label;
                 btn.dataset.actionKey = action.key;
-                if (action.type) {
-                    btn.classList.add(`action-type-${action.type}`);
+                if (action.type) btn.classList.add(`action-type-${action.type}`);
+
+                // Kiểm tra xem hành động này có nằm trong danh sách có sẵn không
+                const isAvailable = currentlyAvailableActions.some(a => a.key === action.key);
+
+                if (!isAvailable) {
+                    btn.disabled = true;
+                    btn.title = "Không có sẵn hoặc đã sử dụng";
                 }
-                if (index === 0) {
-                    btn.classList.add('selected'); 
+
+                // Tự động chọn nút đầu tiên có sẵn
+                if (isAvailable && !actionChoicesContainer.querySelector('.selected')) {
+                    btn.classList.add('selected');
                 }
+                
                 actionChoicesContainer.appendChild(btn);
             });
         } else {
             actionSelectionSection.style.display = 'none';
         }
-        
-        if (isWolfGroup || isActionAvailable(actor, activeNightIndex)) {
+
+        // Hiển thị khu vực chọn mục tiêu nếu có ít nhất một hành động có thể dùng
+        if (currentlyAvailableActions.length > 0) {
             playerActionSection.style.display = 'block';
             renderTargetsForSelectedAction();
         } else {
