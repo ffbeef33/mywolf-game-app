@@ -156,6 +156,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Logic ---
+    // =================================================================
+    // === START: SỬA LỖI LOGIC NHÓM SÁT THƯƠNG ========================
+    // =================================================================
     const calculateNightStatus = (nightState) => {
         if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [], infoResults: [] };
         
@@ -168,7 +171,9 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.keys(initialStatus).forEach(pId => {
             if (initialStatus[pId] && initialStatus[pId].isAlive) {
                 liveStatuses[pId] = {
-                    damage: 0, isProtected: false, isSaved: false,
+                    damage: 0, 
+                    isProtected: false, 
+                    isSaved: false,
                     isDisabled: initialStatus[pId].isDisabled || initialStatus[pId].isPermanentlyDisabled || false,
                     armor: initialStatus[pId].armor || 1,
                     isDoomed: initialStatus[pId].isDoomed || false,
@@ -176,23 +181,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     deathLinkTarget: initialStatus[pId].deathLinkTarget || null,
                     gatheredBy: null,
                     markedForDelayKill: initialStatus[pId].markedForDelayKill || false,
-                    tempStatus: {
-                        hasKillAbility: false,
-                    },
+                    tempStatus: { hasKillAbility: false },
                     isSavedByKillif: false,
                     isNotified: false,
                     groupId: initialStatus[pId].groupId || null,
                 };
-                if (liveStatuses[pId].isDoomed) {
-                    liveStatuses[pId].damage = 99;
-                }
-                if (liveStatuses[pId].markedForDelayKill) {
-                    liveStatuses[pId].damage = 99;
-                }
+                if (liveStatuses[pId].isDoomed) liveStatuses[pId].damage = 99;
+                if (liveStatuses[pId].markedForDelayKill) liveStatuses[pId].damage = 99;
             }
         });
 
-        // Giai đoạn 1: Xử lý các hành động buff/debuff và phi sát thương
         const damageRedirects = {}; 
         const counterWards = {};    
         const counterShieldedTargets = new Set();
@@ -223,24 +221,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const actionKind = ALL_ACTIONS[action]?.key || action;
             
-            if (actionKind === 'disable_action' && !liveStatuses[actorId]?.isDisabled) {
-                targetStatus.isDisabled = true;
-            } else if (actionKind === 'gm_add_armor') {
-                targetStatus.armor++;
-            }
+            if (actionKind === 'disable_action' && !liveStatuses[actorId]?.isDisabled) targetStatus.isDisabled = true;
+            else if (actionKind === 'gm_add_armor') targetStatus.armor++;
             else if ((actionKind === 'protect' || actionKind === 'gm_protect') && !liveStatuses[actorId]?.isDisabled) {
-                if(!counterShieldedTargets.has(targetId)) {
-                    targetStatus.isProtected = true;
-                }
+                if(!counterShieldedTargets.has(targetId)) targetStatus.isProtected = true;
             }
-            else if (actionKind === 'sacrifice'  && !liveStatuses[actorId]?.isDisabled) { damageRedirects[targetId] = actorId; }
-            else if (actionKind === 'checkcounter'  && !liveStatuses[actorId]?.isDisabled) { counterWards[targetId] = { actorId: actorId, triggered: false }; }
+            else if (actionKind === 'sacrifice'  && !liveStatuses[actorId]?.isDisabled) damageRedirects[targetId] = actorId;
+            else if (actionKind === 'checkcounter'  && !liveStatuses[actorId]?.isDisabled) counterWards[targetId] = { actorId: actorId, triggered: false };
             else if (actionKind === 'checkdmg'  && !liveStatuses[actorId]?.isDisabled) {
                 if (liveStatuses[actorId]) liveStatuses[actorId].deathLinkTarget = targetId;
             }
-            else if (actionKind === 'givekill'  && !liveStatuses[actorId]?.isDisabled) {
-                targetStatus.tempStatus.hasKillAbility = true;
-            }
+            else if (actionKind === 'givekill'  && !liveStatuses[actorId]?.isDisabled) targetStatus.tempStatus.hasKillAbility = true;
             else if (actionKind === 'givearmor'  && !liveStatuses[actorId]?.isDisabled) {
                 targetStatus.armor = 2;
                 if (liveStatuses[actorId]) liveStatuses[actorId].armor = 2;
@@ -273,14 +264,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     infoResults.push(`- ${actor.roleName} (${actor.name}) đã nguyền rủa ${target.name}.`);
                 }
             }
-            else if (actionKind === 'gather'  && !liveStatuses[actorId]?.isDisabled) {
-                targetStatus.gatheredBy = actorId;
-            }
+            else if (actionKind === 'gather'  && !liveStatuses[actorId]?.isDisabled) targetStatus.gatheredBy = actorId;
             else if (actionKind === 'noti'  && !liveStatuses[actorId]?.isDisabled) {
                 targetStatus.isNotified = true;
-                if (!damageLinks[targetId]) {
-                    damageLinks[targetId] = [];
-                }
+                if (!damageLinks[targetId]) damageLinks[targetId] = [];
                 damageLinks[targetId].push(actorId);
             }
         });
@@ -288,7 +275,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const killifActions = actions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
         const otherActions = actions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) !== 'killif');
 
-        // Giai đoạn 2: Tính toán sát thương ban đầu (chưa áp dụng shield/save ở đây)
         otherActions.forEach(({ actorId, targetId, action }) => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             const target = roomPlayers.find(p => p.id === targetId);
@@ -312,13 +298,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!finalTarget || !finalTargetStatus || finalTargetStatus.isProtected) return;
                 
                 let shouldDamage = true;
-                if(actionKind === 'killwolf' && !(finalTarget.faction === 'Bầy Sói' || finalTarget.faction === 'Phe Sói')){
-                    shouldDamage = false;
-                }
+                if(actionKind === 'killwolf' && !(finalTarget.faction === 'Bầy Sói' || finalTarget.faction === 'Phe Sói')) shouldDamage = false;
                 if(actionKind === 'killvillager'){
-                    if(finalTarget.roleName === 'Dân') {
-                        shouldDamage = true;
-                    } else {
+                    if(finalTarget.roleName === 'Dân') shouldDamage = true;
+                    else {
                         shouldDamage = false;
                         if (liveStatuses[actorId] && !liveStatuses[actorId].isProtected) liveStatuses[actorId].damage++;
                     }
@@ -341,9 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (actionKind === 'audit') {
                 let isWolf = (target.faction === 'Bầy Sói' || target.faction === 'Phe Sói');
-                if (target.kind.includes('reverse') || target.kind.includes('counteraudit')) {
-                    isWolf = !isWolf;
-                }
+                if (target.kind.includes('reverse') || target.kind.includes('counteraudit')) isWolf = !isWolf;
                 const result = isWolf ? "thuộc Phe Sói" : "KHÔNG thuộc Phe Sói";
                 infoResults.push(`- ${attacker.roleName} (${attacker.name}) soi ${target.name}: ${result}.`);
             }
@@ -374,51 +355,47 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // ======================= LOGIC MỚI CHO SÁT THƯƠNG NHÓM =======================
         const damageGroups = nightState.damageGroups || {};
-        const groupTotalDamage = {};
+        const groupDamageTotals = {};
 
+        // 1. Tính tổng sát thương cho mỗi nhóm dựa trên sát thương đã được tính ở các bước trên
+        // (Sát thương này đã loại trừ các trường hợp được bảo vệ - isProtected)
         for (const groupId in damageGroups) {
-            groupTotalDamage[groupId] = 0;
+            groupDamageTotals[groupId] = 0;
             const group = damageGroups[groupId];
             if (group && group.members) {
                 group.members.forEach(memberId => {
                     if (liveStatuses[memberId]) {
-                        groupTotalDamage[groupId] += liveStatuses[memberId].damage;
+                        groupDamageTotals[groupId] += liveStatuses[memberId].damage;
                     }
                 });
             }
         }
         
-        for (const groupId in damageGroups) {
-            const group = damageGroups[groupId];
-            if (group && group.members) {
-                group.members.forEach(memberId => {
-                    if (liveStatuses[memberId]) {
-                        liveStatuses[memberId].damage += (groupTotalDamage[groupId] - liveStatuses[memberId].damage);
-                    }
-                });
+        // 2. Áp dụng tổng sát thương của nhóm cho tất cả thành viên trong nhóm đó
+        Object.keys(liveStatuses).forEach(pId => {
+            const playerStatus = liveStatuses[pId];
+            if (playerStatus.groupId && groupDamageTotals.hasOwnProperty(playerStatus.groupId)) {
+                // Gán thẳng tổng sát thương của nhóm cho người chơi
+                playerStatus.damage = groupDamageTotals[playerStatus.groupId];
             }
-        }
+        });
+        // ======================= KẾT THÚC LOGIC MỚI =======================
         
         const gatherGroups = {};
         Object.keys(liveStatuses).forEach(pId => {
             const status = liveStatuses[pId];
             if(status.gatheredBy) {
-                if(!gatherGroups[status.gatheredBy]) {
-                    gatherGroups[status.gatheredBy] = [];
-                }
+                if(!gatherGroups[status.gatheredBy]) gatherGroups[status.gatheredBy] = [];
                 gatherGroups[status.gatheredBy].push(pId);
             }
         });
         
         Object.values(gatherGroups).forEach(group => {
             let totalDamage = 0;
-            group.forEach(pId => {
-                totalDamage += liveStatuses[pId].damage;
-            });
-            group.forEach(pId => {
-                liveStatuses[pId].damage = totalDamage;
-            });
+            group.forEach(pId => { totalDamage += liveStatuses[pId].damage; });
+            group.forEach(pId => { liveStatuses[pId].damage = totalDamage; });
         });
 
         actions.forEach(({ actorId, targetId, action }) => {
@@ -431,11 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
                  if (targetStatus) {
                     if (actor.kind === 'save_gather' && targetStatus.gatheredBy) {
                         const groupToSave = gatherGroups[targetStatus.gatheredBy];
-                        if (groupToSave) {
-                            groupToSave.forEach(pId => {
-                                liveStatuses[pId].isSaved = true;
-                            });
-                        }
+                        if (groupToSave) groupToSave.forEach(pId => { liveStatuses[pId].isSaved = true; });
                     } else {
                         targetStatus.isSaved = true;
                     }
@@ -459,8 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (finalNightResolution[sourceId]) {
                 const damageToTransfer = finalNightResolution[sourceId].effectiveDamage;
                 if (damageToTransfer > 0) {
-                    const receivers = damageLinks[sourceId];
-                    receivers.forEach(receiverId => {
+                    damageLinks[sourceId].forEach(receiverId => {
                         if (finalNightResolution[receiverId]) {
                             finalNightResolution[receiverId].effectiveDamage += damageToTransfer;
                             infoResults.push(`- ${roomPlayers.find(p=>p.id===receiverId).name} nhận sát thương chung từ ${roomPlayers.find(p=>p.id===sourceId).name}.`);
@@ -497,15 +469,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (finalStatus[pId]) {
                 finalStatus[pId].armor = res.armor;
-                if (liveStatuses[pId].deathLinkTarget) {
-                    finalStatus[pId].deathLinkTarget = liveStatuses[pId].deathLinkTarget;
-                }
-                if (liveStatuses[pId].groupId) {
-                    finalStatus[pId].groupId = liveStatuses[pId].groupId;
-                }
-                if (initialStatus[pId].isPermanentlyDisabled) {
-                    finalStatus[pId].isPermanentlyDisabled = true;
-                }
+                if (liveStatuses[pId].deathLinkTarget) finalStatus[pId].deathLinkTarget = liveStatuses[pId].deathLinkTarget;
+                if (liveStatuses[pId].groupId) finalStatus[pId].groupId = liveStatuses[pId].groupId;
+                if (initialStatus[pId].isPermanentlyDisabled) finalStatus[pId].isPermanentlyDisabled = true;
             }
         });
         
@@ -530,6 +496,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         return { liveStatuses, finalStatus, deadPlayerNames, infoResults };
     };
+    // =================================================================
+    // === END: SỬA LỖI LOGIC NHÓM SÁT THƯƠNG ==========================
+    // =================================================================
     
     function buildNightActionSummary(nightState) {
         if (!nightState || !Array.isArray(nightState.actions)) return "<em>Chưa có hành động nào trong đêm này.</em>";
@@ -1285,9 +1254,6 @@ document.addEventListener('DOMContentLoaded', () => {
             actionModal.classList.add('hidden');
         });
 
-        // =================================================================
-        // === START: SỬA LỖI LOGIC VÔ HIỆU HÓA ============================
-        // =================================================================
         actionModal.querySelector('#action-modal-gm-overrides').addEventListener('click', e => {
             if (e.target.tagName !== 'BUTTON' || !currentActorInModal) return;
             
@@ -1300,7 +1266,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Xử lý các action BẬT/TẮT bằng cách thêm/xóa khỏi mảng actions
             if (['gm_kill', 'gm_save', 'gm_protect', 'gm_add_armor'].includes(overrideAction)) {
                 const existingActionIndex = nightState.actions.findIndex(a => a.action === overrideAction && a.actorId === targetId && a.targetId === targetId);
                 if (existingActionIndex > -1) {
@@ -1311,15 +1276,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
             } 
-            // Xử lý Vô hiệu hóa 1 đêm bằng cách thay đổi trực tiếp trạng thái
             else if (overrideAction === 'gm_disable_night') {
                 const playerStatus = nightState.playersStatus[targetId];
                 if (playerStatus) {
-                    // Toggle trạng thái vô hiệu hóa tạm thời (chỉ trong đêm nay)
                     playerStatus.isDisabled = !playerStatus.isDisabled;
                 }
             }
-            // Xử lý Vô hiệu hóa vĩnh viễn
             else if (overrideAction === 'gm_disable_perm') {
                 const playerStatus = nightState.playersStatus[targetId];
                 if (playerStatus) {
@@ -1327,13 +1289,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            // Cập nhật và render lại ngay lập tức để thấy thay đổi
             render();
             saveNightNotes();
         });
-        // =================================================================
-        // === END: SỬA LỖI LOGIC VÔ HIỆU HÓA ==============================
-        // =================================================================
     }
 
     function handleConfirmGroup() {
