@@ -657,6 +657,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderVotingModule();
     };
     
+    // ================== START: UPDATED createPlayerRow function ==================
     function createPlayerRow(player, playerState, liveStatus, isFinished) {
         const row = document.createElement('div');
         row.className = 'player-row';
@@ -693,6 +694,7 @@ document.addEventListener('DOMContentLoaded', () => {
             groupTagHTML = `<span class="player-group-tag" title="Nhóm: ${groupName}">${playerState.groupId}</span>`;
         }
 
+        // --- HTML structure updated here ---
         row.innerHTML = `
             <div class="player-header">
                 <div class="player-info">
@@ -701,7 +703,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="player-name">${player.name}</div>
                     </div>
                     <div class="player-role">${player.roleName || 'Chưa có vai'}</div>
-                    <div class="action-display-list">${actionDisplayHTML}</div>
                 </div>
                 <div class="player-controls">
                     <div class="status-icons">${statusIconsHTML}</div>
@@ -712,10 +713,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="player-status-icon life ${playerState.isAlive ? 'alive' : 'dead'}" title="Sống/Chết"><i class="fas fa-heart"></i></div>
                 </div>
             </div>
+            <div class="action-display-list">${actionDisplayHTML}</div>
         `;
         
         return row;
     }
+    // ================== END: UPDATED createPlayerRow function ==================
+
 
     function createWolfGroupRow(nightState, isFinished) {
         const row = document.createElement('div');
@@ -728,12 +732,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="player-info">
                     <div class="player-name">Hành Động Chung</div>
                     <div class="player-role">(Bầy Sói)</div>
-                    <div class="action-display-list">${actionDisplayHTML}</div>
                 </div>
                 <div class="player-controls">
                      ${!isFinished ? `<button class="action-modal-btn wolf-bite-btn" data-player-id="wolf_group">Chọn người cắn</button>` : ''}
                 </div>
             </div>
+            <div class="action-display-list">${actionDisplayHTML}</div>
         `;
         return row;
     }

@@ -179,21 +179,21 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .player-header {
     display: flex;
     justify-content: space-between;
-    align-items: center; /* Quan trọng: Căn giữa các mục theo chiều dọc */
+    align-items: center; 
     width: 100%;
     gap: 10px;
 }
 
 .player-info {
-    flex-grow: 1; /* Cho phép phần thông tin chiếm hết không gian trống */
-    min-width: 0; /* Cần thiết để text-overflow hoạt động trong flexbox */
+    flex-grow: 1; 
+    min-width: 0;
 }
 
 .player-info .player-name-wrapper,
 .player-info .player-role {
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis; /* Hiển thị '...' nếu tên/vai trò quá dài */
+    text-overflow: ellipsis; 
 }
 
 .player-info .player-name { 
@@ -206,15 +206,17 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     opacity: 0.7; 
 }
 
+/* --- CSS UPDATED HERE --- */
 .action-display-list {
-    margin-top: 5px;
+    margin-top: 8px; /* Dịch xuống dưới một chút */
+    padding-left: 15px; /* Thụt vào để thẳng hàng với tên */
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
 .action-display-item {
-    font-size: 0.95rem;
+    font-size: 0.9rem; /* Giảm kích thước chữ */
     color: var(--light-text);
     display: flex;
     align-items: center;
@@ -223,6 +225,7 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     overflow: hidden;
     text-overflow: ellipsis;
 }
+/* --- END CSS UPDATE --- */
 
 .action-display-item strong {
     color: var(--neutral-color);
@@ -251,7 +254,7 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-shrink: 0; /* Ngăn không cho khu vực nút bị co lại */
+    flex-shrink: 0;
 }
 
 .action-modal-btn {
