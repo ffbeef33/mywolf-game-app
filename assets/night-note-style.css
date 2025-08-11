@@ -277,30 +277,16 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-#gm-info-log {
-    background-color: #162433;
-    border: 1px solid var(--protect-color);
-    margin-top: 20px;
-}
-
 #gm-night-note {
     width: 100%;
     margin: 12px 0 5px 0;
     padding: 10px 12px;
-    background: var(--secondary-bg);
+    background: var(--primary-bg);
     border: 1px solid var(--border-color);
     border-radius: 10px;
     font-size: 1rem;
     color: var(--light-text);
     resize: vertical;
-}
-
-#night-action-summary {
-    margin-top: 18px;
-    padding: 14px;
-    background: var(--secondary-bg);
-    border-radius: 12px;
-    border: 1px solid var(--border-color);
 }
 
 /* --- Modal Styles --- */
@@ -545,4 +531,68 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     border-radius: 8px;
     font-size: 1rem;
     margin-bottom: 15px;
+}
+
+/* ============== NEW LOG STYLES ============== */
+#night-logs-section h2 {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+#night-logs-section h4 {
+    font-family: var(--font-display);
+    color: var(--light-text);
+    font-size: 1.1rem;
+    margin: 15px 0 10px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+#gm-log-container h4 { color: var(--neutral-color); }
+#player-log-container h4 { color: var(--protect-color); }
+
+.log-content {
+    background-color: var(--primary-bg);
+    border-radius: 8px;
+    padding: 15px;
+    min-height: 50px;
+}
+
+.log-item {
+    padding: 4px 0;
+    font-size: 0.95rem;
+}
+
+.log-item strong {
+    font-weight: 600;
+}
+
+.log-item .player-name {
+    color: var(--light-text);
+    font-weight: 700;
+}
+
+.log-item .role-name {
+    color: var(--text-color);
+    font-style: italic;
+    opacity: 0.8;
+}
+.log-item .faction-name {
+     color: var(--neutral-color);
+}
+
+.log-item.player-action .target-name {
+    color: var(--neutral-color);
+}
+.log-item.gm-action {
+     color: #e3b341;
+}
+.log-item.info-result {
+     color: #6a9ce2;
+     font-style: italic;
+}
+.log-placeholder {
+    color: var(--light-text);
+    opacity: 0.5;
+    font-style: italic;
 }

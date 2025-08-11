@@ -29,9 +29,11 @@
             <div id="night-results">
                 <p>Đang chờ kết quả...</p>
             </div>
+             <textarea id="gm-night-note" rows="2" placeholder="Ghi chú nhanh của quản trò cho đêm này..."></textarea>
             <div class="result-buttons">
                 <button id="end-night-btn" class="btn-end-night">Kết Thúc Đêm</button>
                 <button id="reset-night-btn">Làm Mới Đêm</button>
+                 <button id="save-gm-night-note-btn">Lưu Ghi Chú</button>
             </div>
         </section>
 
@@ -42,6 +44,21 @@
             </div>
         </section>
 
+        <section id="night-logs-section" class="card">
+            <h2><i class="fas fa-file-alt"></i> Ghi Chép Hoạt Động Đêm</h2>
+            <div id="gm-log-container">
+                <h4><i class="fas fa-user-shield"></i> Hoạt Động Quản Trò</h4>
+                <div id="gm-log-content" class="log-content">
+                    <p class="log-placeholder">Chưa có hoạt động nào từ quản trò.</p>
+                </div>
+            </div>
+            <div id="player-log-container">
+                <h4><i class="fas fa-users"></i> Hoạt Động Người Chơi & Kết Quả</h4>
+                <div id="player-log-content" class="log-content">
+                     <p class="log-placeholder">Chưa có hoạt động nào từ người chơi.</p>
+                </div>
+            </div>
+        </section>
         </div>
 
     <div id="group-modal-overlay" class="modal-overlay hidden">

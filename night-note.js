@@ -17,8 +17,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const interactionTable = document.getElementById('player-interaction-table');
     const nightResultsDiv = document.getElementById('night-results');
     const nightTabsContainer = document.getElementById('night-tabs');
-    let gmNoteArea, gmNoteBtn;
-    let nightActionSummaryDiv;
+    const gmNoteArea = document.getElementById('gm-night-note');
+    const gmNoteBtn = document.getElementById('save-gm-night-note-btn');
+    const gmLogContent = document.getElementById('gm-log-content');
+    const playerLogContent = document.getElementById('player-log-content');
     
     let votingSection, votePlayersList, startVoteBtn, endVoteBtn, voteResultsContainer, voteTimerInterval;
     let secretVoteWeights = {};
@@ -355,7 +357,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const damageGroups = nightState.damageGroups || {};
         const groupDamageTotals = {};
 
-        // 1. Tính tổng sát thương cho mỗi nhóm dựa trên sát thương đã được tính ở các bước trên
         for (const groupId in damageGroups) {
             groupDamageTotals[groupId] = 0;
             const group = damageGroups[groupId];
@@ -368,16 +369,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // 2. Áp dụng tổng sát thương của nhóm cho tất cả thành viên trong nhóm đó
         Object.keys(liveStatuses).forEach(pId => {
             const playerStatus = liveStatuses[pId];
             if (playerStatus.groupId && groupDamageTotals.hasOwnProperty(playerStatus.groupId)) {
                 const totalGroupDamage = groupDamageTotals[playerStatus.groupId];
-                
-                // *** FIX: CHỈ GÁN SÁT THƯƠNG NHÓM NẾU NGƯỜI CHƠI KHÔNG ĐƯỢC BẢO VỆ ***
-                // Nếu một thành viên trong nhóm được bảo vệ, họ sẽ không nhận thêm sát thương từ nhóm.
-                // Sát thương của họ vẫn là 0 (vì được bảo vệ ngay từ đầu),
-                // và họ không nhận thêm sát thương từ những người khác.
                 if (!playerStatus.isProtected) {
                     playerStatus.damage = totalGroupDamage;
                 }
@@ -498,40 +493,55 @@ document.addEventListener('DOMContentLoaded', () => {
         return { liveStatuses, finalStatus, deadPlayerNames, infoResults };
     };
     
-    function buildNightActionSummary(nightState) {
-        if (!nightState || !Array.isArray(nightState.actions)) return "<em>Chưa có hành động nào trong đêm này.</em>";
-        let result = "";
-
-        const wolfBiteActions = nightState.actions.filter(a => a.action === 'wolf_bite_group');
-        if (wolfBiteActions.length) {
-            const targets = wolfBiteActions.map(a => {
-                const p = roomPlayers.find(x => x.id === a.targetId);
-                return p ? `${p.name}${p.roleName ? " ("+p.roleName+")" : ""}` : "???";
-            });
-            result += `<div class="night-action-summary-item"><strong style="color:#f85149;">Bầy Sói</strong> chọn cắn: ${targets.join(', ')}</div>`;
-        }
-
-        nightState.actions.filter(a => a.action !== 'wolf_bite_group').forEach(({ action, targetId, actorId }) => {
-            const actor = roomPlayers.find(p => p.id === actorId);
-            const target = roomPlayers.find(p => p.id === targetId);
-            let actorName = actor ? actor.name : "???";
-            let actorRole = actor && actor.roleName ? actor.roleName : "";
-            let targetName = target ? target.name : "???";
-            let targetRole = target && target.roleName ? target.roleName : "";
-            let text = `${actorName}${actorRole ? " ("+actorRole+")" : ""} chọn ${ALL_ACTIONS[action]?.label || action} ${targetName}${targetRole ? " ("+targetRole+")" : ""}`;
-            result += `<div class="night-action-summary-item">${text}</div>`;
-        });
-
+    // --- Log Builder Functions ---
+    function buildGmActionLog(nightState) {
+        const gmActions = [];
         if (Array.isArray(nightState.factionChanges)) {
             nightState.factionChanges.forEach(change => {
                 const player = roomPlayers.find(p => p.id === change.playerId);
-                const name = player ? player.name : "???";
-                const role = player ? (player.roleName || "") : "";
-                result += `<div class="night-action-summary-item"><span style="color:#d29922;"><strong>${name}${role ? " ("+role+")" : ""}</strong> chuyển sang phe <strong>${change.newFaction}</strong></span></div>`;
+                const name = player ? `<strong class="player-name">${player.name}</strong>` : "???";
+                const oldFaction = player ? player.baseFaction : "?";
+                gmActions.push(`Đã đổi phe của ${name} (từ ${oldFaction}) thành <strong class="faction-name">${change.newFaction}</strong>.`);
             });
         }
 
-        return result || "<em>Chưa có hành động nào trong đêm này.</em>";
+        const gmManualActions = (nightState.actions || []).filter(a => a.action.startsWith('gm_'));
+        gmManualActions.forEach(({ action, targetId }) => {
+            const target = roomPlayers.find(p => p.id === targetId);
+            const targetName = target ? `<strong class="player-name">${target.name}</strong>` : '???';
+            const actionLabel = ALL_ACTIONS[action]?.label || action;
+            gmActions.push(`Áp dụng hiệu ứng "${actionLabel}" lên ${targetName}.`);
+        });
+
+        if (gmActions.length === 0) {
+            return '<p class="log-placeholder">Chưa có hoạt động nào từ quản trò.</p>';
+        }
+        return gmActions.map(log => `<div class="log-item gm-action">- ${log}</div>`).join('');
+    }
+
+    function buildPlayerActionLog(nightState, infoResults) {
+        const playerActions = [];
+        const actions = nightState.actions || [];
+
+        const regularActions = actions.filter(a => !a.action.startsWith('gm_'));
+
+        regularActions.forEach(({ action, targetId, actorId }) => {
+            const actor = roomPlayers.find(p => p.id === actorId);
+            const target = roomPlayers.find(p => p.id === targetId);
+            const actorName = actor ? `<strong class="player-name">${actor.name}</strong> <span class="role-name">(${actor.roleName || '???'})</span>` : '<strong>Bầy Sói</strong>';
+            const targetName = target ? `<strong class="target-name">${target.name}</strong>` : "???";
+            const actionLabel = ALL_ACTIONS[action]?.label || action;
+
+            playerActions.push(`${actorName} đã chọn <strong>${actionLabel}</strong> ${targetName}.`);
+        });
+
+        if (playerActions.length === 0 && infoResults.length === 0) {
+            return '<p class="log-placeholder">Chưa có hoạt động nào từ người chơi.</p>';
+        }
+
+        let html = playerActions.map(log => `<div class="log-item player-action">${log}</div>`).join('');
+        html += infoResults.map(log => `<div class="log-item info-result">${log}</div>`).join('');
+        return html;
     }
 
     function initializeSortable() {
@@ -561,15 +571,26 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const { liveStatuses, infoResults, deadPlayerNames } = calculateNightStatus(nightState);
-
-        if (nightState.factionChanges && Array.isArray(nightState.factionChanges)) {
-            nightState.factionChanges.forEach(change => {
-                const player = roomPlayers.find(p => p.id === change.playerId);
-                const playerName = player ? player.name : 'Người chơi không rõ';
-                infoResults.unshift(`- [GM] Đã chuyển phe của ${playerName} từ ${player ? player.faction : '?'} thành ${change.newFaction}.`);
-            });
+        
+        // Cập nhật kết quả chết
+        if (nightState.isFinished) {
+            nightResultsDiv.innerHTML = deadPlayerNames.length > 0
+                    ? `<strong>Đã chết:</strong> ${deadPlayerNames.map(name => `<span class="dead-player">${name}</span>`).join(', ')}`
+                    : '<p>Không có ai chết trong đêm nay.</p>';
+        } else {
+            nightResultsDiv.innerHTML = deadPlayerNames.length > 0
+                ? `<strong>Dự kiến chết:</strong> ${deadPlayerNames.map(name => `<span class="dead-player">${name}</span>`).join(', ')}`
+                : '<p>Không có ai chết trong đêm nay.</p>';
         }
         
+        // Cập nhật ghi chú GM
+        gmNoteArea.value = nightState.gmNote || "";
+        
+        // Cập nhật các log
+        gmLogContent.innerHTML = buildGmActionLog(nightState);
+        playerLogContent.innerHTML = buildPlayerActionLog(nightState, infoResults);
+
+        // Render bảng tương tác
         let sortedPlayers = [...roomPlayers];
         if (customPlayerOrder && customPlayerOrder.length > 0) {
              sortedPlayers.sort((a, b) => {
@@ -580,7 +601,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return indexA - indexB;
             });
         }
-
 
         FACTION_GROUPS.forEach(group => {
             const groupPlayers = sortedPlayers.filter(p => group.factions.includes(p.faction));
@@ -615,64 +635,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         initializeSortable();
         renderNightTabs();
-        
-        if (deadPlayerNames.length > 0) {
-            nightResultsDiv.innerHTML = `<strong>Dự kiến chết:</strong> ${deadPlayerNames.map(name => `<span class="dead-player">${name}</span>`).join(', ')}`;
-        } else {
-             nightResultsDiv.innerHTML = '<p>Không có ai chết trong đêm nay.</p>';
-        }
-        if (nightState.isFinished) {
-            nightResultsDiv.innerHTML = deadPlayerNames.length > 0
-                    ? `<strong>Đã chết:</strong> ${deadPlayerNames.map(name => `<span class="dead-player">${name}</span>`).join(', ')}`
-                    : '<p>Không có ai chết trong đêm nay.</p>';
-        }
-
-        let gmInfoLogDiv = document.getElementById('gm-info-log');
-        if (!gmInfoLogDiv) {
-            gmInfoLogDiv = document.createElement('div');
-            gmInfoLogDiv.id = 'gm-info-log';
-            gmInfoLogDiv.className = 'card';
-            nightResultsDiv.parentNode.insertBefore(gmInfoLogDiv, nightResultsDiv.nextSibling);
-        }
-        
-        if (infoResults && infoResults.length > 0) {
-            gmInfoLogDiv.style.display = 'block';
-            gmInfoLogDiv.innerHTML = `<h4>Kết quả kiểm tra đêm nay:</h4><ul>${infoResults.map(res => `<li>${res}</li>`).join('')}</ul>`;
-        } else {
-            gmInfoLogDiv.style.display = 'none';
-        }
-
-        if (!nightActionSummaryDiv) {
-            nightActionSummaryDiv = document.createElement('div');
-            nightActionSummaryDiv.id = "night-action-summary";
-            nightResultsDiv.parentNode.insertBefore(nightActionSummaryDiv, gmInfoLogDiv.nextSibling);
-        }
-        nightActionSummaryDiv.style.display = "block";
-        nightActionSummaryDiv.innerHTML = `<div style="font-weight:700; color:#58a6ff; margin-bottom:8px;">Tất cả hành động trong đêm:</div>${buildNightActionSummary(nightState)}`;
-
-        if (!gmNoteArea) {
-            gmNoteArea = document.createElement('textarea');
-            gmNoteArea.id = "gm-night-note";
-            gmNoteArea.rows = 2;
-            gmNoteArea.placeholder = "Ghi chú của quản trò cho đêm này...";
-            nightResultsDiv.parentNode.insertBefore(gmNoteArea, nightActionSummaryDiv.nextSibling);
-        }
-        if (!gmNoteBtn) {
-            gmNoteBtn = document.createElement('button');
-            gmNoteBtn.id = "save-gm-night-note-btn";
-            gmNoteBtn.textContent = "Lưu ghi chú đêm";
-            gmNoteBtn.className = "btn-end-night";
-            gmNoteBtn.onclick = function() {
-                nightStates[activeNightIndex].gmNote = gmNoteArea.value;
-                saveNightNotes();
-                gmNoteBtn.textContent = "Đã lưu!";
-                setTimeout(()=>gmNoteBtn.textContent="Lưu ghi chú đêm",1000);
-            }
-            nightResultsDiv.parentNode.insertBefore(gmNoteBtn, gmNoteArea.nextSibling);
-        }
-        gmNoteArea.style.display = "block";
-        gmNoteBtn.style.display = "inline-block";
-        gmNoteArea.value = nightState.gmNote || "";
 
         let deleteBtn = document.getElementById('delete-nightnote-btn');
         if (!deleteBtn) {
@@ -869,11 +831,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        if (containerAfterPlayers) {
-            containerAfterPlayers.parentNode.insertBefore(votingModuleEl, containerAfterPlayers.nextSibling);
+        const logSection = document.getElementById('night-logs-section');
+        if (logSection) {
+            logSection.parentNode.insertBefore(votingModuleEl, logSection.nextSibling);
         } else {
-            mainContainer.appendChild(votingModuleEl);
+             mainContainer.appendChild(votingModuleEl);
         }
+       
     }
 
     function renderVotingModule() {
@@ -1549,6 +1513,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.removeEventListener('click', handleEvents); 
         document.addEventListener('click', handleEvents);
+        
+        gmNoteBtn.addEventListener('click', () => {
+             if (nightStates[activeNightIndex]) {
+                nightStates[activeNightIndex].gmNote = gmNoteArea.value;
+                saveNightNotes();
+                gmNoteBtn.textContent = "Đã lưu!";
+                setTimeout(()=> gmNoteBtn.textContent = "Lưu Ghi Chú", 1500);
+            }
+        });
+        
         createActionModal();
         createFactionChangeModal();
         createGroupModal();
