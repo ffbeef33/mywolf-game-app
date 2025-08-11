@@ -42,7 +42,7 @@ body {
 }
 .card {
     background-color: var(--card-bg);
-    padding: 15px;
+    padding: 20px;
     border-radius: var(--border-radius);
     margin-bottom: 20px;
     border: 1px solid var(--border-color);
@@ -50,18 +50,66 @@ body {
 .main-header { text-align: center; margin-bottom: 20px; }
 .main-header h1 { font-family: var(--font-display); font-size: 2rem; color: var(--text-color); margin: 0; }
 .main-header p { font-size: 1.1rem; opacity: 0.8; }
+
+/* ============ START: UPDATED RESULTS SECTION STYLES ============ */
+.results-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.results-info {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
 #night-results {
-    background-color: var(--card-bg);
+    background-color: var(--primary-bg);
     padding: 15px;
     border-radius: 8px;
-    margin-bottom: 15px;
-    min-height: 40px;
+    min-height: 50px;
     font-size: 1.1rem;
     font-weight: 500;
+    margin: 0;
 }
-#night-results .dead-player { color: var(--danger-color); font-weight: 700; }
 
-.result-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+#night-results .dead-player { 
+    color: var(--danger-color); 
+    font-weight: 700; 
+}
+
+#gm-night-note {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--primary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    color: var(--light-text);
+    resize: vertical;
+    margin: 0;
+}
+
+.result-buttons { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 10px; 
+}
+
+.result-buttons button {
+    width: 100%;
+}
+
+@media (max-width: 600px) {
+    .results-grid {
+        grid-template-columns: 1fr; /* Stack on smaller screens */
+    }
+}
+/* ============= END: UPDATED RESULTS SECTION STYLES ============= */
+
+
 button {
     padding: 10px 15px; border: none; border-radius: 8px;
     background-color: var(--button-bg); color: white;
@@ -84,8 +132,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     font-size: 1rem;
     font-weight: 700;
     cursor: pointer;
-    margin-right: 8px;
-    margin-bottom: 4px;
     transition: background 0.2s;
 }
 .btn-danger:hover {
@@ -118,7 +164,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 }
 .faction-header.faction-wolf { color: var(--danger-color); border-bottom-color: var(--danger-color); }
 
-/* --- Player Row Styles --- */
 .player-row {
     display: flex; 
     flex-direction: column; 
@@ -217,7 +262,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     border-color: var(--danger-color);
 }
 
-/* --- Trạng thái người chơi --- */
 .player-row.status-dead { opacity: 0.5; background-color: #111; }
 .player-row.status-dead .action-modal-btn { display: none; }
 .player-row.status-protected { background-color: var(--status-protected-bg); }
@@ -226,7 +270,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .player-row.status-disabled { background-color: var(--status-disabled-bg); }
 .player-row.status-disabled-by-ability { background-color: var(--status-disabled-ability-bg); }
 
-/* --- Hiệu ứng cho VÔ HIỆU HOÁ VĨNH VIỄN --- */
 .player-row.status-permanently-disabled {
     background-image: repeating-linear-gradient(
         -45deg,
@@ -258,7 +301,7 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 
 
 .night-tabs-container {
-    background-color: var(--secondary-bg); padding: 15px;
+    padding: 15px;
     border-radius: var(--border-radius); margin-bottom: 20px;
     border: 1px solid var(--border-color); display: flex;
     align-items: center; gap: 10px; flex-wrap: wrap;
@@ -277,19 +320,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-#gm-night-note {
-    width: 100%;
-    margin: 12px 0 5px 0;
-    padding: 10px 12px;
-    background: var(--primary-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    font-size: 1rem;
-    color: var(--light-text);
-    resize: vertical;
-}
-
-/* --- Modal Styles --- */
 .modal-overlay {
     position: fixed;
     z-index: 1000;
@@ -318,7 +348,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     font-size: 28px; font-weight: bold; cursor: pointer;
 }
 
-/* --- Action Modal --- */
 .modal-content.action-modal { max-width: 600px; background-color: #111; }
 #action-modal-title {
     margin-top: 0;
@@ -400,9 +429,7 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .faction-change-options button[data-faction="Phe Dân"] { background-color: var(--safe-color); }
 
 
-/* --- Vote Module --- */
 #voting-section {
-    background-color: var(--secondary-bg);
     border: 1px solid var(--special-color);
     margin-top: 30px;
 }
@@ -496,7 +523,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     display: none; 
 }
 
-/* Các style mới thêm cho tính năng cập nhật */
 .player-name-wrapper {
     display: flex;
     align-items: center;
@@ -533,7 +559,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     margin-bottom: 15px;
 }
 
-/* ============== NEW LOG STYLES ============== */
 #night-logs-section h2 {
     margin-bottom: 15px;
     padding-bottom: 10px;

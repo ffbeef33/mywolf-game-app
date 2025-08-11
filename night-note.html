@@ -33,16 +33,20 @@
 
         <section class="card results-card">
             <h2><i class="fas fa-skull-crossbones"></i> Kết Quả Đêm Nay</h2>
-            <div id="night-results">
-                <p>Đang chờ kết quả...</p>
+            <div class="results-grid">
+                <div class="results-info">
+                    <div id="night-results">
+                        <p>Đang chờ kết quả...</p>
+                    </div>
+                    <textarea id="gm-night-note" rows="3" placeholder="Ghi chú nhanh của quản trò cho đêm này..."></textarea>
+                </div>
+                <div class="result-buttons">
+                    <button id="end-night-btn" class="btn-end-night">Kết Thúc Đêm</button>
+                    <button id="reset-night-btn">Làm Mới Đêm</button>
+                    <button id="save-gm-night-note-btn">Lưu Ghi Chú</button>
+                </div>
             </div>
-             <textarea id="gm-night-note" rows="2" placeholder="Ghi chú nhanh của quản trò cho đêm này..."></textarea>
-            <div class="result-buttons">
-                <button id="end-night-btn" class="btn-end-night">Kết Thúc Đêm</button>
-                <button id="reset-night-btn">Làm Mới Đêm</button>
-                 <button id="save-gm-night-note-btn">Lưu Ghi Chú</button>
-            </div>
-        </section>
+            </section>
 
         <section id="night-logs-section" class="card">
             <h2><i class="fas fa-file-alt"></i> Ghi Chép Hoạt Động Đêm</h2>
