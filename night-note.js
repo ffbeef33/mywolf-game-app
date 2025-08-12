@@ -290,10 +290,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             else if (actionKind === 'gather') targetStatus.gatheredBy = actorId;
-            /**
-             * === FIX: SỬA LẠI LOGIC "NOTI" ===
-             * Bỏ đi phần mã thêm người chơi vào damageLinks.
-             */
             else if (actionKind === 'noti') {
                 targetStatus.isNotified = true;
             }
@@ -350,14 +346,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
+            /**
+             * === FIX 2: SỬA LOGIC AUDIT VÀ INVEST ===
+             */
             if (actionKind === 'audit') {
-                let isWolf = (target.faction === 'Bầy Sói' || target.faction === 'Phe Sói');
-                if (target.kind.includes('reverse') || target.kind.includes('counteraudit')) isWolf = !isWolf;
-                const result = isWolf ? "thuộc Phe Sói" : "KHÔNG thuộc Phe Sói";
+                let isBaySoi = (target.faction === 'Bầy Sói');
+                if (target.kind.includes('reverse') || target.kind.includes('counteraudit')) isBaySoi = !isBaySoi;
+                const result = isBaySoi ? "thuộc Bầy Sói" : "KHÔNG thuộc Bầy Sói";
                 infoResults.push(`- ${attacker.roleName} (${attacker.name}) soi ${target.name}: ${result}.`);
             }
             if (actionKind === 'invest') {
-                const result = (target.faction !== 'Phe Dân') ? "KHÔNG thuộc Phe Dân" : "thuộc Phe Dân";
+                const isAnyWolf = (target.faction === 'Bầy Sói' || target.faction === 'Phe Sói');
+                const result = isAnyWolf ? "thuộc Phe Sói" : "KHÔNG thuộc Phe Sói";
                 infoResults.push(`- ${attacker.roleName} (${attacker.name}) điều tra ${target.name}: ${result}.`);
             }
             if (actionKind === 'check') {
