@@ -266,10 +266,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     infoResults.push(`- ${actor.roleName} (${actor.name}) đã cải đạo ${target.name} sang ${actor.faction}.`);
                 }
             }
-            /**
-             * === FIX 1: SỬA LOGIC XỬ LÝ HÀNH ĐỘNG "NGUYỀN" ===
-             * Bỏ đi điều kiện kiểm tra !liveStatuses[actorId]?.isDisabled vì actorId là 'wolf_group' không có trong liveStatuses.
-             */
             else if (actionKind === 'curse') {
                 if (finalStatus[targetId] && finalStatus[targetId].faction !== 'Bầy Sói') {
                     if (!finalStatus[targetId].originalRoleName) {
@@ -294,10 +290,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             else if (actionKind === 'gather') targetStatus.gatheredBy = actorId;
+            /**
+             * === FIX: SỬA LẠI LOGIC "NOTI" ===
+             * Bỏ đi phần mã thêm người chơi vào damageLinks.
+             */
             else if (actionKind === 'noti') {
                 targetStatus.isNotified = true;
-                if (!damageLinks[targetId]) damageLinks[targetId] = [];
-                damageLinks[targetId].push(actorId);
             }
         });
         
@@ -604,7 +602,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const { liveStatuses, infoResults, deadPlayerNames, finalStatus } = calculateNightStatus(nightState);
 
-        // Cập nhật phe của người chơi tạm thời để render cho đúng
         roomPlayers.forEach(p => {
             const playerFinalStatus = finalStatus[p.id];
             if (playerFinalStatus && playerFinalStatus.faction) {
@@ -661,7 +658,6 @@ document.addEventListener('DOMContentLoaded', () => {
             groupPlayers.forEach(player => {
                 const playerState = nightState.playersStatus[player.id];
                 const lStatus = liveStatuses ? liveStatuses[player.id] : null;
-                // Sử dụng finalStatus để lấy thông tin vai trò gốc nếu có
                 const finalPlayerState = finalStatus[player.id] || playerState;
                 if (playerState) {
                     playerListContainer.appendChild(createPlayerRow(player, finalPlayerState, lStatus, nightState.isFinished));
@@ -1089,7 +1085,7 @@ document.addEventListener('DOMContentLoaded', () => {
         voteResultsContainer.querySelector('#vote-results-summary').innerHTML = summaryHtml;
     }
 
-    const handleEvents = (e) => {
+    function handleEvents(e) {
         const target = e.target;
         
         if (target.matches('.action-modal-btn')) {
@@ -1263,9 +1259,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /**
-     * === FIX 2: SỬA LOGIC NÚT XÁC NHẬN CỦA MODAL ===
-     */
     function createActionModal() {
         if (document.getElementById('action-modal-overlay')) return;
 
@@ -1351,7 +1344,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let actionKey;
             
-            // Logic lấy actionKey chính xác hơn
             const selectedActionButton = actionModal.querySelector('#action-modal-choices button.selected');
             if (selectedActionButton) {
                 actionKey = selectedActionButton.dataset.actionKey;
@@ -1360,7 +1352,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 actionKey = possibleActionKeys.length > 0 ? possibleActionKeys[0] : null;
             }
 
-            // Xóa các hành động cũ của actor này
             let actionsToRemove;
             if (isWolfActor) {
                  actionsToRemove = ['kill', 'curse'];
@@ -1371,7 +1362,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 !(a.actorId === currentActorInModal.id && actionsToRemove.includes(a.action))
             );
             
-            // Thêm hành động mới
             if (actionKey) {
                  const checkedTargets = actionModal.querySelectorAll('#action-modal-targets input:checked');
                  checkedTargets.forEach(checkbox => {
