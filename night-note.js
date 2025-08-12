@@ -43,9 +43,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
     const SELECTABLE_FACTIONS = [ "Bầy Sói", "Phe Sói", "Phe Dân", "Phe trung lập" ];
     
-    /**
-     * === THAY ĐỔI 1: THÊM HÀNH ĐỘNG "NGUYỀN" ===
-     */
     const KIND_TO_ACTION_MAP = {
         'shield': { key: 'protect', label: 'Bảo vệ', type: 'defense' },
         'save': { key: 'save', label: 'Cứu', type: 'defense' },
@@ -69,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'gather': { key: 'gather', label: 'Tụ tập', type: 'buff' },
         'killif': { key: 'killif', label: 'Giết/Cứu', type: 'conditional' },
         'noti': { key: 'noti', label: 'Đánh dấu', type: 'buff' },
-        'curse': { key: 'curse', label: 'Nguyền', type: 'buff' }, // Hành động mới
+        'curse': { key: 'curse', label: 'Nguyền', type: 'buff' },
     };
 
     let ALL_ACTIONS = {};
@@ -113,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 acc[action.key] = action;
                 return acc;
             }, {});
-            ALL_ACTIONS['wolf_bite_group'] = { label: 'Sói cắn', type: 'damage' };
+            ALL_ACTIONS['wolf_bite_group'] = { label: 'Sói cắn', type: 'damage', key: 'kill' };
             ALL_ACTIONS['gm_kill'] = { label: 'Bị sát thương (GM)', type: 'damage' };
             ALL_ACTIONS['gm_protect'] = { label: 'Được bảo vệ (GM)', type: 'defense' };
             ALL_ACTIONS['gm_save'] = { label: 'Được cứu (GM)', type: 'defense' };
@@ -170,9 +167,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Logic ---
-    /**
-     * === THAY ĐỔI 2: XỬ LÝ LOGIC "NGUYỀN" ===
-     */
     const calculateNightStatus = (nightState) => {
         if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [], infoResults: [] };
         
@@ -218,7 +212,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         actions.forEach(({ actorId, targetId, action }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
-            if (!actor || (liveStatuses[actorId] && liveStatuses[actorId].isDisabled)) return;
+            const isWolfAction = actorId === 'wolf_group';
+
+            if (!isWolfAction && (!actor || (liveStatuses[actorId] && liveStatuses[actorId].isDisabled))) return;
+
             const actionKind = ALL_ACTIONS[action]?.key || action;
             if (actionKind === 'countershield') {
                 counterShieldedTargets.add(targetId);
@@ -227,44 +224,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
         actions.forEach(({ actorId, targetId, action }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
-            if (!actor) return; 
+            const isWolfAction = actorId === 'wolf_group';
+
+            if (!isWolfAction && !actor) return;
             
             const target = roomPlayers.find(p => p.id === targetId);
             const targetStatus = liveStatuses[targetId];
-            if (!targetStatus) return;
+            if (!target || !targetStatus) return;
+
+            const isDisabled = !isWolfAction && liveStatuses[actorId]?.isDisabled;
+            if (isDisabled) return;
 
             const actionKind = ALL_ACTIONS[action]?.key || action;
             
-            if (actionKind === 'disable_action' && !liveStatuses[actorId]?.isDisabled) targetStatus.isDisabled = true;
+            if (actionKind === 'disable_action') targetStatus.isDisabled = true;
             else if (actionKind === 'gm_add_armor') targetStatus.armor++;
-            else if ((actionKind === 'protect' || actionKind === 'gm_protect') && !liveStatuses[actorId]?.isDisabled) {
+            else if (actionKind === 'protect' || actionKind === 'gm_protect') {
                 if(!counterShieldedTargets.has(targetId)) targetStatus.isProtected = true;
             }
-            else if (actionKind === 'sacrifice'  && !liveStatuses[actorId]?.isDisabled) damageRedirects[targetId] = actorId;
-            else if (actionKind === 'checkcounter'  && !liveStatuses[actorId]?.isDisabled) counterWards[targetId] = { actorId: actorId, triggered: false };
-            else if (actionKind === 'checkdmg'  && !liveStatuses[actorId]?.isDisabled) {
+            else if (actionKind === 'sacrifice') damageRedirects[targetId] = actorId;
+            else if (actionKind === 'checkcounter') counterWards[targetId] = { actorId: actorId, triggered: false };
+            else if (actionKind === 'checkdmg') {
                 if (liveStatuses[actorId]) liveStatuses[actorId].deathLinkTarget = targetId;
             }
-            else if (actionKind === 'givekill'  && !liveStatuses[actorId]?.isDisabled) targetStatus.tempStatus.hasKillAbility = true;
-            else if (actionKind === 'givearmor'  && !liveStatuses[actorId]?.isDisabled) {
+            else if (actionKind === 'givekill') targetStatus.tempStatus.hasKillAbility = true;
+            else if (actionKind === 'givearmor') {
                 targetStatus.armor = 2;
                 if (liveStatuses[actorId]) liveStatuses[actorId].armor = 2;
                 damageRedirects[targetId] = actorId;
             }
-            else if (actionKind === 'choosesacrifier'  && !liveStatuses[actorId]?.isDisabled) {
+            else if (actionKind === 'choosesacrifier') {
                 if (finalStatus[actorId]) {
                     finalStatus[actorId].sacrificedBy = targetId;
                     damageRedirects[actorId] = targetId;
                     infoResults.push(`- ${actor.roleName} (${actor.name}) đã chọn ${target.name} làm người thế mạng.`);
                 }
             }
-            else if (actionKind === 'collect'  && !liveStatuses[actorId]?.isDisabled) {
+            else if (actionKind === 'collect') {
                 if (finalStatus[targetId]) {
                     finalStatus[targetId].faction = actor.faction;
                     infoResults.push(`- ${actor.roleName} (${actor.name}) đã cải đạo ${target.name} sang ${actor.faction}.`);
                 }
             }
-            else if (actionKind === 'curse' && !liveStatuses[actorId]?.isDisabled) {
+            /**
+             * === FIX 1: SỬA LOGIC XỬ LÝ HÀNH ĐỘNG "NGUYỀN" ===
+             * Bỏ đi điều kiện kiểm tra !liveStatuses[actorId]?.isDisabled vì actorId là 'wolf_group' không có trong liveStatuses.
+             */
+            else if (actionKind === 'curse') {
                 if (finalStatus[targetId] && finalStatus[targetId].faction !== 'Bầy Sói') {
                     if (!finalStatus[targetId].originalRoleName) {
                         finalStatus[targetId].originalRoleName = target.roleName;
@@ -273,7 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     infoResults.push(`- Bầy Sói đã nguyền rủa ${target.name}, biến họ thành Sói.`);
                 }
             }
-            else if (actionKind === 'transform'  && !liveStatuses[actorId]?.isDisabled) {
+            else if (actionKind === 'transform') {
                 if (finalStatus[actorId]) {
                     if (roomPlayers.find(p => p.id === targetId)) {
                         finalStatus[actorId].transformedTo = roomPlayers.find(p => p.id === targetId).roleName;
@@ -281,14 +287,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
-            else if (actionKind === 'killdelay'  && !liveStatuses[actorId]?.isDisabled) {
+            else if (actionKind === 'killdelay') {
                 if (finalStatus[targetId]) {
                     finalStatus[targetId].markedForDelayKill = true;
                     infoResults.push(`- ${actor.roleName} (${actor.name}) đã nguyền rủa ${target.name}.`);
                 }
             }
-            else if (actionKind === 'gather'  && !liveStatuses[actorId]?.isDisabled) targetStatus.gatheredBy = actorId;
-            else if (actionKind === 'noti'  && !liveStatuses[actorId]?.isDisabled) {
+            else if (actionKind === 'gather') targetStatus.gatheredBy = actorId;
+            else if (actionKind === 'noti') {
                 targetStatus.isNotified = true;
                 if (!damageLinks[targetId]) damageLinks[targetId] = [];
                 damageLinks[targetId].push(actorId);
@@ -296,14 +302,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         const killifActions = actions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
-        const otherActions = actions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) !== 'killif');
+        const otherActions = actions.filter(({ action }) => !['killif', 'curse'].includes(ALL_ACTIONS[action]?.key || action));
+
 
         otherActions.forEach(({ actorId, targetId, action }) => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             const target = roomPlayers.find(p => p.id === targetId);
             const actionKind = ALL_ACTIONS[action]?.key || action;
 
-            if (actorId === 'wolf_group' || actionKind === 'gm_kill') {
+            if (actorId === 'wolf_group' || action === 'wolf_bite_group' || actionKind === 'gm_kill') {
                 const finalTargetId = damageRedirects[targetId] || targetId;
                 const targetStatus = liveStatuses[finalTargetId];
                 if (targetStatus && !targetStatus.isProtected) targetStatus.damage++;
@@ -595,17 +602,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const { liveStatuses, infoResults, deadPlayerNames, finalStatus } = calculateNightStatus(nightState);
+
         // Cập nhật phe của người chơi tạm thời để render cho đúng
         roomPlayers.forEach(p => {
-            const playerStatus = nightState.playersStatus[p.id];
-            if (playerStatus && playerStatus.faction) {
-                p.faction = playerStatus.faction;
+            const playerFinalStatus = finalStatus[p.id];
+            if (playerFinalStatus && playerFinalStatus.faction) {
+                p.faction = playerFinalStatus.faction;
             } else {
                 p.faction = p.baseFaction;
             }
         });
-
-        const { liveStatuses, infoResults, deadPlayerNames } = calculateNightStatus(nightState);
         
         if (nightState.isFinished) {
             nightResultsDiv.innerHTML = deadPlayerNames.length > 0
@@ -654,8 +661,10 @@ document.addEventListener('DOMContentLoaded', () => {
             groupPlayers.forEach(player => {
                 const playerState = nightState.playersStatus[player.id];
                 const lStatus = liveStatuses ? liveStatuses[player.id] : null;
+                // Sử dụng finalStatus để lấy thông tin vai trò gốc nếu có
+                const finalPlayerState = finalStatus[player.id] || playerState;
                 if (playerState) {
-                    playerListContainer.appendChild(createPlayerRow(player, playerState, lStatus, nightState.isFinished));
+                    playerListContainer.appendChild(createPlayerRow(player, finalPlayerState, lStatus, nightState.isFinished));
                 }
             });
 
@@ -701,9 +710,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isDisabled) row.classList.add('status-disabled-by-ability');
         }
         if (playerState.isDisabled) row.classList.add('status-disabled');
-        if (playerState.isPermanentlyDisabled) row.classList.add('status-permanently-disabled');
+        if (playerState.isPermanentlyDisabled) {
+            row.classList.add('status-permanently-disabled');
+        }
         
-        // Thêm class nếu người chơi bị nguyền
         if (playerState.originalRoleName) {
             row.classList.add('status-cursed');
         }
@@ -727,7 +737,6 @@ document.addEventListener('DOMContentLoaded', () => {
             groupTagHTML = `<span class="player-group-tag" title="Nhóm: ${groupName}">${playerState.groupId}</span>`;
         }
 
-        // Hiển thị vai trò gốc nếu bị nguyền
         const roleDisplayName = playerState.originalRoleName 
             ? `${playerState.originalRoleName} <span class="cursed-note">(thành Sói)</span>`
             : (player.roleName || 'Chưa có vai');
@@ -756,9 +765,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return row;
     }
 
-    /**
-     * === THAY ĐỔI 3: CẬP NHẬT GIAO DIỆN BẦY SÓI ===
-     */
     function createWolfGroupRow(nightState, isFinished) {
         const row = document.createElement('div');
         row.className = 'player-row';
@@ -1083,9 +1089,6 @@ document.addEventListener('DOMContentLoaded', () => {
         voteResultsContainer.querySelector('#vote-results-summary').innerHTML = summaryHtml;
     }
 
-    /**
-     * === THAY ĐỔI 4: XỬ LÝ SỰ KIỆN CLICK CHO NÚT MỚI CỦA SÓI ===
-     */
     const handleEvents = (e) => {
         const target = e.target;
         
@@ -1102,7 +1105,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (wolfAction === 'bite') {
                     actor = { id: 'wolf_group', name: 'Bầy Sói', roleName: 'Hành động chung', kind: 'kill', quantity: Infinity, activeRule: 'n' };
                 } else if (wolfAction === 'curse') {
-                    // Giả sử Nguyền có thể dùng mỗi đêm, chọn 1 mục tiêu
                     actor = { id: 'wolf_group', name: 'Bầy Sói', roleName: 'Hành động chung', kind: 'curse', quantity: 1, activeRule: 'n' };
                 }
             } else {
@@ -1214,10 +1216,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const targetsContainer = actionModal.querySelector('#action-modal-targets');
         
         const selectedActionButton = actionModal.querySelector('#action-modal-choices button.selected');
-        const possibleActionKeys = currentActorInModal.id === 'wolf_group' 
-            ? ['wolf_bite_group', 'curse']
-            : currentActorInModal.kind.split('_').map(k => KIND_TO_ACTION_MAP[k]?.key).filter(Boolean);
         
+        let possibleActionKeys = [];
+        if (currentActorInModal.id === 'wolf_group') {
+            possibleActionKeys = [currentActorInModal.kind];
+        } else {
+            possibleActionKeys = currentActorInModal.kind.split('_').map(k => KIND_TO_ACTION_MAP[k]?.key).filter(Boolean);
+        }
+
         const actionKey = selectedActionButton ? selectedActionButton.dataset.actionKey : possibleActionKeys[0];
         
         if (!actionKey) {
@@ -1257,6 +1263,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /**
+     * === FIX 2: SỬA LOGIC NÚT XÁC NHẬN CỦA MODAL ===
+     */
     function createActionModal() {
         if (document.getElementById('action-modal-overlay')) return;
 
@@ -1338,30 +1347,31 @@ document.addEventListener('DOMContentLoaded', () => {
         actionModal.querySelector('#action-modal-confirm').addEventListener('click', () => {
             if (!currentActorInModal) return;
             const nightState = nightStates[activeNightIndex];
-            
             const isWolfActor = currentActorInModal.id === 'wolf_group';
-            const possibleKinds = isWolfActor ? ['kill', 'curse'] : currentActorInModal.kind.split('_');
-            const possibleActionKeys = possibleKinds.map(k => KIND_TO_ACTION_MAP[k]?.key || k).filter(Boolean);
-            
-            nightState.actions = nightState.actions.filter(a => 
-                !(a.actorId === currentActorInModal.id && possibleActionKeys.includes(a.action) && !a.action.startsWith('gm_'))
-            );
 
+            let actionKey;
+            
+            // Logic lấy actionKey chính xác hơn
             const selectedActionButton = actionModal.querySelector('#action-modal-choices button.selected');
-            
-            let actionKey = selectedActionButton 
-                ? selectedActionButton.dataset.actionKey 
-                : null;
-            
-            if (!actionKey && possibleActionKeys.length > 0) {
-                 if (isWolfActor) {
-                    actionKey = (currentActorInModal.kind === 'curse') ? 'curse' : 'kill';
-                 } else {
-                    actionKey = possibleActionKeys[0];
-                 }
+            if (selectedActionButton) {
+                actionKey = selectedActionButton.dataset.actionKey;
+            } else {
+                const possibleActionKeys = currentActorInModal.kind.split('_').map(k => KIND_TO_ACTION_MAP[k]?.key).filter(Boolean);
+                actionKey = possibleActionKeys.length > 0 ? possibleActionKeys[0] : null;
             }
 
-
+            // Xóa các hành động cũ của actor này
+            let actionsToRemove;
+            if (isWolfActor) {
+                 actionsToRemove = ['kill', 'curse'];
+            } else {
+                 actionsToRemove = currentActorInModal.kind.split('_').map(k => KIND_TO_ACTION_MAP[k]?.key).filter(Boolean);
+            }
+            nightState.actions = nightState.actions.filter(a => 
+                !(a.actorId === currentActorInModal.id && actionsToRemove.includes(a.action))
+            );
+            
+            // Thêm hành động mới
             if (actionKey) {
                  const checkedTargets = actionModal.querySelectorAll('#action-modal-targets input:checked');
                  checkedTargets.forEach(checkbox => {
@@ -1489,7 +1499,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const isWolfGroup = actor.id === 'wolf_group';
         const possibleKinds = isWolfGroup ? [actor.kind] : actor.kind.split('_');
-        const allPossibleActions = possibleKinds.map(k => KIND_TO_ACTION_MAP[k] || { key: 'wolf_bite_group', label: 'Sói cắn' }).filter(Boolean);
+        const allPossibleActions = possibleKinds.map(k => KIND_TO_ACTION_MAP[k]).filter(Boolean);
 
         actionChoicesContainer.innerHTML = '';
 
