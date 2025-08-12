@@ -260,12 +260,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     infoResults.push(`- ${actor.roleName} (${actor.name}) đã chọn ${target.name} làm người thế mạng.`);
                 }
             }
-            // Logic curse và collect đã bị loại bỏ khỏi đây vì chúng sẽ được xử lý vào cuối đêm
+            // Ghi nhận hành động transform vào finalStatus để xử lý vào đêm tiếp theo
             else if (actionKind === 'transform') {
                 if (finalStatus[actorId]) {
-                    if (roomPlayers.find(p => p.id === targetId)) {
-                        finalStatus[actorId].transformedTo = roomPlayers.find(p => p.id === targetId).roleName;
-                        infoResults.push(`- ${actor.roleName} (${actor.name}) đã biến thành ${finalStatus[actorId].transformedTo}.`);
+                    const newRoleData = allRolesData[target.roleName];
+                    if (newRoleData) {
+                        finalStatus[actorId].transformedState = {
+                            roleName: target.roleName,
+                            kind: newRoleData.kind,
+                            activeRule: newRoleData.active,
+                            quantity: newRoleData.quantity
+                        };
+                        infoResults.push(`- ${actor.roleName} (${actor.name}) sẽ biến thành ${target.roleName} vào đêm mai.`);
                     }
                 }
             }
@@ -282,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         const killifActions = actions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
-        const otherActions = actions.filter(({ action }) => !['killif'].includes(ALL_ACTIONS[action]?.key || action));
+        const otherActions = actions.filter(({ action }) => !['killif', 'curse', 'collect', 'transform'].includes(ALL_ACTIONS[action]?.key || action));
 
 
         otherActions.forEach(({ actorId, targetId, action }) => {
@@ -583,10 +589,19 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Cập nhật phe của người chơi dựa trên trạng thái bắt đầu đêm
+        // Đồng bộ hóa trạng thái hiện tại của người chơi (vai trò, phe,...) với đối tượng roomPlayers
         roomPlayers.forEach(p => {
             const playerStatus = nightState.playersStatus[p.id];
-            p.faction = (playerStatus && playerStatus.faction) ? playerStatus.faction : p.baseFaction;
+            if (playerStatus) {
+                p.faction = playerStatus.faction || p.baseFaction;
+                // Nếu người chơi đã biến hình, cập nhật tất cả thuộc tính
+                if (playerStatus.originalRoleName || playerStatus.transformedState) {
+                    p.roleName = playerStatus.roleName;
+                    p.kind = playerStatus.kind;
+                    p.activeRule = playerStatus.activeRule;
+                    p.quantity = playerStatus.quantity;
+                }
+            }
         });
 
         const { liveStatuses, infoResults, deadPlayerNames, finalStatus } = calculateNightStatus(nightState);
@@ -693,6 +708,10 @@ document.addEventListener('DOMContentLoaded', () => {
             row.classList.add('status-cursed');
         }
 
+        if (playerState.transformedState) {
+            row.classList.add('status-transformed');
+        }
+
         let actionDisplayHTML = buildActionList(player.id, nightStates[activeNightIndex]);
         
         let statusIconsHTML = '';
@@ -712,9 +731,12 @@ document.addEventListener('DOMContentLoaded', () => {
             groupTagHTML = `<span class="player-group-tag" title="Nhóm: ${groupName}">${playerState.groupId}</span>`;
         }
 
-        const roleDisplayName = playerState.originalRoleName 
-            ? `${playerState.originalRoleName} <span class="cursed-note">(thành Sói)</span>`
-            : (player.roleName || 'Chưa có vai');
+        let roleDisplayName = player.roleName || 'Chưa có vai';
+        if (playerState.originalRoleName) {
+            roleDisplayName = `${playerState.originalRoleName} <span class="cursed-note">(thành Sói)</span>`;
+        } else if (playerState.transformedState) {
+            roleDisplayName = `${player.roleName} <span class="transformed-note">(Biến hình)</span>`;
+        }
 
         row.innerHTML = `
             <div class="player-header">
@@ -1064,7 +1086,7 @@ document.addEventListener('DOMContentLoaded', () => {
         voteResultsContainer.querySelector('#vote-results-summary').innerHTML = summaryHtml;
     }
 
-    const handleEvents = (e) => {
+    function handleEvents(e) {
         const target = e.target;
         
         if (target.matches('.action-modal-btn')) {
@@ -1132,12 +1154,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     transformedTo: null,
                     markedForDelayKill: false,
                     groupId: null,
-                    faction: p.faction, // Thêm phe ban đầu
-                    originalRoleName: null
+                    faction: p.faction,
+                    originalRoleName: null,
+                    roleName: p.roleName,
+                    kind: p.kind,
+                    activeRule: p.activeRule,
+                    quantity: p.quantity,
                 }];
             }));
             
-            // Áp dụng các thay đổi phe từ đêm trước
             if (lastNight && Array.isArray(lastNight.factionChanges)) {
                 lastNight.factionChanges.forEach(change => {
                     if (prevStatus[change.playerId]) {
@@ -1148,6 +1173,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             }
+
+            Object.keys(prevStatus).forEach(pId => {
+                const playerStatus = prevStatus[pId];
+                if (playerStatus && playerStatus.transformedState) {
+                    if(!playerStatus.originalRoleName) {
+                        playerStatus.originalRoleName = playerStatus.roleName; 
+                    }
+                    playerStatus.roleName = playerStatus.transformedState.roleName;
+                    playerStatus.kind = playerStatus.transformedState.kind;
+                    playerStatus.activeRule = playerStatus.transformedState.activeRule;
+                    playerStatus.quantity = playerStatus.transformedState.quantity;
+                }
+            });
             
             Object.keys(prevStatus).forEach(pId => {
                 if(prevStatus[pId]) prevStatus[pId].isDisabled = false;
@@ -1191,9 +1229,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else if (target.closest('#end-night-btn')) {
             if (!nightState.isFinished && confirm(`Bạn có chắc muốn kết thúc Đêm ${activeNightIndex + 1}?`)) {
-                // Ghi nhận các hành động đổi phe vào danh sách chờ
+                
                 const curseActions = nightState.actions.filter(a => a.action === 'curse');
-                if (curseActions.length > 0) {
+                const collectActions = nightState.actions.filter(a => a.action === 'collect');
+
+                if (curseActions.length > 0 || collectActions.length > 0) {
                     if (!Array.isArray(nightState.factionChanges)) {
                         nightState.factionChanges = [];
                     }
@@ -1204,6 +1244,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                 playerId: action.targetId,
                                 newFaction: 'Bầy Sói',
                                 originalRoleName: targetPlayer.roleName
+                            });
+                        }
+                    });
+                    collectActions.forEach(action => {
+                        const actor = roomPlayers.find(p => p.id === action.actorId);
+                        if(actor && !nightState.factionChanges.some(fc => fc.playerId === action.targetId)) {
+                             nightState.factionChanges.push({
+                                playerId: action.targetId,
+                                newFaction: actor.faction,
+                                originalRoleName: roomPlayers.find(p => p.id === action.targetId)?.roleName
                             });
                         }
                     });
@@ -1583,10 +1633,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 nightState.factionChanges = nightState.factionChanges.filter(c => c.playerId !== targetId);
                 nightState.factionChanges.push({ playerId: targetId, newFaction: newFaction });
                 
-                // Không thay đổi ngay lập tức, chỉ ghi nhận
-                // const playerInClient = roomPlayers.find(p => p.id === targetId);
-                // if(playerInClient) playerInClient.faction = newFaction;
-
                 saveNightNotes();
                 render();
                 closeModal();
