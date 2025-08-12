@@ -51,7 +51,6 @@ body {
 .main-header h1 { font-family: var(--font-display); font-size: 2rem; color: var(--text-color); margin: 0; }
 .main-header p { font-size: 1.1rem; opacity: 0.8; }
 
-/* ============ START: UPDATED RESULTS SECTION STYLES ============ */
 .results-grid {
     display: grid;
     grid-template-columns: 2fr 1fr;
@@ -104,18 +103,16 @@ body {
 
 @media (max-width: 600px) {
     .results-grid {
-        grid-template-columns: 1fr; /* Stack on smaller screens */
+        grid-template-columns: 1fr;
     }
 }
-/* ============= END: UPDATED RESULTS SECTION STYLES ============= */
-
 
 button {
     padding: 10px 15px; border: none; border-radius: 8px;
     background-color: var(--button-bg); color: white;
     font-size: 1rem; font-weight: 700; cursor: pointer;
     transition: filter 0.2s, background-color 0.2s;
-    white-space: nowrap; /* Ngăn chữ trên nút xuống dòng */
+    white-space: nowrap;
 }
 button:hover { filter: brightness(1.1); }
 button.btn-primary { background-color: var(--text-color); color: var(--primary-bg); }
@@ -165,7 +162,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 }
 .faction-header.faction-wolf { color: var(--danger-color); border-bottom-color: var(--danger-color); }
 
-/* ============ START: UPDATED PLAYER ROW STYLES ============ */
 .player-row {
     padding: 12px 10px; 
     border-bottom: 1px solid var(--border-color);
@@ -260,8 +256,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     font-size: 0.9rem;
 }
 
-/* ============= END: UPDATED PLAYER ROW STYLES ============= */
-
 .action-modal-btn.wolf-bite-btn {
     background-color: var(--danger-color);
 }
@@ -331,7 +325,7 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .icon-danger { color: var(--danger-color); }
 .icon-disabled-by-ability { color: var(--disable-color); }
 .status-icons .icon-armor { color: var(--neutral-color); opacity: 0.8; }
-
+.icon-notified { color: var(--disable-color); }
 
 .night-tabs-container {
     padding: 15px;
@@ -655,7 +649,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     font-style: italic;
 }
 
-/* === CSS CHO NÚT CHỌN HÀNH ĐỘNG TRONG MODAL === */
 #action-modal-choices {
     justify-content: center;
 }
@@ -698,7 +691,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     filter: none;
 }
 
-/* Style cho mục tiêu bị vô hiệu hóa do đã chọn đủ số lượng */
 .target-item input[type="checkbox"]:disabled + label {
     opacity: 0.5;
     cursor: not-allowed;

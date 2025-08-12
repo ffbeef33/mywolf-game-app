@@ -75,10 +75,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let customPlayerOrder = [];
 
     // --- Data Fetching ---
-    /**
-     * === HÀM ĐƯỢC CẬP NHẬT 1 ===
-     * Sửa lại logic đọc cột Quantity để xử lý giá trị 'n'.
-     */
     const fetchAllRolesData = async () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Roles`);
@@ -88,7 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
             allRolesData = rawData.reduce((acc, role) => {
                 const roleName = (role.RoleName || '').trim();
                 if (roleName) {
-                    // Logic mới để đọc Quantity
                     const quantityRaw = (role.Quantity || '1').toString().trim().toLowerCase();
                     let quantityValue;
                     if (quantityRaw === 'n') {
@@ -96,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         quantityValue = parseInt(quantityRaw, 10);
                         if (isNaN(quantityValue)) {
-                            quantityValue = 1; // Mặc định là 1 nếu không phải số
+                            quantityValue = 1;
                         }
                     }
 
@@ -665,6 +660,10 @@ document.addEventListener('DOMContentLoaded', () => {
         renderVotingModule();
     };
     
+    /**
+     * === HÀM ĐƯỢC CẬP NHẬT CHÍNH ===
+     * Thêm icon cho trạng thái "bị đánh dấu" (isNotified).
+     */
     function createPlayerRow(player, playerState, liveStatus, isFinished) {
         const row = document.createElement('div');
         row.className = 'player-row';
@@ -692,6 +691,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isDead) statusIconsHTML += '<i class="fas fa-skull-crossbones icon-danger" title="Dự kiến chết"></i>';
             if (liveStatus.isDisabled) statusIconsHTML += '<i class="fas fa-exclamation-triangle icon-disabled-by-ability" title="Bị vô hiệu hóa"></i>';
             if (liveStatus.armor > 1) statusIconsHTML += `<i class="fas fa-shield-alt icon-armor" title="Có ${liveStatus.armor - 1} giáp"></i>`;
+            // Dòng mới được thêm vào
+            if (liveStatus.isNotified) statusIconsHTML += '<i class="fas fa-bell icon-notified" title="Bị đánh dấu"></i>';
         }
 
         let groupTagHTML = '';
@@ -1156,10 +1157,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    /**
-     * === HÀM ĐƯỢC CẬP NHẬT 2 ===
-     * Thêm logic kiểm tra số lượng mục tiêu đã chọn.
-     */
     function renderTargetsForSelectedAction() {
         if (!currentActorInModal) return;
 
@@ -1201,7 +1198,6 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         });
 
-        // Áp dụng giới hạn mục tiêu ngay khi render
         const limit = currentActorInModal.quantity;
         if (limit !== Infinity) {
             const allCheckboxes = targetsContainer.querySelectorAll('input[type="checkbox"]');
@@ -1213,10 +1209,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /**
-     * === HÀM ĐƯỢC CẬP NHẬT 3 ===
-     * Thêm trình lắng nghe sự kiện để kiểm soát việc chọn mục tiêu.
-     */
     function createActionModal() {
         if (document.getElementById('action-modal-overlay')) return;
 
@@ -1272,7 +1264,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Trình lắng nghe sự kiện cho việc chọn mục tiêu
         const targetsContainer = actionModal.querySelector('#action-modal-targets');
         targetsContainer.addEventListener('change', (e) => {
             if (e.target.type !== 'checkbox' || !currentActorInModal) return;
@@ -1312,7 +1303,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const actionKey = selectedActionButton 
                 ? selectedActionButton.dataset.actionKey 
                 : (possibleActionKeys.length > 0 ? possibleActionKeys[0] : null);
-
 
             if (actionKey && isActionCurrentlyAvailable(currentActorInModal, actionKey, activeNightIndex)) {
                  const checkedTargets = actionModal.querySelectorAll('#action-modal-targets input:checked');
