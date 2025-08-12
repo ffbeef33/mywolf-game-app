@@ -20,6 +20,7 @@
     --border-radius: 12px;
     --special-color: #8257e5; /* Tím Copilot */
     --special-hover-color: #a371f7;
+    --cursed-color: #c934e7; /* Màu tím cho Nguyền */
 
     /* Màu tương tác đêm */
     --status-protected-bg: rgba(88, 166, 255, 0.15);
@@ -27,6 +28,7 @@
     --status-danger-bg: rgba(248, 81, 73, 0.15);
     --status-disabled-bg: rgba(110, 118, 129, 0.2);
     --status-disabled-ability-bg: rgba(210, 153, 34, 0.15);
+    --status-cursed-bg: rgba(201, 52, 231, 0.15);
 }
 body {
     font-family: var(--font-main);
@@ -262,6 +264,12 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .action-modal-btn.wolf-bite-btn:hover {
     background-color: #c73c3c;
 }
+.action-modal-btn.wolf-curse-btn {
+    background-color: var(--cursed-color);
+}
+.action-modal-btn.wolf-curse-btn:hover {
+    filter: brightness(1.2);
+}
 
 
 .player-status-icon {
@@ -296,6 +304,9 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .player-row.status-danger { background-color: var(--status-danger-bg); }
 .player-row.status-disabled { background-color: var(--status-disabled-bg); }
 .player-row.status-disabled-by-ability { background-color: var(--status-disabled-ability-bg); }
+.player-row.status-cursed { background-color: var(--status-cursed-bg); border-left: 3px solid var(--cursed-color); }
+.cursed-note { color: var(--cursed-color); font-weight: 700; font-style: italic;}
+
 
 .player-row.status-permanently-disabled {
     background-image: repeating-linear-gradient(
@@ -311,7 +322,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     color: var(--disable-color);
     text-decoration: line-through;
 }
-
 
 .status-icons {
     display: flex;
