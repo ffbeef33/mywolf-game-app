@@ -651,6 +651,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const { liveStatuses, infoResults, deadPlayerNames, finalStatus } = calculateNightStatus(nightState);
         
+        // CẬP NHẬT SAU KHI TÍNH TOÁN ĐỂ HIỂN THỊ ĐÚNG PHE TỨC THỜI
+        roomPlayers.forEach(p => {
+            if(finalStatus[p.id]) {
+                p.faction = finalStatus[p.id].faction;
+            }
+        });
+
         if (nightState.isFinished) {
             nightResultsDiv.innerHTML = deadPlayerNames.length > 0
                     ? `<strong>Đã chết:</strong> ${deadPlayerNames.map(name => `<span class="dead-player">${name}</span>`).join(', ')}`
