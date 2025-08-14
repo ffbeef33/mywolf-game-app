@@ -100,7 +100,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         faction: (role.Faction || 'Chưa phân loại').trim(),
                         active: (role.Active || '0').trim(),
                         kind: (role.Kind || 'empty').trim(),
-                        quantity: quantityValue
+                        quantity: quantityValue,
+                        duration: (role.Duration || '1').toString().trim().toLowerCase()
                     };
                 }
                 return acc;
@@ -176,11 +177,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const liveStatuses = {}; 
         const infoResults = [];
 
+        if (Array.isArray(nightState.factionChanges)) {
+            nightState.factionChanges.forEach(change => {
+                if (change.isImmediate && finalStatus[change.playerId]) {
+                    finalStatus[change.playerId].faction = change.newFaction;
+                }
+            });
+        }
+
         Object.keys(initialStatus).forEach(pId => {
             if (initialStatus[pId] && initialStatus[pId].isAlive) {
                 liveStatuses[pId] = {
                     damage: 0, 
-                    isProtected: false, 
+                    isProtected: initialStatus[pId].isPermanentlyProtected || false,
                     isSaved: false,
                     isDisabled: initialStatus[pId].isDisabled || initialStatus[pId].isPermanentlyDisabled || false,
                     armor: initialStatus[pId].armor || 1,
@@ -189,9 +198,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     deathLinkTarget: initialStatus[pId].deathLinkTarget || null,
                     gatheredBy: null,
                     markedForDelayKill: initialStatus[pId].markedForDelayKill || false,
-                    tempStatus: { hasKillAbility: false },
+                    tempStatus: { 
+                        hasKillAbility: initialStatus[pId].hasPermanentKillAbility || false
+                    },
                     isSavedByKillif: false,
-                    isNotified: false,
+                    isNotified: initialStatus[pId].isPermanentlyNotified || false,
                     groupId: initialStatus[pId].groupId || null,
                 };
                 if (liveStatuses[pId].isDoomed) liveStatuses[pId].damage = 99;
@@ -236,18 +247,51 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isDisabled) return;
 
             const actionKind = ALL_ACTIONS[action]?.key || action;
-            
-            if (actionKind === 'disable_action') targetStatus.isDisabled = true;
+            const duration = actor ? (actor.duration || '1') : '1';
+
+            if (actionKind === 'disable_action') {
+                if (duration === 'n') {
+                    finalStatus[targetId].isPermanentlyDisabled = true;
+                } else {
+                    targetStatus.isDisabled = true;
+                }
+            }
             else if (actionKind === 'gm_add_armor') targetStatus.armor++;
             else if (actionKind === 'protect' || actionKind === 'gm_protect') {
-                if(!counterShieldedTargets.has(targetId)) targetStatus.isProtected = true;
+                 if (duration === 'n') {
+                    finalStatus[targetId].isPermanentlyProtected = true;
+                } else {
+                    if(!counterShieldedTargets.has(targetId)) targetStatus.isProtected = true;
+                }
             }
-            else if (actionKind === 'sacrifice') damageRedirects[targetId] = actorId;
-            else if (actionKind === 'checkcounter') counterWards[targetId] = { actorId: actorId, triggered: false };
+            else if (actionKind === 'sacrifice') {
+                 if (duration === 'n') {
+                    finalStatus[actorId].sacrificedBy = targetId;
+                    damageRedirects[actorId] = targetId;
+                } else {
+                    damageRedirects[targetId] = actorId;
+                }
+            }
+            else if (actionKind === 'checkcounter') {
+                 if (duration === 'n') {
+                    finalStatus[targetId].hasPermanentCounterWard = true;
+                }
+                counterWards[targetId] = { actorId: actorId, triggered: false };
+            }
             else if (actionKind === 'checkdmg') {
-                if (liveStatuses[actorId]) liveStatuses[actorId].deathLinkTarget = targetId;
+                if (liveStatuses[actorId]) {
+                    if (duration === 'n') {
+                        finalStatus[actorId].deathLinkTarget = targetId;
+                    }
+                    liveStatuses[actorId].deathLinkTarget = targetId;
+                }
             }
-            else if (actionKind === 'givekill') targetStatus.tempStatus.hasKillAbility = true;
+            else if (actionKind === 'givekill') {
+                 if (duration === 'n') {
+                    finalStatus[targetId].hasPermanentKillAbility = true;
+                }
+                targetStatus.tempStatus.hasKillAbility = true;
+            }
             else if (actionKind === 'givearmor') {
                 targetStatus.armor = 2;
                 if (liveStatuses[actorId]) liveStatuses[actorId].armor = 2;
@@ -260,7 +304,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     infoResults.push(`- ${actor.roleName} (${actor.name}) đã chọn ${target.name} làm người thế mạng.`);
                 }
             }
-            // Ghi nhận hành động transform vào finalStatus để xử lý vào đêm tiếp theo
             else if (actionKind === 'transform') {
                 if (finalStatus[actorId]) {
                     const newRoleData = allRolesData[target.roleName];
@@ -269,7 +312,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             roleName: target.roleName,
                             kind: newRoleData.kind,
                             activeRule: newRoleData.active,
-                            quantity: newRoleData.quantity
+                            quantity: newRoleData.quantity,
+                            duration: newRoleData.duration
                         };
                         infoResults.push(`- ${actor.roleName} (${actor.name}) sẽ biến thành ${target.roleName} vào đêm mai.`);
                     }
@@ -283,6 +327,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             else if (actionKind === 'gather') targetStatus.gatheredBy = actorId;
             else if (actionKind === 'noti') {
+                 if (duration === 'n') {
+                    finalStatus[targetId].isPermanentlyNotified = true;
+                }
                 targetStatus.isNotified = true;
             }
         });
@@ -332,20 +379,22 @@ document.addEventListener('DOMContentLoaded', () => {
                      if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
                 }
                 const ward = counterWards[finalTargetId];
-                if (ward && !ward.triggered && !liveStatuses[attacker.id].isProtected) {
+                if ((ward || finalStatus[finalTargetId]?.hasPermanentCounterWard) && (!ward || !ward.triggered) && !liveStatuses[attacker.id].isProtected) {
                     if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
-                    ward.triggered = true;
+                    if (ward) ward.triggered = true;
                 }
             }
             
             if (actionKind === 'audit') {
-                let isBaySoi = (target.faction === 'Bầy Sói');
+                const currentFaction = finalStatus[targetId]?.faction || target.faction;
+                let isBaySoi = (currentFaction === 'Bầy Sói');
                 if (target.kind.includes('reverse') || target.kind.includes('counteraudit')) isBaySoi = !isBaySoi;
                 const result = isBaySoi ? "thuộc Bầy Sói" : "KHÔNG thuộc Bầy Sói";
                 infoResults.push(`- ${attacker.roleName} (${attacker.name}) soi ${target.name}: ${result}.`);
             }
             if (actionKind === 'invest') {
-                const isAnyWolf = (target.faction === 'Bầy Sói' || target.faction === 'Phe Sói');
+                const currentFaction = finalStatus[targetId]?.faction || target.faction;
+                const isAnyWolf = (currentFaction === 'Bầy Sói' || currentFaction === 'Phe Sói');
                 const result = isAnyWolf ? "thuộc Phe Sói" : "KHÔNG thuộc Phe Sói";
                 infoResults.push(`- ${attacker.roleName} (${attacker.name}) điều tra ${target.name}: ${result}.`);
             }
@@ -519,7 +568,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const player = roomPlayers.find(p => p.id === change.playerId);
                 const name = player ? `<strong class="player-name">${player.name}</strong>` : "???";
                 const oldFaction = player ? player.baseFaction : "?";
-                gmActions.push(`Đã đổi phe của ${name} (từ ${oldFaction}) thành <strong class="faction-name">${change.newFaction}</strong>.`);
+                const effectTime = change.isImmediate ? " (hiệu lực ngay)" : "";
+                gmActions.push(`Đã đổi phe của ${name} thành <strong class="faction-name">${change.newFaction}</strong>${effectTime}.`);
             });
         }
 
@@ -589,17 +639,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Đồng bộ hóa trạng thái hiện tại của người chơi (vai trò, phe,...) với đối tượng roomPlayers
         roomPlayers.forEach(p => {
             const playerStatus = nightState.playersStatus[p.id];
             if (playerStatus) {
                 p.faction = playerStatus.faction || p.baseFaction;
-                // Nếu người chơi đã biến hình, cập nhật tất cả thuộc tính
                 if (playerStatus.originalRoleName || playerStatus.transformedState) {
                     p.roleName = playerStatus.roleName;
                     p.kind = playerStatus.kind;
                     p.activeRule = playerStatus.activeRule;
                     p.quantity = playerStatus.quantity;
+                    p.duration = playerStatus.duration;
                 }
             }
         });
@@ -653,8 +702,9 @@ document.addEventListener('DOMContentLoaded', () => {
             groupPlayers.forEach(player => {
                 const playerState = nightState.playersStatus[player.id];
                 const lStatus = liveStatuses ? liveStatuses[player.id] : null;
+                const finalPlayerState = finalStatus[player.id] || playerState;
                 if (playerState) {
-                    playerListContainer.appendChild(createPlayerRow(player, playerState, lStatus, nightState.isFinished));
+                    playerListContainer.appendChild(createPlayerRow(player, finalPlayerState, lStatus, nightState.isFinished));
                 }
             });
 
@@ -733,10 +783,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let roleDisplayName = player.roleName || 'Chưa có vai';
         if (playerState.originalRoleName) {
-            roleDisplayName = `${playerState.originalRoleName} <span class="cursed-note">(thành Sói)</span>`;
+             roleDisplayName = `${playerState.originalRoleName} <span class="cursed-note">(thành Sói)</span>`;
         } else if (playerState.transformedState) {
             roleDisplayName = `${player.roleName} <span class="transformed-note">(Biến hình)</span>`;
         }
+
 
         row.innerHTML = `
             <div class="player-header">
@@ -1100,9 +1151,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (playerId === 'wolf_group') {
                 const wolfAction = target.dataset.wolfAction;
                 if (wolfAction === 'bite') {
-                    actor = { id: 'wolf_group', name: 'Bầy Sói', roleName: 'Hành động chung', kind: 'kill', quantity: Infinity, activeRule: 'n' };
+                    actor = { id: 'wolf_group', name: 'Bầy Sói', roleName: 'Hành động chung', kind: 'kill', quantity: Infinity, activeRule: 'n', duration: '1' };
                 } else if (wolfAction === 'curse') {
-                    actor = { id: 'wolf_group', name: 'Bầy Sói', roleName: 'Hành động chung', kind: 'curse', quantity: 1, activeRule: 'n' };
+                    actor = { id: 'wolf_group', name: 'Bầy Sói', roleName: 'Hành động chung', kind: 'curse', quantity: 1, activeRule: 'n', duration: '1' };
                 }
             } else {
                 actor = roomPlayers.find(p => p.id === playerId);
@@ -1143,15 +1194,19 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let prevStatus = lastNight ? calculateNightStatus(lastNight).finalStatus : Object.fromEntries(roomPlayers.map(p => {
                 return [p.id, { 
-                    isAlive: true, 
+                    isAlive: p.isAlive, 
                     isDisabled: false, 
                     isPermanentlyDisabled: false,
+                    isPermanentlyProtected: false,
+                    isPermanentlyNotified: false,
+                    hasPermanentKillAbility: false,
+                    hasPermanentCounterWard: false,
                     armor: (p.kind === 'armor1' ? 2 : 1),
                     delayKillAvailable: (p.kind === 'delaykill'),
                     isDoomed: false,
                     deathLinkTarget: null,
                     sacrificedBy: null,
-                    transformedTo: null,
+                    transformedState: null,
                     markedForDelayKill: false,
                     groupId: null,
                     faction: p.faction,
@@ -1160,6 +1215,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     kind: p.kind,
                     activeRule: p.activeRule,
                     quantity: p.quantity,
+                    duration: p.duration,
                 }];
             }));
             
@@ -1180,10 +1236,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     if(!playerStatus.originalRoleName) {
                         playerStatus.originalRoleName = playerStatus.roleName; 
                     }
-                    playerStatus.roleName = playerStatus.transformedState.roleName;
-                    playerStatus.kind = playerStatus.transformedState.kind;
-                    playerStatus.activeRule = playerStatus.transformedState.activeRule;
-                    playerStatus.quantity = playerStatus.transformedState.quantity;
+                    const newRoleData = allRolesData[playerStatus.transformedState.roleName];
+                    if(newRoleData) {
+                        playerStatus.roleName = newRoleData.RoleName;
+                        playerStatus.kind = newRoleData.kind;
+                        playerStatus.activeRule = newRoleData.active;
+                        playerStatus.quantity = newRoleData.quantity;
+                        playerStatus.duration = newRoleData.duration;
+                    }
                 }
             });
             
@@ -1249,11 +1309,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     collectActions.forEach(action => {
                         const actor = roomPlayers.find(p => p.id === action.actorId);
-                        if(actor && !nightState.factionChanges.some(fc => fc.playerId === action.targetId)) {
+                        const targetPlayer = roomPlayers.find(p => p.id === action.targetId);
+                        if(actor && targetPlayer && !nightState.factionChanges.some(fc => fc.playerId === action.targetId)) {
                              nightState.factionChanges.push({
                                 playerId: action.targetId,
                                 newFaction: actor.faction,
-                                originalRoleName: roomPlayers.find(p => p.id === action.targetId)?.roleName
+                                originalRoleName: targetPlayer.roleName
                             });
                         }
                     });
@@ -1631,7 +1692,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     nightState.factionChanges = [];
                 }
                 nightState.factionChanges = nightState.factionChanges.filter(c => c.playerId !== targetId);
-                nightState.factionChanges.push({ playerId: targetId, newFaction: newFaction });
+                nightState.factionChanges.push({ playerId: targetId, newFaction: newFaction, isImmediate: true });
                 
                 saveNightNotes();
                 render();
@@ -1683,7 +1744,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const basePlayers = Object.keys(playersData).map(key => {
                 const originalData = playersData[key];
                 const roleName = (originalData.roleName || '').trim();
-                const roleInfo = allRolesData[roleName] || { faction: 'Chưa phân loại', active: '0', kind: 'empty', quantity: 1 };
+                const roleInfo = allRolesData[roleName] || { faction: 'Chưa phân loại', active: '0', kind: 'empty', quantity: 1, duration: '1' };
                 
                 return { 
                     id: key, 
@@ -1692,7 +1753,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     faction: roleInfo.faction, 
                     activeRule: roleInfo.active,
                     kind: roleInfo.kind,
-                    quantity: roleInfo.quantity
+                    quantity: roleInfo.quantity,
+                    duration: roleInfo.duration
                 };
             });
             
@@ -1722,12 +1784,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         isAlive: p.isAlive, 
                         isDisabled: false,
                         isPermanentlyDisabled: false,
+                        isPermanentlyProtected: false,
+                        isPermanentlyNotified: false,
+                        hasPermanentKillAbility: false,
+                        hasPermanentCounterWard: false,
                         armor: (p.kind === 'armor1') ? 2 : 1,
                         delayKillAvailable: (p.kind === 'delaykill'),
                         isDoomed: false,
                         deathLinkTarget: null,
                         sacrificedBy: null,
-                        transformedTo: null,
+                        transformedState: null,
                         groupId: null,
                         markedForDelayKill: false
                     }];
