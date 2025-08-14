@@ -358,11 +358,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             let finalTargetId = targetId;
 
-            if (loveRedirects[targetId] && (action === 'kill' || action === 'curse')) {
+            // ===== UPDATE CODE HERE =====
+            const isWolfBite = (action === 'kill' && actorId === 'wolf_group');
+            const isWolfCurse = (action === 'curse' && actorId === 'wolf_group');
+
+            if (loveRedirects[targetId] && (isWolfBite || isWolfCurse)) {
                 finalTargetId = loveRedirects[targetId];
                 const originalTarget = roomPlayers.find(p => p.id === targetId);
                 const newTarget = roomPlayers.find(p => p.id === finalTargetId);
-                infoResults.push(`- ${newTarget.name} nhận thay đòn ${action} cho ${originalTarget.name}.`);
+                const actionName = isWolfBite ? 'Sói cắn' : 'Nguyền';
+                infoResults.push(`- ${newTarget.name} đã nhận thay ${actionName} cho ${originalTarget.name}.`);
             }
             
             const target = roomPlayers.find(p => p.id === finalTargetId);
