@@ -340,7 +340,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             else if (actionKind === 'love') {
                 targetStatus.isDisabled = true;
-                if (liveStatuses[actorId]) liveStatuses[actorId].isImmuneToWolves = true;
+                // ===== FIX LẦN 1: XÓA DÒNG GÂY MIỄN NHIỄM MÂU THUẪN =====
+                // if (liveStatuses[actorId]) liveStatuses[actorId].isImmuneToWolves = true; // <--- DÒNG NÀY GÂY LỖI
                 loveRedirects[targetId] = actorId;
 
                 if(target.faction === 'Bầy Sói') {
@@ -358,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             let finalTargetId = targetId;
 
-            // ===== UPDATE CODE HERE =====
+            // ===== FIX LẦN 2: SỬA LOGIC CHUYỂN HƯỚNG CHO CHÍNH XÁC =====
             const isWolfBite = (action === 'kill' && actorId === 'wolf_group');
             const isWolfCurse = (action === 'curse' && actorId === 'wolf_group');
 
