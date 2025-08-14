@@ -1867,7 +1867,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         isPermanentlyNotified: false,
                         hasPermanentKillAbility: false,
                         hasPermanentCounterWard: false,
-                        armor: (p.kind === 'armor1') ? 2 : 1,
+                        armor: (p.kind === 'armor1' ? 2 : 1),
                         delayKillAvailable: (p.kind === 'delaykill'),
                         isDoomed: false,
                         deathLinkTarget: null,
