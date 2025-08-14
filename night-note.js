@@ -220,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const counterWards = {};    
         const counterShieldedTargets = new Set();
         const damageLinks = {};
-        const loveRedirects = {}; // { lovedOneId: loverId }
+        const loveRedirects = {};
 
         Object.keys(initialStatus).forEach(pId => {
             if(initialStatus[pId] && initialStatus[pId].sacrificedBy) {
@@ -335,7 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     finalStatus[targetId].isPermanentlyNotified = true;
                 }
             }
-            else if (actionKind === 'boom') {
+             else if (actionKind === 'boom') {
                 if(finalStatus[targetId]) finalStatus[targetId].isBoobyTrapped = true;
             }
             else if (actionKind === 'love') {
@@ -357,12 +357,9 @@ document.addEventListener('DOMContentLoaded', () => {
         otherActions.forEach(({ actorId, targetId, action }) => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             let finalTargetId = targetId;
-            let isRedirected = false;
 
-            // Xử lý chuyển hướng của 'love'
             if (loveRedirects[targetId] && (action === 'kill' || action === 'curse')) {
                 finalTargetId = loveRedirects[targetId];
-                isRedirected = true;
                 const originalTarget = roomPlayers.find(p => p.id === targetId);
                 const newTarget = roomPlayers.find(p => p.id === finalTargetId);
                 infoResults.push(`- ${newTarget.name} nhận thay đòn ${action} cho ${originalTarget.name}.`);
@@ -378,7 +375,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     targetStatus.damage++;
                     if (targetStatus.isBoobyTrapped) {
                         const originalAttacker = (actorId === 'wolf_group') ? {id: 'wolf_group', name: 'Bầy Sói'} : attacker;
-                        // Xử lý nổ boom
                         if (originalAttacker.id === 'wolf_group') {
                             const livingWolves = roomPlayers.filter(p => (p.faction === 'Bầy Sói' || p.faction === 'Phe Sói') && finalStatus[p.id]?.isAlive);
                             if (livingWolves.length > 0) {
@@ -1380,7 +1376,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         const targetPlayer = roomPlayers.find(p => p.id === finalTargetId);
                         if (targetPlayer && targetPlayer.faction !== 'Bầy Sói' && !nightState.factionChanges.some(fc => fc.playerId === finalTargetId)) {
-                            // Kiểm tra miễn nhiễm của người nhận cuối cùng
                             const finalTargetLiveStatus = calculateNightStatus(nightState).liveStatuses[finalTargetId];
                             if(!finalTargetLiveStatus || !finalTargetLiveStatus.isImmuneToWolves) {
                                 nightState.factionChanges.push({
