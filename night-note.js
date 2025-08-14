@@ -250,47 +250,43 @@ document.addEventListener('DOMContentLoaded', () => {
             const duration = actor ? (actor.duration || '1') : '1';
 
             if (actionKind === 'disable_action') {
+                targetStatus.isDisabled = true;
                 if (duration === 'n') {
                     finalStatus[targetId].isPermanentlyDisabled = true;
-                } else {
-                    targetStatus.isDisabled = true;
                 }
             }
             else if (actionKind === 'gm_add_armor') targetStatus.armor++;
             else if (actionKind === 'protect' || actionKind === 'gm_protect') {
+                 if(!counterShieldedTargets.has(targetId)) targetStatus.isProtected = true;
                  if (duration === 'n') {
                     finalStatus[targetId].isPermanentlyProtected = true;
-                } else {
-                    if(!counterShieldedTargets.has(targetId)) targetStatus.isProtected = true;
                 }
             }
             else if (actionKind === 'sacrifice') {
+                 damageRedirects[targetId] = actorId;
                  if (duration === 'n') {
                     finalStatus[actorId].sacrificedBy = targetId;
-                    damageRedirects[actorId] = targetId;
-                } else {
-                    damageRedirects[targetId] = actorId;
                 }
             }
             else if (actionKind === 'checkcounter') {
-                 if (duration === 'n') {
+                counterWards[targetId] = { actorId: actorId, triggered: false };
+                if (duration === 'n') {
                     finalStatus[targetId].hasPermanentCounterWard = true;
                 }
-                counterWards[targetId] = { actorId: actorId, triggered: false };
             }
             else if (actionKind === 'checkdmg') {
                 if (liveStatuses[actorId]) {
+                    liveStatuses[actorId].deathLinkTarget = targetId;
                     if (duration === 'n') {
                         finalStatus[actorId].deathLinkTarget = targetId;
                     }
-                    liveStatuses[actorId].deathLinkTarget = targetId;
                 }
             }
             else if (actionKind === 'givekill') {
-                 if (duration === 'n') {
+                targetStatus.tempStatus.hasKillAbility = true;
+                if (duration === 'n') {
                     finalStatus[targetId].hasPermanentKillAbility = true;
                 }
-                targetStatus.tempStatus.hasKillAbility = true;
             }
             else if (actionKind === 'givearmor') {
                 targetStatus.armor = 2;
@@ -327,10 +323,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             else if (actionKind === 'gather') targetStatus.gatheredBy = actorId;
             else if (actionKind === 'noti') {
-                 if (duration === 'n') {
+                targetStatus.isNotified = true;
+                if (duration === 'n') {
                     finalStatus[targetId].isPermanentlyNotified = true;
                 }
-                targetStatus.isNotified = true;
             }
         });
         
