@@ -97,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     acc[roleName] = {
+                        name: roleName, // Thêm thuộc tính name để dễ truy xuất
                         faction: (role.Faction || 'Chưa phân loại').trim(),
                         active: (role.Active || '0').trim(),
                         kind: (role.Kind || 'empty').trim(),
@@ -651,7 +652,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const { liveStatuses, infoResults, deadPlayerNames, finalStatus } = calculateNightStatus(nightState);
         
-        // CẬP NHẬT SAU KHI TÍNH TOÁN ĐỂ HIỂN THỊ ĐÚNG PHE TỨC THỜI
         roomPlayers.forEach(p => {
             if(finalStatus[p.id]) {
                 p.faction = finalStatus[p.id].faction;
@@ -1241,7 +1241,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     const newRoleData = allRolesData[playerStatus.transformedState.roleName];
                     if(newRoleData) {
-                        playerStatus.roleName = newRoleData.RoleName;
+                        playerStatus.roleName = newRoleData.name;
                         playerStatus.kind = newRoleData.kind;
                         playerStatus.activeRule = newRoleData.active;
                         playerStatus.quantity = newRoleData.quantity;
@@ -1798,7 +1798,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         sacrificedBy: null,
                         transformedState: null,
                         groupId: null,
-                        markedForDelayKill: false
+                        markedForDelayKill: false,
+                        faction: p.faction,
+                        originalRoleName: null,
+                        roleName: p.roleName,
+                        kind: p.kind,
+                        activeRule: p.activeRule,
+                        quantity: p.quantity,
+                        duration: p.duration,
                     }];
                  }));
                  nightStates.push({
