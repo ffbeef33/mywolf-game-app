@@ -67,6 +67,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'killif': { key: 'killif', label: 'Giết/Cứu', type: 'conditional' },
         'noti': { key: 'noti', label: 'Đánh dấu', type: 'buff' },
         'curse': { key: 'curse', label: 'Nguyền', type: 'buff' },
+        'boom': { key: 'boom', label: 'Cài Boom', type: 'debuff' },
+        'love': { key: 'love', label: 'Yêu', type: 'conditional' },
+        'saveall': { key: 'saveall', label: 'Cứu Hết', type: 'defense' },
     };
 
     let ALL_ACTIONS = {};
@@ -97,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     acc[roleName] = {
-                        name: roleName, // Thêm thuộc tính name để dễ truy xuất
+                        name: roleName,
                         faction: (role.Faction || 'Chưa phân loại').trim(),
                         active: (role.Active || '0').trim(),
                         kind: (role.Kind || 'empty').trim(),
@@ -205,6 +208,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     isSavedByKillif: false,
                     isNotified: initialStatus[pId].isPermanentlyNotified || false,
                     groupId: initialStatus[pId].groupId || null,
+                    isBoobyTrapped: initialStatus[pId].isBoobyTrapped || false,
+                    isImmuneToWolves: false,
                 };
                 if (liveStatuses[pId].isDoomed) liveStatuses[pId].damage = 99;
                 if (liveStatuses[pId].markedForDelayKill) liveStatuses[pId].damage = 99;
@@ -215,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const counterWards = {};    
         const counterShieldedTargets = new Set();
         const damageLinks = {};
+        const loveRedirects = {}; // { lovedOneId: loverId }
 
         Object.keys(initialStatus).forEach(pId => {
             if(initialStatus[pId] && initialStatus[pId].sacrificedBy) {
@@ -329,31 +335,78 @@ document.addEventListener('DOMContentLoaded', () => {
                     finalStatus[targetId].isPermanentlyNotified = true;
                 }
             }
+            else if (actionKind === 'boom') {
+                if(finalStatus[targetId]) finalStatus[targetId].isBoobyTrapped = true;
+            }
+            else if (actionKind === 'love') {
+                targetStatus.isDisabled = true;
+                if (liveStatuses[actorId]) liveStatuses[actorId].isImmuneToWolves = true;
+                loveRedirects[targetId] = actorId;
+
+                if(target.faction === 'Bầy Sói') {
+                    if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
+                    infoResults.push(`- ${actor.name} đã chết vì yêu nhầm Sói (${target.name}).`);
+                }
+            }
         });
         
         const killifActions = actions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
-        const otherActions = actions.filter(({ action }) => !['killif', 'curse', 'collect', 'transform'].includes(ALL_ACTIONS[action]?.key || action));
+        const otherActions = actions.filter(({ action }) => !['killif', 'curse', 'collect', 'transform', 'love'].includes(ALL_ACTIONS[action]?.key || action));
 
 
         otherActions.forEach(({ actorId, targetId, action }) => {
             const attacker = roomPlayers.find(p => p.id === actorId);
-            const target = roomPlayers.find(p => p.id === targetId);
+            let finalTargetId = targetId;
+            let isRedirected = false;
+
+            // Xử lý chuyển hướng của 'love'
+            if (loveRedirects[targetId] && (action === 'kill' || action === 'curse')) {
+                finalTargetId = loveRedirects[targetId];
+                isRedirected = true;
+                const originalTarget = roomPlayers.find(p => p.id === targetId);
+                const newTarget = roomPlayers.find(p => p.id === finalTargetId);
+                infoResults.push(`- ${newTarget.name} nhận thay đòn ${action} cho ${originalTarget.name}.`);
+            }
+            
+            const target = roomPlayers.find(p => p.id === finalTargetId);
             const actionKind = ALL_ACTIONS[action]?.key || action;
 
             if (action === 'kill' || actionKind === 'gm_kill') {
-                const finalTargetId = damageRedirects[targetId] || targetId;
-                const targetStatus = liveStatuses[finalTargetId];
-                if (targetStatus && !targetStatus.isProtected) targetStatus.damage++;
+                const ultimateTargetId = damageRedirects[finalTargetId] || finalTargetId;
+                const targetStatus = liveStatuses[ultimateTargetId];
+                if (targetStatus && !targetStatus.isProtected && !targetStatus.isImmuneToWolves) {
+                    targetStatus.damage++;
+                    if (targetStatus.isBoobyTrapped) {
+                        const originalAttacker = (actorId === 'wolf_group') ? {id: 'wolf_group', name: 'Bầy Sói'} : attacker;
+                        // Xử lý nổ boom
+                        if (originalAttacker.id === 'wolf_group') {
+                            const livingWolves = roomPlayers.filter(p => (p.faction === 'Bầy Sói' || p.faction === 'Phe Sói') && finalStatus[p.id]?.isAlive);
+                            if (livingWolves.length > 0) {
+                                const randomWolf = livingWolves[Math.floor(Math.random() * livingWolves.length)];
+                                if (liveStatuses[randomWolf.id] && !liveStatuses[randomWolf.id].isProtected) {
+                                    liveStatuses[randomWolf.id].damage++;
+                                    infoResults.push(`- Sói ${randomWolf.name} đã chết do boom khi cắn ${target.name}.`);
+                                }
+                            }
+                        } else if (liveStatuses[originalAttacker.id] && !liveStatuses[originalAttacker.id].isProtected) {
+                            liveStatuses[originalAttacker.id].damage++;
+                            infoResults.push(`- ${originalAttacker.name} bị nổ boom khi tấn công ${target.name}.`);
+                        }
+                        targetStatus.isBoobyTrapped = false;
+                        finalStatus[ultimateTargetId].isBoobyTrapped = false;
+                    }
+                }
                 return;
             }
+
             if (!attacker || !target || (liveStatuses[actorId] && liveStatuses[actorId].isDisabled)) return;
             
             const attackerHasKill = actionKind.includes('kill') || (liveStatuses[actorId] && liveStatuses[actorId].tempStatus.hasKillAbility);
 
             if (attackerHasKill && actionKind !== 'killdelay') {
-                const finalTargetId = damageRedirects[targetId] || targetId;
-                const finalTarget = roomPlayers.find(p => p.id === finalTargetId);
-                const finalTargetStatus = liveStatuses[finalTargetId];
+                const ultimateTargetId = damageRedirects[finalTargetId] || finalTargetId;
+                const finalTarget = roomPlayers.find(p => p.id === ultimateTargetId);
+                const finalTargetStatus = liveStatuses[ultimateTargetId];
                 
                 if (!finalTarget || !finalTargetStatus || finalTargetStatus.isProtected) return;
                 
@@ -367,16 +420,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 
-                if(shouldDamage) finalTargetStatus.damage++;
+                if(shouldDamage) {
+                    finalTargetStatus.damage++;
+                    if (finalTargetStatus.isBoobyTrapped) {
+                         if (liveStatuses[attacker.id] && !liveStatuses[attacker.id].isProtected) {
+                            liveStatuses[attacker.id].damage++;
+                            infoResults.push(`- ${attacker.name} bị nổ boom khi tấn công ${finalTarget.name}.`);
+                        }
+                        finalTargetStatus.isBoobyTrapped = false;
+                        finalStatus[ultimateTargetId].isBoobyTrapped = false;
+                    }
+                }
                 
                 if (finalTarget.kind === 'counter' && !liveStatuses[attacker.id].isProtected) {
                     if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
                 }
-                if (finalTargetId !== targetId && !liveStatuses[attacker.id].isProtected) {
+                if (ultimateTargetId !== finalTargetId && !liveStatuses[attacker.id].isProtected) {
                      if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
                 }
-                const ward = counterWards[finalTargetId];
-                if ((ward || finalStatus[finalTargetId]?.hasPermanentCounterWard) && (!ward || !ward.triggered) && !liveStatuses[attacker.id].isProtected) {
+                const ward = counterWards[ultimateTargetId];
+                if ((ward || finalStatus[ultimateTargetId]?.hasPermanentCounterWard) && (!ward || !ward.triggered) && !liveStatuses[attacker.id].isProtected) {
                     if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
                     if (ward) ward.triggered = true;
                 }
@@ -476,6 +539,13 @@ document.addEventListener('DOMContentLoaded', () => {
              }
         });
 
+        const saveAllAction = actions.find(a => (ALL_ACTIONS[a.action]?.key || a.action) === 'saveall');
+        const didSaveAll = saveAllAction && saveAllAction.targetId === saveAllAction.actorId;
+
+        if (didSaveAll) {
+            infoResults.push(`- ${roomPlayers.find(p=>p.id===saveAllAction.actorId).name} đã cứu tất cả mọi người!`);
+        }
+
         let deadPlayerIdsThisNight = new Set();
         const finalNightResolution = {};
 
@@ -515,7 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 finalDamage -= damageAbsorbed;
             }
             
-            if (finalDamage > 0 && !res.isSaved) {
+            if (finalDamage > 0 && !res.isSaved && !didSaveAll) {
                 if (liveStatuses[pId]) liveStatuses[pId].isDead = true;
 
                 if (player.kind === 'delaykill' && liveStatuses[pId].delayKillAvailable) {
@@ -1219,6 +1289,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     activeRule: p.activeRule,
                     quantity: p.quantity,
                     duration: p.duration,
+                    isBoobyTrapped: false,
                 }];
             }));
             
@@ -1301,13 +1372,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         nightState.factionChanges = [];
                     }
                     curseActions.forEach(action => {
-                        const targetPlayer = roomPlayers.find(p => p.id === action.targetId);
-                        if (targetPlayer && targetPlayer.faction !== 'Bầy Sói' && !nightState.factionChanges.some(fc => fc.playerId === action.targetId)) {
-                             nightState.factionChanges.push({
-                                playerId: action.targetId,
-                                newFaction: 'Bầy Sói',
-                                originalRoleName: targetPlayer.roleName
-                            });
+                        let finalTargetId = action.targetId;
+                        const loveAction = nightState.actions.find(a => a.action === 'love' && a.targetId === action.targetId);
+                        if(loveAction) {
+                            finalTargetId = loveAction.actorId;
+                        }
+
+                        const targetPlayer = roomPlayers.find(p => p.id === finalTargetId);
+                        if (targetPlayer && targetPlayer.faction !== 'Bầy Sói' && !nightState.factionChanges.some(fc => fc.playerId === finalTargetId)) {
+                            // Kiểm tra miễn nhiễm của người nhận cuối cùng
+                            const finalTargetLiveStatus = calculateNightStatus(nightState).liveStatuses[finalTargetId];
+                            if(!finalTargetLiveStatus || !finalTargetLiveStatus.isImmuneToWolves) {
+                                nightState.factionChanges.push({
+                                    playerId: finalTargetId,
+                                    newFaction: 'Bầy Sói',
+                                    originalRoleName: targetPlayer.roleName
+                                });
+                            }
                         }
                     });
                     collectActions.forEach(action => {
@@ -1806,6 +1887,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         activeRule: p.activeRule,
                         quantity: p.quantity,
                         duration: p.duration,
+                        isBoobyTrapped: false,
                     }];
                  }));
                  nightStates.push({
