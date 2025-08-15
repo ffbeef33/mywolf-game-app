@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const calculateNightStatus = (nightState) => {
         if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [], infoResults: [] };
         
-        const actions = nightState.actions || [];
+        let actions = nightState.actions || [];
         const initialStatus = nightState.playersStatus;
         const finalStatus = JSON.parse(JSON.stringify(initialStatus));
         const liveStatuses = {}; 
@@ -240,6 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // Vòng lặp 1: Thiết lập các trạng thái và hiệu ứng thụ động
         actions.forEach(({ actorId, targetId, action }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
             const isWolfAction = actorId === 'wolf_group';
@@ -249,10 +250,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const target = roomPlayers.find(p => p.id === targetId);
             const targetStatus = liveStatuses[targetId];
             if (!target || !targetStatus) return;
-
-            const isDisabled = !isWolfAction && liveStatuses[actorId]?.isDisabled;
-            if (isDisabled) return;
-
+            
+            // Không cần kiểm tra isDisabled ở vòng này vì đây là lúc thiết lập
             const actionKind = ALL_ACTIONS[action]?.key || action;
             const duration = actor ? (actor.duration || '1') : '1';
 
@@ -340,8 +339,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             else if (actionKind === 'love') {
                 targetStatus.isDisabled = true;
-                // ===== FIX LẦN 1: XÓA DÒNG GÂY MIỄN NHIỄM MÂU THUẪN =====
-                // if (liveStatuses[actorId]) liveStatuses[actorId].isImmuneToWolves = true; // <--- DÒNG NÀY GÂY LỖI
+                // FIX 1.1: Phục hồi trạng thái miễn nhiễm cho người chơi Love
+                if (liveStatuses[actorId]) liveStatuses[actorId].isImmuneToWolves = true;
                 loveRedirects[targetId] = actorId;
 
                 if(target.faction === 'Bầy Sói') {
@@ -351,24 +350,49 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        const killifActions = actions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
-        const otherActions = actions.filter(({ action }) => !['killif', 'curse', 'collect', 'transform', 'love'].includes(ALL_ACTIONS[action]?.key || action));
+        // FIX 2: Lọc ra các hành động từ những người chơi đã bị vô hiệu hóa
+        const disabledPlayerIds = new Set();
+        Object.keys(liveStatuses).forEach(pId => {
+            if (liveStatuses[pId].isDisabled) {
+                disabledPlayerIds.add(pId);
+            }
+        });
 
+        // Loại bỏ hành động của người chơi bị vô hiệu hóa (trừ hành động 'love' và 'disable' của chính họ)
+        const executableActions = actions.filter(action => {
+            const actionKind = ALL_ACTIONS[action.action]?.key || action.action;
+            const isSelfDisablingAction = actionKind === 'love' || actionKind === 'disable_action';
+            return !disabledPlayerIds.has(action.actorId) || isSelfDisablingAction;
+        });
+        
+        const killifActions = executableActions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
+        const otherActions = executableActions.filter(({ action }) => !['killif', 'curse', 'collect', 'transform', 'love'].includes(ALL_ACTIONS[action]?.key || action));
 
+        // Vòng lặp 2: Xử lý các hành động chính
         otherActions.forEach(({ actorId, targetId, action }) => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             let finalTargetId = targetId;
 
-            // ===== FIX LẦN 2: SỬA LOGIC CHUYỂN HƯỚNG CHO CHÍNH XÁC =====
             const isWolfBite = (action === 'kill' && actorId === 'wolf_group');
             const isWolfCurse = (action === 'curse' && actorId === 'wolf_group');
 
+            // FIX 1.2: Xử lý đặc biệt cho việc đỡ đòn, bỏ qua miễn nhiễm
             if (loveRedirects[targetId] && (isWolfBite || isWolfCurse)) {
-                finalTargetId = loveRedirects[targetId];
+                const loverId = loveRedirects[targetId];
+                const loverStatus = liveStatuses[loverId];
                 const originalTarget = roomPlayers.find(p => p.id === targetId);
-                const newTarget = roomPlayers.find(p => p.id === finalTargetId);
+                const newTarget = roomPlayers.find(p => p.id === loverId);
                 const actionName = isWolfBite ? 'Sói cắn' : 'Nguyền';
                 infoResults.push(`- ${newTarget.name} đã nhận thay ${actionName} cho ${originalTarget.name}.`);
+                
+                // Gây sát thương/hiệu ứng trực tiếp lên người đỡ đòn
+                if (isWolfBite && loverStatus && !loverStatus.isProtected) {
+                    loverStatus.damage++;
+                }
+                // (Việc xử lý 'curse' sẽ diễn ra ở cuối đêm, chỉ cần chuyển hướng là đủ)
+                
+                // Bỏ qua việc xử lý sát thương thông thường cho hành động này vì đã xử lý đặc biệt
+                return; 
             }
             
             const target = roomPlayers.find(p => p.id === finalTargetId);
@@ -401,7 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            if (!attacker || !target || (liveStatuses[actorId] && liveStatuses[actorId].isDisabled)) return;
+            if (!attacker || !target) return;
             
             const attackerHasKill = actionKind.includes('kill') || (liveStatuses[actorId] && liveStatuses[actorId].tempStatus.hasKillAbility);
 
@@ -468,7 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
         killifActions.forEach(({ actorId, targetId }) => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             const target = roomPlayers.find(p => p.id === targetId);
-            if (!attacker || !target || (liveStatuses[actorId] && liveStatuses[actorId].isDisabled)) return;
+            if (!attacker || !target) return;
             
             const finalTargetId = damageRedirects[targetId] || targetId;
             const targetStatus = liveStatuses[finalTargetId];
@@ -523,9 +547,9 @@ document.addEventListener('DOMContentLoaded', () => {
             group.forEach(pId => { liveStatuses[pId].damage = totalDamage; });
         });
 
-        actions.forEach(({ actorId, targetId, action }) => {
+        executableActions.forEach(({ actorId, targetId, action }) => {
              const actor = roomPlayers.find(p => p.id === actorId);
-             if (!actor || (liveStatuses[actorId] && liveStatuses[actorId].isDisabled)) return;
+             if (!actor) return;
              
              const actionKind = ALL_ACTIONS[action]?.key || action;
              if (actionKind.includes('save') || actionKind === 'gm_save') {
@@ -541,7 +565,7 @@ document.addEventListener('DOMContentLoaded', () => {
              }
         });
 
-        const saveAllAction = actions.find(a => (ALL_ACTIONS[a.action]?.key || a.action) === 'saveall');
+        const saveAllAction = executableActions.find(a => (ALL_ACTIONS[a.action]?.key || a.action) === 'saveall');
         const didSaveAll = saveAllAction && saveAllAction.targetId === saveAllAction.actorId;
 
         if (didSaveAll) {
@@ -1375,21 +1399,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     curseActions.forEach(action => {
                         let finalTargetId = action.targetId;
-                        const loveAction = nightState.actions.find(a => a.action === 'love' && a.targetId === action.targetId);
-                        if(loveAction) {
-                            finalTargetId = loveAction.actorId;
+                        
+                        // Sửa logic tìm kiếm love action để dùng loveRedirects đã được tính toán
+                        const loverId = loveRedirects[action.targetId];
+                        const isWolfCurse = action.actorId === 'wolf_group';
+
+                        if(loverId && isWolfCurse) {
+                            finalTargetId = loverId;
                         }
 
                         const targetPlayer = roomPlayers.find(p => p.id === finalTargetId);
                         if (targetPlayer && targetPlayer.faction !== 'Bầy Sói' && !nightState.factionChanges.some(fc => fc.playerId === finalTargetId)) {
-                            const finalTargetLiveStatus = calculateNightStatus(nightState).liveStatuses[finalTargetId];
-                            if(!finalTargetLiveStatus || !finalTargetLiveStatus.isImmuneToWolves) {
-                                nightState.factionChanges.push({
-                                    playerId: finalTargetId,
-                                    newFaction: 'Bầy Sói',
-                                    originalRoleName: targetPlayer.roleName
-                                });
-                            }
+                            nightState.factionChanges.push({
+                                playerId: finalTargetId,
+                                newFaction: 'Bầy Sói',
+                                originalRoleName: targetPlayer.roleName
+                            });
                         }
                     });
                     collectActions.forEach(action => {
