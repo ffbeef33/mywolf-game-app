@@ -637,10 +637,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 for (const playerId in players) updates[`/${playerId}/roleName`] = null;
                 await playersRef.update(updates);
             }
+            
+            // ===== FIX: THÊM LOGIC XÓA DỮ LIỆU VÁN CŨ KHI RESET =====
             const roomUpdates = {
                 '/gameState/status': 'setup',
                 '/gameState/message': 'Quản trò đã reset game.',
-                '/playerPickState': null
+                '/playerPickState': null,
+                '/nightNotes': null,
+                '/playerOrder': null
             };
             await database.ref(`rooms/${currentRoomId}`).update(roomUpdates);
             alert('Đã xóa log trên Google Sheet và reset vai trò người chơi thành công!');
