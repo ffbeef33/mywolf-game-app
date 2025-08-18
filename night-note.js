@@ -339,7 +339,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             else if (actionKind === 'love') {
                 targetStatus.isDisabled = true;
-                // FIX 1.1: Phục hồi trạng thái miễn nhiễm cho người chơi Love
                 if (liveStatuses[actorId]) liveStatuses[actorId].isImmuneToWolves = true;
                 loveRedirects[targetId] = actorId;
 
@@ -350,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // FIX 2: Lọc ra các hành động từ những người chơi đã bị vô hiệu hóa
+        // Lọc ra các hành động từ những người chơi đã bị vô hiệu hóa
         const disabledPlayerIds = new Set();
         Object.keys(liveStatuses).forEach(pId => {
             if (liveStatuses[pId].isDisabled) {
@@ -376,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const isWolfBite = (action === 'kill' && actorId === 'wolf_group');
             const isWolfCurse = (action === 'curse' && actorId === 'wolf_group');
 
-            // FIX 1.2: Xử lý đặc biệt cho việc đỡ đòn, bỏ qua miễn nhiễm
+            // Xử lý đặc biệt cho việc đỡ đòn, bỏ qua miễn nhiễm
             if (loveRedirects[targetId] && (isWolfBite || isWolfCurse)) {
                 const loverId = loveRedirects[targetId];
                 const loverStatus = liveStatuses[loverId];
@@ -822,12 +821,63 @@ document.addEventListener('DOMContentLoaded', () => {
             deleteBtn.textContent = "Xóa Night Note";
             deleteBtn.style.marginBottom = "10px";
             interactionTable.parentNode.insertBefore(deleteBtn, interactionTable);
+            
+            // ===== BẢN SỬA LỖI CHO NÚT XÓA NIGHT NOTE =====
             deleteBtn.addEventListener('click', function() {
-                if (confirm('Bạn có chắc chắn muốn xóa toàn bộ night note không?')) {
+                if (confirm('Bạn có chắc chắn muốn xóa toàn bộ night note và reset ván chơi không?')) {
+                    // 1. Reset các mảng trạng thái trong bộ nhớ
                     nightStates = [];
                     activeNightIndex = 0;
+                    
+                    // 2. Reset phe của tất cả người chơi về phe gốc (baseFaction)
+                    roomPlayers.forEach(p => {
+                        p.faction = p.baseFaction;
+                    });
+
+                    // 3. Tạo lại Night 1 sạch sẽ dựa trên trạng thái đã reset
+                    const initialStatus = Object.fromEntries(roomPlayers.map(p => {
+                        return [p.id, { 
+                            isAlive: p.isAlive, 
+                            isDisabled: false,
+                            isPermanentlyDisabled: false,
+                            isPermanentlyProtected: false,
+                            isPermanentlyNotified: false,
+                            hasPermanentKillAbility: false,
+                            hasPermanentCounterWard: false,
+                            armor: (p.kind === 'armor1' ? 2 : 1),
+                            delayKillAvailable: (p.kind === 'delaykill'),
+                            isDoomed: false,
+                            deathLinkTarget: null,
+                            sacrificedBy: null,
+                            transformedState: null,
+                            groupId: null,
+                            markedForDelayKill: false,
+                            faction: p.faction, // Sử dụng phe đã được reset
+                            originalRoleName: null,
+                            roleName: p.roleName,
+                            kind: p.kind,
+                            activeRule: p.activeRule,
+                            quantity: p.quantity,
+                            duration: p.duration,
+                            isBoobyTrapped: false,
+                        }];
+                    }));
+                    nightStates.push({
+                        actions: [],
+                        playersStatus: initialStatus,
+                        initialPlayersStatus: JSON.parse(JSON.stringify(initialStatus)),
+                        isFinished: false,
+                        gmNote: "",
+                        damageGroups: {},
+                        factionChanges: []
+                    });
+
+                    // 4. Lưu trạng thái mới lên Firebase và reset thứ tự người chơi
                     saveNightNotes();
                     database.ref(`rooms/${roomId}/playerOrder`).set(null);
+
+                    // 5. Vẽ lại giao diện với trạng thái hoàn toàn mới
+                    render();
                 }
             });
         }
@@ -1390,6 +1440,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (target.closest('#end-night-btn')) {
             if (!nightState.isFinished && confirm(`Bạn có chắc muốn kết thúc Đêm ${activeNightIndex + 1}?`)) {
                 
+                const { loveRedirects } = calculateNightStatus(nightState);
                 const curseActions = nightState.actions.filter(a => a.action === 'curse');
                 const collectActions = nightState.actions.filter(a => a.action === 'collect');
 
@@ -1400,7 +1451,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     curseActions.forEach(action => {
                         let finalTargetId = action.targetId;
                         
-                        // Sửa logic tìm kiếm love action để dùng loveRedirects đã được tính toán
                         const loverId = loveRedirects[action.targetId];
                         const isWolfCurse = action.actorId === 'wolf_group';
 
