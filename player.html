@@ -69,11 +69,15 @@
                             </div>
                         <p id="vote-status-message" class="choice-status-message"></p>
                     </div>
-
                 </div>
-
+                
+                <div id="player-actions-container" class="hidden">
+                    <button id="open-will-modal-btn" class="player-action-btn">
+                        <i class="fa-solid fa-pencil"></i> Viết Di Chúc
+                    </button>
+                </div>
                 <div id="roles-in-game-display" class="roles-display-container hidden">
-                    </div>
+                </div>
             </main>
         </section>
     </div>
@@ -87,6 +91,25 @@
         </div>
     </div>
 
+    <div id="will-writing-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal-btn">&times;</span>
+            <h2><i class="fa-solid fa-scroll"></i> Di Chúc Của Bạn</h2>
+            <p>Bạn có thể viết và cập nhật di chúc của mình cho đến khi bạn chết. Giới hạn 100 từ.</p>
+            <textarea id="will-textarea" placeholder="Viết di chúc của bạn ở đây..."></textarea>
+            <div id="will-word-count" class="word-count">0/100 từ</div>
+            <button id="save-will-btn">Lưu Di Chúc</button>
+            <p id="save-will-status" class="choice-status-message"></p>
+        </div>
+    </div>
+
+    <div id="published-will-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal-btn">&times;</span>
+            <h2 id="published-will-player-name">Di Chúc của...</h2>
+            <div id="published-will-content" class="will-content-display"></div>
+        </div>
+    </div>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
