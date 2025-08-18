@@ -889,7 +889,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const row = document.createElement('div');
         row.className = 'player-row';
         row.dataset.playerId = player.id;
-
+    
+        // Lấy trạng thái của đêm hiện tại
+        const nightState = nightStates[activeNightIndex];
+        // Kiểm tra xem người chơi có còn sống khi đêm bắt đầu không
+        const wasAliveAtStart = nightState.initialPlayersStatus[player.id]?.isAlive;
+    
         if (!playerState.isAlive) {
             row.classList.add('status-dead');
         } else if (liveStatus) {
@@ -906,11 +911,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (playerState.originalRoleName) {
             row.classList.add('status-cursed');
         }
-
+    
         if (playerState.transformedState) {
             row.classList.add('status-transformed');
         }
-
+    
         let actionDisplayHTML = buildActionList(player.id, nightStates[activeNightIndex]);
         
         let statusIconsHTML = '';
@@ -922,22 +927,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.armor > 1) statusIconsHTML += `<i class="fas fa-shield-alt icon-armor" title="Có ${liveStatus.armor - 1} giáp"></i>`;
             if (liveStatus.isNotified) statusIconsHTML += '<i class="fas fa-bell icon-notified" title="Bị đánh dấu"></i>';
         }
-
+    
         let groupTagHTML = '';
-        const nightState = nightStates[activeNightIndex];
         if (playerState.groupId && nightState.damageGroups && nightState.damageGroups[playerState.groupId]) {
             const groupName = nightState.damageGroups[playerState.groupId].name;
             groupTagHTML = `<span class="player-group-tag" title="Nhóm: ${groupName}">${playerState.groupId}</span>`;
         }
-
+    
         let roleDisplayName = player.roleName || 'Chưa có vai';
         if (playerState.originalRoleName) {
              roleDisplayName = `${playerState.originalRoleName} <span class="cursed-note">(thành Sói)</span>`;
         } else if (playerState.transformedState) {
             roleDisplayName = `${player.roleName} <span class="transformed-note">(Biến hình)</span>`;
         }
-
-
+    
+    
         row.innerHTML = `
             <div class="player-header">
                 <div class="player-info">
@@ -949,7 +953,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="player-controls">
                     <div class="status-icons">${statusIconsHTML}</div>
-                    ${!isFinished && playerState.isAlive ? `
+                    ${!isFinished && wasAliveAtStart ? `
                         <button class="action-modal-btn" data-player-id="${player.id}">Action</button>
                         <button class="action-modal-btn group-btn" data-player-id="${player.id}">Link</button>
                     ` : ''}
