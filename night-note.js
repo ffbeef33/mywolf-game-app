@@ -895,23 +895,31 @@ document.addEventListener('DOMContentLoaded', () => {
         // Kiểm tra xem người chơi có còn sống khi đêm bắt đầu không
         const wasAliveAtStart = nightState.initialPlayersStatus[player.id]?.isAlive;
     
-        if (!playerState.isAlive) {
+        // --- LOGIC GÁN CLASS ĐÃ SỬA LỖI ---
+        if (!wasAliveAtStart) {
+            // Nếu người chơi đã chết từ trước, áp dụng class 'status-dead'
             row.classList.add('status-dead');
-        } else if (liveStatus) {
-            if (liveStatus.isProtected) row.classList.add('status-protected');
-            if (liveStatus.isSaved) row.classList.add('status-saved');
-            if (liveStatus.isDead) row.classList.add('status-danger');
-            if (liveStatus.isDisabled) row.classList.add('status-disabled-by-ability');
+        } else {
+            // Nếu người chơi còn sống khi bắt đầu đêm, kiểm tra các trạng thái trong đêm
+            if (liveStatus) {
+                if (liveStatus.isProtected) row.classList.add('status-protected');
+                if (liveStatus.isSaved) row.classList.add('status-saved');
+                if (liveStatus.isDead) {
+                    // Chỉ áp dụng 'status-danger' để cảnh báo, không dùng 'status-dead'
+                    row.classList.add('status-danger');
+                }
+                if (liveStatus.isDisabled) row.classList.add('status-disabled-by-ability');
+            }
         }
+    
+        // Các class trạng thái khác vẫn giữ nguyên
         if (playerState.isDisabled) row.classList.add('status-disabled');
         if (playerState.isPermanentlyDisabled) {
             row.classList.add('status-permanently-disabled');
         }
-        
         if (playerState.originalRoleName) {
             row.classList.add('status-cursed');
         }
-    
         if (playerState.transformedState) {
             row.classList.add('status-transformed');
         }
