@@ -232,23 +232,42 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
+        // ===== FIX START: Xử lý vô hiệu hóa trước =====
+        // Pass 1: Xác định tất cả người chơi sẽ bị vô hiệu hóa trong đêm nay bởi các chức năng.
+        const disabledByAbilityPlayerIds = new Set();
         actions.forEach(({ actorId, targetId, action }) => {
-            const actor = roomPlayers.find(p => p.id === actorId);
-            const isWolfAction = actorId === 'wolf_group';
-
-            if (!isWolfAction && (!actor || (liveStatuses[actorId] && liveStatuses[actorId].isDisabled))) return;
-
-            const actionKind = ALL_ACTIONS[action]?.key || action;
-            if (actionKind === 'countershield') {
-                counterShieldedTargets.add(targetId);
+            const actorLiveStatus = liveStatuses[actorId];
+            // Người thực hiện hành động phải còn sống và chưa bị vô hiệu hóa bởi các hiệu ứng khác (GM, vĩnh viễn)
+            if (actorLiveStatus && !actorLiveStatus.isDisabled) {
+                const actionKind = ALL_ACTIONS[action]?.key || action;
+                if (actionKind === 'love' || actionKind === 'disable_action') {
+                    disabledByAbilityPlayerIds.add(targetId);
+                }
             }
         });
+
+        // Áp dụng trạng thái bị vô hiệu hóa vào liveStatuses để tính toán cho các hành động sau.
+        disabledByAbilityPlayerIds.forEach(pId => {
+            if (liveStatuses[pId]) {
+                liveStatuses[pId].isDisabled = true;
+            }
+        });
+        // ===== FIX END =====
 
         // Vòng lặp 1: Thiết lập các trạng thái và hiệu ứng thụ động
         actions.forEach(({ actorId, targetId, action }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
             const isWolfAction = actorId === 'wolf_group';
 
+            // Hành động của người chơi bị vô hiệu hóa sẽ không có hiệu lực,
+            // trừ chính hành động love/disable (để các hiệu ứng phụ như miễn nhiễm Sói vẫn hoạt động).
+            if (!isWolfAction && actor && liveStatuses[actorId] && liveStatuses[actorId].isDisabled) {
+                const actionKindCheck = ALL_ACTIONS[action]?.key || action;
+                if (actionKindCheck !== 'love' && actionKindCheck !== 'disable_action') {
+                    return; // Bỏ qua hành động này.
+                }
+            }
+            
             if (!isWolfAction && !actor) return;
             
             const target = roomPlayers.find(p => p.id === targetId);
@@ -258,8 +277,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const actionKind = ALL_ACTIONS[action]?.key || action;
             const duration = actor ? (actor.duration || '1') : '1';
 
-            if (actionKind === 'disable_action') {
-                targetStatus.isDisabled = true;
+            if (actionKind === 'countershield') {
+                counterShieldedTargets.add(targetId);
+            }
+            else if (actionKind === 'disable_action') {
+                // Việc set isDisabled đã được xử lý ở Pass 1.
                 if (duration === 'n') {
                     finalStatus[targetId].isPermanentlyDisabled = true;
                 }
@@ -340,16 +362,12 @@ document.addEventListener('DOMContentLoaded', () => {
              else if (actionKind === 'boom') {
                 if(finalStatus[targetId]) finalStatus[targetId].isBoobyTrapped = true;
             }
-            // ===== LOGIC CỦA KIND 'LOVE' =====
             else if (actionKind === 'love') {
-                // 1. Vô hiệu hóa chức năng của mục tiêu (B)
-                targetStatus.isDisabled = true;
-                // 2. Người yêu (A) được miễn nhiễm với hành động của Sói
+                // Việc set isDisabled đã được xử lý ở Pass 1.
+                // Các hiệu ứng phụ khác của love vẫn được xử lý ở đây.
                 if (liveStatuses[actorId]) liveStatuses[actorId].isImmuneToWolves = true;
-                // 3. Thiết lập chuyển hướng sát thương/lời nguyền từ B sang A
                 loveRedirects[targetId] = actorId;
 
-                // 4. Nếu yêu nhầm Sói (B), người yêu (A) chết
                 if(target.faction === 'Bầy Sói') {
                     if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
                     infoResults.push(`- ${actor.name} đã chết vì yêu nhầm Sói (${target.name}).`);
@@ -381,8 +399,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const isWolfBite = (action === 'kill' && actorId === 'wolf_group');
             const isWolfCurse = (action === 'curse' && actorId === 'wolf_group');
 
-            // ===== LOGIC CHUYỂN HƯỚNG CỦA 'LOVE' =====
-            // Nếu mục tiêu (B) bị Sói cắn/nguyền, chuyển sang cho người yêu (A)
             if (loveRedirects[targetId] && (isWolfBite || isWolfCurse)) {
                 const loverId = loveRedirects[targetId];
                 const loverStatus = liveStatuses[loverId];
@@ -391,13 +407,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const actionName = isWolfBite ? 'Sói cắn' : 'Nguyền';
                 infoResults.push(`- ${newTarget.name} đã nhận thay ${actionName} cho ${originalTarget.name}.`);
                 
-                // Gây sát thương trực tiếp lên người yêu (A)
                 if (isWolfBite && loverStatus && !loverStatus.isProtected) {
                     loverStatus.damage++;
                 }
-                // Lời nguyền sẽ được xử lý ở cuối đêm, việc chuyển hướng đã được ghi nhận
                 
-                // Bỏ qua xử lý thông thường cho hành động này vì đã được xử lý đặc biệt
                 return; 
             }
             
@@ -407,7 +420,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (action === 'kill' || actionKind === 'gm_kill') {
                 const ultimateTargetId = damageRedirects[finalTargetId] || finalTargetId;
                 const targetStatus = liveStatuses[ultimateTargetId];
-                // Kiểm tra miễn nhiễm Sói (dành cho người yêu A)
                 if (targetStatus && !targetStatus.isProtected && !targetStatus.isImmuneToWolves) {
                     targetStatus.damage++;
                     if (targetStatus.isBoobyTrapped) {
@@ -657,8 +669,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const deadPlayerNames = Array.from(deadPlayerIdsThisNight).map(id => roomPlayers.find(p => p.id === id)?.name).filter(Boolean);
         
-        // ===== FIX: Trả về loveRedirects và liveStatuses =====
-        // Điều này cần thiết để xử lý logic cuối đêm (như lời nguyền) một cách chính xác.
         return { liveStatuses, finalStatus, deadPlayerNames, infoResults, loveRedirects };
     };
     
@@ -1449,7 +1459,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (target.closest('#end-night-btn')) {
             if (!nightState.isFinished) {
                 
-                // ===== FIX: Lấy dữ liệu loveRedirects và liveStatuses để xử lý cuối đêm =====
                 const { loveRedirects, liveStatuses } = calculateNightStatus(nightState);
                 const curseActions = nightState.actions.filter(a => a.action === 'curse');
                 const collectActions = nightState.actions.filter(a => a.action === 'collect');
@@ -1462,17 +1471,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         const originalTargetId = action.targetId;
                         const isWolfCurse = action.actorId === 'wolf_group';
 
-                        // FIX: Kiểm tra nếu mục tiêu ban đầu (A) có miễn nhiễm Sói không
                         if (isWolfCurse && liveStatuses[originalTargetId] && liveStatuses[originalTargetId].isImmuneToWolves) {
-                            return; // Bỏ qua hành động nguyền nếu mục tiêu miễn nhiễm
+                            return; 
                         }
 
                         let finalTargetId = originalTargetId;
                         
-                        // FIX: Lấy loverId từ loveRedirects đã được tính toán
                         const loverId = loveRedirects[originalTargetId];
 
-                        // FIX: Chuyển hướng lời nguyền từ B sang A
                         if(loverId && isWolfCurse) {
                             finalTargetId = loverId;
                         }
