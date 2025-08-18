@@ -700,31 +700,9 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 #action-modal-choices button:disabled:hover {
     filter: none;
 }
+
 .target-item input[type="checkbox"]:disabled + label {
     opacity: 0.5;
     cursor: not-allowed;
     text-decoration: line-through;
-}
-
-/* --- TÍNH NĂNG MỚI: GIAO DIỆN DI CHÚC (QUẢN TRÒ) --- */
-.will-modal-btn {
-    padding: 6px 12px;
-    font-size: 0.9rem;
-    background-color: #484f58; /* Màu xám */
-    opacity: 0.9;
-}
-.will-modal-btn:hover {
-    opacity: 1;
-    filter: brightness(1.1);
-}
-
-.will-content-display {
-    background-color: var(--primary-bg);
-    padding: 15px;
-    border-radius: 8px;
-    white-space: pre-wrap; /* Giữ lại các khoảng trắng và xuống dòng */
-    line-height: 1.6;
-    max-height: 60vh;
-    overflow-y: auto;
-    border: 1px solid var(--border-color);
 }

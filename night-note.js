@@ -26,14 +26,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const gmLogContent = document.getElementById('gm-log-content');
     const playerLogContent = document.getElementById('player-log-content');
     
-    // TÍNH NĂNG MỚI: Elements cho Modal Di Chúc của GM
-    const willModalGm = document.getElementById('will-modal-gm');
-    const willModalGmTitle = document.getElementById('will-modal-gm-title');
-    const willModalGmContent = document.getElementById('will-modal-gm-content');
-    const willModalGmPublishBtn = document.getElementById('will-modal-gm-publish-btn');
-    let currentPlayerIdForWill = null; // Biến tạm để lưu ID người chơi khi xem di chúc
-    // KẾT THÚC TÍNH NĂNG MỚI
-
     let votingSection, votePlayersList, startVoteBtn, endVoteBtn, voteResultsContainer, voteTimerInterval;
     let secretVoteWeights = {};
     let voteChoicesListener = null;
@@ -962,10 +954,6 @@ document.addEventListener('DOMContentLoaded', () => {
             roleDisplayName = `${player.roleName} <span class="transformed-note">(Biến hình)</span>`;
         }
     
-        // TÍNH NĂNG MỚI: Chỉ hiển thị nút Di Chúc nếu người chơi đã chết
-        const willButtonHTML = !playerState.isAlive ? `
-            <button class="will-modal-btn" data-player-id="${player.id}">Di Chúc</button>
-        ` : '';
     
         row.innerHTML = `
             <div class="player-header">
@@ -982,7 +970,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="action-modal-btn" data-player-id="${player.id}">Action</button>
                         <button class="action-modal-btn group-btn" data-player-id="${player.id}">Link</button>
                     ` : ''}
-                    ${willButtonHTML}
                     <div class="player-status-icon life ${playerState.isAlive ? 'alive' : 'dead'}" title="Sống/Chết"><i class="fas fa-heart"></i></div>
                 </div>
             </div>
@@ -1319,14 +1306,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleEvents(e) {
         const target = e.target;
         
-        // TÍNH NĂNG MỚI: Xử lý mở modal xem di chúc
-        if (target.matches('.will-modal-btn')) {
-            const playerId = target.dataset.playerId;
-            openGmWillModal(playerId);
-            return;
-        }
-        // KẾT THÚC TÍNH NĂNG MỚI
-
         if (target.matches('.action-modal-btn')) {
             const playerId = target.dataset.playerId;
             if (target.classList.contains('group-btn')) {
@@ -2045,16 +2024,6 @@ document.addEventListener('DOMContentLoaded', () => {
         createActionModal();
         createFactionChangeModal();
         createGroupModal();
-        
-        // TÍNH NĂNG MỚI: Gán sự kiện cho modal di chúc
-        if (willModalGm) {
-            willModalGm.addEventListener('click', (e) => {
-                if (e.target === willModalGm || e.target.classList.contains('close-modal-btn')) {
-                    willModalGm.classList.add('hidden');
-                }
-            });
-            willModalGmPublishBtn.addEventListener('click', publishWill);
-        }
     };
 
     const urlRoomId = new URLSearchParams(window.location.search).get('roomId');
@@ -2063,55 +2032,6 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         document.body.innerHTML = '<h1>Lỗi: Không tìm thấy ID phòng trong URL.</h1>';
     }
-    
-    // TÍNH NĂNG MỚI: Các hàm xử lý modal di chúc của GM
-    const openGmWillModal = (playerId) => {
-        const player = roomPlayers.find(p => p.id === playerId);
-        if (!player) return;
-
-        currentPlayerIdForWill = playerId;
-        willModalGmTitle.textContent = `Di Chúc của ${player.name}`;
-
-        const willRef = database.ref(`rooms/${roomId}/players/${playerId}/will/content`);
-        willRef.once('value', snapshot => {
-            const willContent = snapshot.val();
-            if (willContent && willContent.trim() !== "") {
-                willModalGmContent.textContent = willContent;
-            } else {
-                willModalGmContent.textContent = "Người chơi này chưa viết di chúc.";
-            }
-            willModalGm.classList.remove('hidden');
-        });
-    };
-
-    const publishWill = () => {
-        if (!currentPlayerIdForWill) return;
-
-        willModalGmPublishBtn.disabled = true;
-        const player = roomPlayers.find(p => p.id === currentPlayerIdForWill);
-        const willRef = database.ref(`rooms/${roomId}/players/${currentPlayerIdForWill}/will/content`);
-
-        willRef.once('value', snapshot => {
-            const content = snapshot.val() || "(Người này không để lại di chúc)";
-            const publishedWillData = {
-                playerName: player.name,
-                content: content,
-                timestamp: firebase.database.ServerValue.TIMESTAMP // Thêm timestamp để trigger listener
-            };
-            
-            database.ref(`rooms/${roomId}/publicData/publishedWill`).set(publishedWillData)
-                .then(() => {
-                    alert(`Đã công khai di chúc của ${player.name}`);
-                    willModalGm.classList.add('hidden');
-                    willModalGmPublishBtn.disabled = false;
-                })
-                .catch(err => {
-                    alert('Lỗi khi công khai di chúc: ' + err.message)
-                    willModalGmPublishBtn.disabled = false;
-                });
-        });
-    };
-    // KẾT THÚC TÍNH NĂNG MỚI
 
     function createGroupModal(){
         groupModal = document.getElementById('group-modal-overlay');
