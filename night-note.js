@@ -59,6 +59,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'save': { key: 'save', label: 'Cứu', type: 'defense' },
         'kill': { key: 'kill', label: 'Giết', type: 'damage' },
         'disable': { key: 'disable_action', label: 'Vô hiệu hóa', type: 'debuff' },
+        // --- START: THÊM KIND MỚI ---
+        'freeze': { key: 'freeze', label: 'Đóng băng', type: 'debuff' },
+        // --- END: THÊM KIND MỚI ---
         'check': { key: 'check', label: 'Kiểm tra', type: 'info' },
         'audit': { key: 'audit', label: 'Soi phe Sói', type: 'info' },
         'invest': { key: 'invest', label: 'Điều tra', type: 'info' },
@@ -244,9 +247,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const actorLiveStatus = liveStatuses[actorId];
             if (actorLiveStatus && !actorLiveStatus.isDisabled) {
                 const actionKind = ALL_ACTIONS[action]?.key || action;
-                if (actionKind === 'love' || actionKind === 'disable_action') {
+                // --- START: CẬP NHẬT LOGIC VÔ HIỆU HÓA ---
+                // Thêm 'freeze' vào danh sách các hành động gây vô hiệu hóa
+                if (actionKind === 'love' || actionKind === 'disable_action' || actionKind === 'freeze') {
                     disabledByAbilityPlayerIds.add(targetId);
                 }
+                // --- END: CẬP NHẬT LOGIC VÔ HIỆU HÓA ---
             }
         });
 
@@ -262,9 +268,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!isWolfAction && actor && liveStatuses[actorId] && liveStatuses[actorId].isDisabled) {
                 const actionKindCheck = ALL_ACTIONS[action]?.key || action;
-                if (actionKindCheck !== 'love' && actionKindCheck !== 'disable_action') {
+                // --- START: CẬP NHẬT LOGIC XỬ LÝ HÀNH ĐỘNG ---
+                // Cho phép người bị đóng băng vẫn có thể thực hiện hành động đóng băng
+                if (actionKindCheck !== 'love' && actionKindCheck !== 'disable_action' && actionKindCheck !== 'freeze') {
                     return;
                 }
+                // --- END: CẬP NHẬT LOGIC XỬ LÝ HÀNH ĐỘNG ---
             }
             
             if (!isWolfAction && !actor) return;
@@ -284,6 +293,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     finalStatus[targetId].isPermanentlyDisabled = true;
                 }
             }
+            // --- START: CẬP NHẬT LOGIC BẢO VỆ ---
+            // Thêm logic xử lý cho hành động 'freeze'
+            else if (actionKind === 'freeze') {
+                if (!counterShieldedTargets.has(targetId)) {
+                    targetStatus.isProtected = true;
+                }
+                // Hiện tại chưa có logic cho đóng băng vĩnh viễn, có thể thêm sau nếu cần
+            }
+            // --- END: CẬP NHẬT LOGIC BẢO VỆ ---
             else if (actionKind === 'gm_add_armor') targetStatus.armor++;
             else if (actionKind === 'protect' || actionKind === 'gm_protect') {
                  if(!counterShieldedTargets.has(targetId)) targetStatus.isProtected = true;
@@ -380,7 +398,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const executableActions = actions.filter(action => {
             const actionKind = ALL_ACTIONS[action.action]?.key || action.action;
-            const isSelfDisablingAction = actionKind === 'love' || actionKind === 'disable_action';
+            // --- START: CẬP NHẬT LOGIC LỌC HÀNH ĐỘNG ---
+            // Thêm 'freeze' vào đây để đảm bảo hành động vẫn được thực hiện ngay cả khi người dùng bị vô hiệu hóa
+            const isSelfDisablingAction = actionKind === 'love' || actionKind === 'disable_action' || actionKind === 'freeze';
+            // --- END: CẬP NHẬT LOGIC LỌC HÀNH ĐỘNG ---
             return !disabledPlayerIds.has(action.actorId) || isSelfDisablingAction;
         });
         
