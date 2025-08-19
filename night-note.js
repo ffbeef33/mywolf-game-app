@@ -32,7 +32,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const willModalGmContent = document.getElementById('will-modal-gm-content');
     const willModalGmPublishBtn = document.getElementById('will-modal-gm-publish-btn');
     let currentPlayerIdForWill = null; // Biến tạm để lưu ID người chơi khi xem di chúc
-    // KẾT THÚC TÍNH NĂNG MỚI
 
     let votingSection, votePlayersList, startVoteBtn, endVoteBtn, voteResultsContainer, voteTimerInterval;
     let secretVoteWeights = {};
@@ -240,12 +239,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // ===== FIX START: Xử lý vô hiệu hóa trước =====
-        // Pass 1: Xác định tất cả người chơi sẽ bị vô hiệu hóa trong đêm nay bởi các chức năng.
         const disabledByAbilityPlayerIds = new Set();
         actions.forEach(({ actorId, targetId, action }) => {
             const actorLiveStatus = liveStatuses[actorId];
-            // Người thực hiện hành động phải còn sống và chưa bị vô hiệu hóa bởi các hiệu ứng khác (GM, vĩnh viễn)
             if (actorLiveStatus && !actorLiveStatus.isDisabled) {
                 const actionKind = ALL_ACTIONS[action]?.key || action;
                 if (actionKind === 'love' || actionKind === 'disable_action') {
@@ -254,25 +250,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Áp dụng trạng thái bị vô hiệu hóa vào liveStatuses để tính toán cho các hành động sau.
         disabledByAbilityPlayerIds.forEach(pId => {
             if (liveStatuses[pId]) {
                 liveStatuses[pId].isDisabled = true;
             }
         });
-        // ===== FIX END =====
 
-        // Vòng lặp 1: Thiết lập các trạng thái và hiệu ứng thụ động
         actions.forEach(({ actorId, targetId, action }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
             const isWolfAction = actorId === 'wolf_group';
 
-            // Hành động của người chơi bị vô hiệu hóa sẽ không có hiệu lực,
-            // trừ chính hành động love/disable (để các hiệu ứng phụ như miễn nhiễm Sói vẫn hoạt động).
             if (!isWolfAction && actor && liveStatuses[actorId] && liveStatuses[actorId].isDisabled) {
                 const actionKindCheck = ALL_ACTIONS[action]?.key || action;
                 if (actionKindCheck !== 'love' && actionKindCheck !== 'disable_action') {
-                    return; // Bỏ qua hành động này.
+                    return;
                 }
             }
             
@@ -289,7 +280,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 counterShieldedTargets.add(targetId);
             }
             else if (actionKind === 'disable_action') {
-                // Việc set isDisabled đã được xử lý ở Pass 1.
                 if (duration === 'n') {
                     finalStatus[targetId].isPermanentlyDisabled = true;
                 }
@@ -371,8 +361,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(finalStatus[targetId]) finalStatus[targetId].isBoobyTrapped = true;
             }
             else if (actionKind === 'love') {
-                // Việc set isDisabled đã được xử lý ở Pass 1.
-                // Các hiệu ứng phụ khác của love vẫn được xử lý ở đây.
                 if (liveStatuses[actorId]) liveStatuses[actorId].isImmuneToWolves = true;
                 loveRedirects[targetId] = actorId;
 
@@ -399,7 +387,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const killifActions = executableActions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
         const otherActions = executableActions.filter(({ action }) => !['killif', 'curse', 'collect', 'transform', 'love'].includes(ALL_ACTIONS[action]?.key || action));
 
-        // Vòng lặp 2: Xử lý các hành động chính
         otherActions.forEach(({ actorId, targetId, action }) => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             let finalTargetId = targetId;
@@ -851,13 +838,9 @@ document.addEventListener('DOMContentLoaded', () => {
             interactionTable.parentNode.insertBefore(deleteBtn, interactionTable);
             
             deleteBtn.addEventListener('click', function() {
-                // Hành động xóa sẽ được thực hiện ngay lập tức mà không cần xác nhận
-                nightStates = [];
-                activeNightIndex = 0;
-                
-                roomPlayers.forEach(p => {
-                    p.faction = p.baseFaction;
-                });
+                if (!confirm("Bạn có chắc muốn xóa toàn bộ Night Note và Di Chúc của người chơi không? Hành động này không thể hoàn tác.")) {
+                    return;
+                }
 
                 const initialStatus = Object.fromEntries(roomPlayers.map(p => {
                     return [p.id, { 
@@ -876,7 +859,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         transformedState: null,
                         groupId: null,
                         markedForDelayKill: false,
-                        faction: p.faction,
+                        faction: p.baseFaction, // Reset về phe gốc
                         originalRoleName: null,
                         roleName: p.roleName,
                         kind: p.kind,
@@ -886,7 +869,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         isBoobyTrapped: false,
                     }];
                 }));
-                nightStates.push({
+                
+                const updates = {};
+                updates['/nightNotes'] = [{
                     actions: [],
                     playersStatus: initialStatus,
                     initialPlayersStatus: JSON.parse(JSON.stringify(initialStatus)),
@@ -894,11 +879,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     gmNote: "",
                     damageGroups: {},
                     factionChanges: []
-                });
+                }];
+                updates['/playerOrder'] = null;
 
-                saveNightNotes();
-                database.ref(`rooms/${roomId}/playerOrder`).set(null);
-                render();
+                // SỬA LỖI: Reset di chúc của tất cả người chơi
+                roomPlayers.forEach(player => {
+                    updates[`/players/${player.id}/will`] = null;
+                });
+                // KẾT THÚC SỬA LỖI
+
+                database.ref(`rooms/${roomId}`).update(updates)
+                .then(() => {
+                    alert("Đã xóa Night Note và Di Chúc thành công!");
+                    // Dữ liệu sẽ tự render lại thông qua listener
+                })
+                .catch(error => {
+                    console.error("Lỗi khi reset phòng:", error);
+                    alert("Có lỗi xảy ra khi reset phòng.");
+                });
             });
         }
         
@@ -962,7 +960,6 @@ document.addEventListener('DOMContentLoaded', () => {
             roleDisplayName = `${player.roleName} <span class="transformed-note">(Biến hình)</span>`;
         }
     
-        // TÍNH NĂNG MỚI: Chỉ hiển thị nút Di Chúc nếu người chơi đã chết
         const willButtonHTML = !playerState.isAlive ? `
             <button class="will-modal-btn" data-player-id="${player.id}">Di Chúc</button>
         ` : '';
@@ -1319,13 +1316,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleEvents(e) {
         const target = e.target;
         
-        // TÍNH NĂNG MỚI: Xử lý mở modal xem di chúc
         if (target.matches('.will-modal-btn')) {
             const playerId = target.dataset.playerId;
             openGmWillModal(playerId);
             return;
         }
-        // KẾT THÚC TÍNH NĂNG MỚI
 
         if (target.matches('.action-modal-btn')) {
             const playerId = target.dataset.playerId;
@@ -2024,6 +2019,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 activeNightIndex = 0;
                 saveNightNotes();
             } else if (nightStates.length > 0) {
+                activeNightIndex = nightStates.length - 1;
                 nextActionId = Math.max(0, ...nightStates.flatMap(n => (n.actions || [])).map(a => a.id || 0)) + 1;
             }
 
@@ -2046,7 +2042,6 @@ document.addEventListener('DOMContentLoaded', () => {
         createFactionChangeModal();
         createGroupModal();
         
-        // TÍNH NĂNG MỚI: Gán sự kiện cho modal di chúc
         if (willModalGm) {
             willModalGm.addEventListener('click', (e) => {
                 if (e.target === willModalGm || e.target.classList.contains('close-modal-btn')) {
@@ -2064,7 +2059,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.innerHTML = '<h1>Lỗi: Không tìm thấy ID phòng trong URL.</h1>';
     }
     
-    // TÍNH NĂNG MỚI: Các hàm xử lý modal di chúc của GM
     const openGmWillModal = (playerId) => {
         const player = roomPlayers.find(p => p.id === playerId);
         if (!player) return;
@@ -2096,7 +2090,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const publishedWillData = {
                 playerName: player.name,
                 content: content,
-                timestamp: firebase.database.ServerValue.TIMESTAMP // Thêm timestamp để trigger listener
+                timestamp: firebase.database.ServerValue.TIMESTAMP
             };
             
             database.ref(`rooms/${roomId}/publicData/publishedWill`).set(publishedWillData)
@@ -2111,7 +2105,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
         });
     };
-    // KẾT THÚC TÍNH NĂNG MỚI
 
     function createGroupModal(){
         groupModal = document.getElementById('group-modal-overlay');
