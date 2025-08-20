@@ -1,5 +1,5 @@
 // =================================================================
-// === admin.js - CẢI THIỆN THUẬT TOÁN RANDOM (FISHER-YATES) ===
+// === admin.js - SỬA LỖI DI CHÚC & CẢI THIỆN RANDOM ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -663,14 +663,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 await playersRef.update(updates);
             }
             
-            // ===== FIX: THÊM LOGIC XÓA DỮ LIỆU VÁN CŨ KHI RESET =====
+            // --- START: SỬA LỖI DI CHÚC ---
+            // Thêm logic xóa di chúc đã công khai khi reset game
             const roomUpdates = {
                 '/gameState/status': 'setup',
                 '/gameState/message': 'Quản trò đã reset game.',
                 '/playerPickState': null,
                 '/nightNotes': null,
-                '/playerOrder': null
+                '/playerOrder': null,
+                '/publicData/publishedWill': null // Xóa di chúc đã công khai
             };
+            // --- END: SỬA LỖI DI CHÚC ---
             await database.ref(`rooms/${currentRoomId}`).update(roomUpdates);
             alert('Đã xóa log trên Google Sheet và reset vai trò người chơi thành công!');
         } catch (error) {
