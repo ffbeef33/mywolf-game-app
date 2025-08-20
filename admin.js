@@ -1,5 +1,5 @@
 // =================================================================
-// === admin.js - SỬA LỖI BỘ ĐẾM VAI TRÒ CHO PHE SÓI & BẦY SÓI ===
+// === admin.js - CẢI THIỆN THUẬT TOÁN RANDOM (FISHER-YATES) ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -87,6 +87,21 @@ document.addEventListener('DOMContentLoaded', () => {
     let allRolesData = [];
     let favoriteDecksData = [];
     let deckModalContext = 'setup';
+
+    // --- START: HÀM XÁO TRỘN MỚI ---
+    /**
+     * Xáo trộn một mảng tại chỗ (in-place) sử dụng thuật toán Fisher-Yates.
+     * @param {Array} array Mảng cần xáo trộn.
+     */
+    const shuffleArray = (array) => {
+        for (let i = array.length - 1; i > 0; i--) {
+            // Chọn một index ngẫu nhiên từ 0 đến i
+            const j = Math.floor(Math.random() * (i + 1));
+            // Hoán đổi phần tử tại i và j
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    };
+    // --- END: HÀM XÁO TRỘN MỚI ---
 
     // --- Các hàm xử lý logic ---
     const handleStartNightNote = () => {
@@ -239,7 +254,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (roleIndex > -1) remainingRoles.splice(roleIndex, 1);
                 }
             });
-            remainingRoles.sort(() => Math.random() - 0.5);
+            
+            // --- START: CẬP NHẬT RANDOM ---
+            // Sử dụng hàm shuffleArray thay vì sort()
+            shuffleArray(remainingRoles);
+            // --- END: CẬP NHẬT RANDOM ---
+
             remainingPlayers.forEach((playerName, index) => {
                 assignedPlayers[playerName] = remainingRoles[index];
             });
@@ -318,8 +338,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!roomData || !roomData.players || !roomData.rolesToAssign) { throw new Error("Lỗi: Không tìm thấy dữ liệu phòng."); }
             let rolesToAssign = [...roomData.rolesToAssign];
             let playerIds = Object.keys(roomData.players);
-            rolesToAssign.sort(() => Math.random() - 0.5);
-            playerIds.sort(() => Math.random() - 0.5);
+
+            // --- START: CẬP NHẬT RANDOM ---
+            // Sử dụng hàm shuffleArray thay vì sort() để đảm bảo ngẫu nhiên
+            shuffleArray(rolesToAssign);
+            shuffleArray(playerIds);
+            // --- END: CẬP NHẬT RANDOM ---
+
             const updates = {};
             const logPayload = [];
             playerIds.forEach((id, index) => {
