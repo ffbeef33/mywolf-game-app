@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - Module Game Tương Tác (PHIÊN BẢN HOÀN CHỈNH) ===
+// === interactive-gm.js - Module Game Tương Tác (KHÔNG THAY ĐỔI) ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentRoomId = null;
     let roomListener = null;
     let roomData = {};
-    let allRolesData = {}; // Dùng để lấy faction của role
+    let allRolesData = {};
 
     const initialize = async () => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.innerHTML = '<h1>Lỗi: Không tìm thấy ID phòng trong URL.</h1>';
             return;
         }
-        await fetchAllRolesData(); // Tải dữ liệu vai trò
+        await fetchAllRolesData();
         roomIdDisplay.textContent = currentRoomId;
         attachRoomListener();
     };
@@ -89,11 +89,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const players = roomData.players || {};
         playerListUI.innerHTML = '';
         playersTotalDisplay.textContent = Object.keys(players).length;
-        Object.values(players).forEach(player => {
+
+        Object.entries(players).forEach(([id, player]) => {
             const li = document.createElement('li');
             li.className = 'player-item';
-            if (!player.isAlive) li.classList.add('dead');
-            li.innerHTML = `<span class="player-name">${player.name} <strong>(${player.roleName || 'Chưa có vai'})</strong></span>`;
+            if (!player.isAlive) {
+                li.classList.add('dead');
+            }
+            li.innerHTML = `
+                <span class="player-name">${player.name} <strong>(${player.roleName || 'Chưa có vai'})</strong></span>
+                <button class="btn-secondary gm-action-btn" data-player-id="${id}" data-player-name="${player.name}">Hành động</button>
+            `;
             playerListUI.appendChild(li);
         });
     };
@@ -105,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
         startDayBtn.disabled = true;
         startVoteBtn.disabled = true;
         let phaseText = "Thiết lập";
+
         switch (state.phase) {
             case 'setup':
                 phaseText = "Sẵn sàng bắt đầu";
@@ -116,16 +123,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'day':
                 phaseText = `Thảo luận ngày ${state.currentNight}`;
+                startNightBtn.disabled = false; 
                 startDayBtn.disabled = false;
                 startVoteBtn.disabled = false;
                 break;
+            case 'voting':
+                 phaseText = `Bỏ phiếu Ngày ${state.currentNight}`;
+                 startNightBtn.disabled = false;
+                 break;
             case 'ended':
                 phaseText = "Game đã kết thúc";
                 break;
         }
         currentPhaseDisplay.textContent = phaseText;
     };
-
+    
     const addLog = (message) => {
         const logEntry = {
             timestamp: firebase.database.ServerValue.TIMESTAMP,
@@ -146,7 +158,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const playerActions = roomData.nightActions?.[currentNight] || {};
         const allPlayers = roomData.players;
 
-        // 1. Lấy trạng thái người chơi từ đầu đêm
         const initialPlayerStatus = Object.fromEntries(
             Object.entries(allPlayers).map(([id, player]) => {
                 const roleName = player.roleName || "";
@@ -156,25 +167,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     faction: roleInfo.faction,
                     kind: roleInfo.kind,
                     roleName: roleName
-                    // Thêm các trạng thái mặc định khác nếu cần
                 }]
             })
         );
         
-        // 2. Chuyển đổi actions
         let actionIdCounter = 0;
         const formattedActions = [];
         for (const actorId in playerActions) {
-            // Xử lý Sói cắn
             if (actorId === 'wolf_group') {
                 formattedActions.push({
                     id: actionIdCounter++,
                     actorId: 'wolf_group',
                     targetId: playerActions[actorId].target,
-                    action: 'kill' // Hành động mặc định của Sói
+                    action: 'kill'
                 });
             } else {
-                // Xử lý người chơi khác
                 formattedActions.push({
                     id: actionIdCounter++,
                     actorId: actorId,
@@ -196,11 +203,9 @@ document.addEventListener('DOMContentLoaded', () => {
             kind: allRolesData[data.roleName]?.kind || 'empty'
         }));
         
-        // 4. Gọi hàm logic dùng chung
         const results = calculateNightStatus(nightStateForCalc, roomPlayersForCalc);
         const { finalStatus, deadPlayerNames, infoResults } = results;
 
-        // 5. Cập nhật dữ liệu lên Firebase
         const updates = {};
         
         for (const playerId in finalStatus) {
@@ -215,7 +220,6 @@ document.addEventListener('DOMContentLoaded', () => {
             timestamp: firebase.database.ServerValue.TIMESTAMP
         };
         
-        // Xử lý và ghi kết quả riêng tư
         infoResults.forEach(logString => {
             const match = logString.match(/- (.+?) \((.+?)\) đã (soi|điều tra|kiểm tra) (.+?): (.+)\./);
             if (match) {
@@ -243,7 +247,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Gán sự kiện ---
     startNightBtn.addEventListener('click', () => {
         const currentNightNumber = (roomData.interactiveState?.currentNight || 0) + 1;
         const newState = {
@@ -251,13 +254,30 @@ document.addEventListener('DOMContentLoaded', () => {
             currentNight: currentNightNumber,
             message: `Đêm ${currentNightNumber} bắt đầu.`
         };
-        // Xóa action đêm cũ trước khi bắt đầu đêm mới
         database.ref(`rooms/${currentRoomId}/nightActions/${currentNightNumber}`).remove();
         database.ref(`rooms/${currentRoomId}/interactiveState`).set(newState);
         addLog(`Đã bắt đầu Đêm ${currentNightNumber}.`);
     });
 
     endNightBtn.addEventListener('click', processNightResults);
+    
+    startDayBtn.addEventListener('click', () => {
+        const currentNightNumber = roomData.interactiveState?.currentNight || 1;
+        database.ref(`rooms/${currentRoomId}/interactiveState`).update({
+            phase: 'day',
+            message: `Ngày ${currentNightNumber}. Mọi người thảo luận.`
+        });
+        addLog(`Bắt đầu giai đoạn Thảo luận.`);
+    });
+
+    startVoteBtn.addEventListener('click', () => {
+        const currentNightNumber = roomData.interactiveState?.currentNight || 1;
+         database.ref(`rooms/${currentRoomId}/interactiveState`).update({
+            phase: 'voting',
+            message: `Ngày ${currentNightNumber}. Bắt đầu bỏ phiếu.`
+        });
+        addLog(`Bắt đầu giai đoạn Bỏ phiếu.`);
+    });
     
     endGameBtn.addEventListener('click', () => {
         if (!confirm('Bạn có chắc muốn kết thúc ván chơi này?')) return;
@@ -267,6 +287,28 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         database.ref(`rooms/${currentRoomId}/interactiveState`).update(newState);
         addLog(`Đã kết thúc game.`);
+    });
+    
+    playerListUI.addEventListener('click', (e) => {
+        if (e.target && e.target.classList.contains('gm-action-btn')) {
+            const playerId = e.target.dataset.playerId;
+            const playerName = e.target.dataset.playerName;
+            const player = roomData.players[playerId];
+            if (!player) return;
+            const action = prompt(`Chọn hành động cho ${playerName}:\n1: Giết\n2: Hồi sinh\n(Nhập 1 hoặc 2)`);
+            const playerRef = database.ref(`rooms/${currentRoomId}/players/${playerId}/isAlive`);
+            if (action === '1') {
+                if (confirm(`Bạn có chắc muốn GIẾT ${playerName}?`)) {
+                    playerRef.set(false);
+                    addLog(`Đã GIẾT người chơi ${playerName} (thủ công).`);
+                }
+            } else if (action === '2') {
+                if (confirm(`Bạn có chắc muốn HỒI SINH ${playerName}?`)) {
+                    playerRef.set(true);
+                    addLog(`Đã HỒI SINH người chơi ${playerName} (thủ công).`);
+                }
+            }
+        }
     });
 
     initialize();
