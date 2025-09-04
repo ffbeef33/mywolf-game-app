@@ -129,6 +129,10 @@ button {
   font-weight: 600;
   cursor: pointer;
   transition: background-color var(--transition-speed) ease, transform 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 button:hover:not(:disabled) { background-color: var(--button-hover-bg); transform: translateY(-2px); }
 button:active:not(:disabled) { transform: translateY(0); }
@@ -158,7 +162,7 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 #edit-controls { border-top: 2px dashed var(--border-color); margin-top: 25px; padding-top: 25px; }
 #edit-controls.hidden, .main-action-buttons.hidden { display: none; }
 
-.player-item, .role-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); transition: all 0.2s ease-in-out; }
+.player-item, .role-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid var(--border-color); transition: all 0.2s ease-in-out; }
 .player-item:last-child, .role-item:last-child { border-bottom: none; }
 .player-item.kicked, .role-item.removed { text-decoration: line-through; opacity: 0.5; color: var(--danger-bg) !important; background-color: rgba(248, 81, 73, 0.12); }
 
@@ -195,7 +199,7 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
    8. Style cho Popup Chọn Deck
    ========================================================================== */
 .modal-content.large {
-  max-width: 800px; /* Cho phép popup rộng hơn */
+  max-width: 800px;
 }
 
 #deck-modal-grid {
@@ -264,36 +268,28 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
   padding: 3px 0;
 }
 
-/* Style tô màu vai trò theo phe trong Deck Card */
 .deck-card-roles li.faction-villager {
-  color: var(--text-color); /* Màu xanh dương cho Phe Dân */
+  color: var(--text-color);
 }
-
 .deck-card-roles li.faction-wolf {
-  color: var(--danger-bg); /* Màu đỏ cho Phe Sói / Bầy Sói */
+  color: var(--danger-bg);
   font-weight: 600;
 }
-
 .deck-card-roles li.faction-neutral {
-  color: #d29922; /* Màu vàng/cam cho Phe Trung Lập */
+  color: #d29922;
 }
-
 .deck-card-roles li.faction-other {
-  color: var(--light-text); /* Màu mặc định cho các phe khác */
+  color: var(--light-text);
   opacity: 0.8;
 }
 
-
-@media (max-width: 500px) {
-  .deck-card-roles {
-    column-count: 1;
-  }
+/* === BỔ SUNG STYLE CHO NGƯỜI CHƠI CHẾT === */
+.player-item.dead .player-name {
+  text-decoration: line-through;
+  opacity: 0.5;
+  color: var(--danger-bg);
 }
-/* --- CẬP NHẬT 06/08/2025 (Lần 2): Style cho nút vote được chọn --- */
-.choices-grid .choice-btn.selected {
-    border-color: var(--text-color);
-    background-color: #1d3350; /* Một màu xanh dương đậm để làm nổi bật */
-    color: #fff;
-    box-shadow: 0 0 8px var(--text-color);
-    transform: translateY(-2px);
+
+.player-item.dead {
+    background-color: rgba(248, 81, 73, 0.05);
 }

@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - PHIÊN BẢN SỬA LỖI ĐIỀU KHIỂN & THÊM TÍNH NĂNG GM ===
+// === interactive-gm.js - CẬP NHẬT LOG HÀNH ĐỘNG & HIỂN THỊ NGƯỜI CHẾT ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- State ---
     let currentRoomId = null;
     let roomListener = null;
+    let actionLogListener = null; // <-- Listener mới cho log hành động
     let roomData = {};
     let allRolesData = {};
 
@@ -43,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         await fetchAllRolesData();
         roomIdDisplay.textContent = currentRoomId;
-        attachRoomListener();
+        attachListenersToRoom(); // <-- Đổi tên hàm để gắn nhiều listener
     };
 
     const fetchAllRolesData = async () => {
@@ -64,7 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const attachRoomListener = () => {
+    const attachListenersToRoom = () => {
+        // Listener chính
         if (roomListener) database.ref(`rooms/${currentRoomId}`).off('value', roomListener);
         const roomRef = database.ref(`rooms/${currentRoomId}`);
         roomListener = roomRef.on('value', (snapshot) => {
@@ -74,16 +76,60 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             roomData = snapshot.val();
             render();
-        }, (error) => {
-            console.error("Lỗi lắng nghe Firebase:", error);
-            alert("Mất kết nối với server.");
+
+            // Cập nhật listener cho log hành động mỗi khi có data mới (để lấy đúng số đêm)
+            const currentNight = roomData.interactiveState?.currentNight || 0;
+            if (currentNight > 0) {
+                attachActionLogListener(currentNight);
+            }
         });
     };
+    
+    // === HÀM MỚI: Lắng nghe và hiển thị log hành động ===
+    const attachActionLogListener = (nightNumber) => {
+        const actionLogRef = database.ref(`rooms/${currentRoomId}/nightActions/${nightNumber}`);
+        if(actionLogListener) {
+            actionLogListener.off(); // Tắt listener cũ
+        }
+        actionLogListener = actionLogRef;
+        actionLogListener.on('value', (snapshot) => {
+            const actions = snapshot.val() || {};
+            renderActionLog(actions);
+        });
+    }
 
     const render = () => {
         renderPlayerList();
         renderGameState();
+        // Log hành động sẽ được render riêng qua listener của nó
     };
+    
+    // === HÀM MỚI: Render log hành động ra giao diện ===
+    const renderActionLog = (actions) => {
+        gameLog.innerHTML = ''; // Xóa log cũ
+        if (Object.keys(actions).length === 0) {
+            gameLog.innerHTML = '<p><em>Chưa có người chơi nào hành động...</em></p>';
+            return;
+        }
+
+        for(const actorId in actions) {
+            const actionData = actions[actorId];
+            const targetId = actionData.target;
+            
+            let actorName = "Bầy Sói";
+            if (actorId !== 'wolf_group') {
+                actorName = roomData.players[actorId]?.name || 'Người chơi không xác định';
+            }
+
+            const targetName = roomData.players[targetId]?.name || 'Mục tiêu không xác định';
+            const actionLabel = KIND_TO_ACTION_MAP[actionData.action]?.label || actionData.action;
+
+            const p = document.createElement('p');
+            p.innerHTML = `[ĐÊM] <strong>${actorName}</strong> đã chọn <em>${actionLabel}</em> <strong>${targetName}</strong>.`;
+            gameLog.prepend(p);
+        }
+    }
+
 
     const renderPlayerList = () => {
         const players = roomData.players || {};
@@ -93,9 +139,12 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.entries(players).forEach(([id, player]) => {
             const li = document.createElement('li');
             li.className = 'player-item';
+            
+            // SỬA LỖI: Thêm class 'dead' nếu isAlive là false
             if (!player.isAlive) {
                 li.classList.add('dead');
             }
+            
             li.innerHTML = `
                 <span class="player-name">${player.name} <strong>(${player.roleName || 'Chưa có vai'})</strong></span>
                 <button class="btn-secondary gm-action-btn" data-player-id="${id}" data-player-name="${player.name}">Hành động</button>
@@ -103,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
             playerListUI.appendChild(li);
         });
     };
-
+    
     const renderGameState = () => {
         const state = roomData.interactiveState || { phase: 'setup', currentNight: 0 };
         startNightBtn.disabled = true;
@@ -122,6 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'night':
                 phaseText = `Đêm ${state.currentNight}`;
                 endNightBtn.disabled = false;
+                gameLog.innerHTML = '<p><em>Đang chờ người chơi hành động...</em></p>'; // Reset log khi đêm bắt đầu
                 break;
             case 'day':
                 phaseText = `Thảo luận ngày ${state.currentNight}`;
@@ -144,17 +194,6 @@ document.addEventListener('DOMContentLoaded', () => {
         currentPhaseDisplay.textContent = phaseText;
     };
     
-    const addLog = (message) => {
-        const logEntry = {
-            timestamp: firebase.database.ServerValue.TIMESTAMP,
-            message: message
-        };
-        database.ref(`rooms/${currentRoomId}/interactiveLog`).push(logEntry);
-        const p = document.createElement('p');
-        p.textContent = `[GM] ${message}`;
-        gameLog.prepend(p);
-    };
-
     const processNightResults = async () => {
         endNightBtn.disabled = true;
         endNightBtn.textContent = "Đang xử lý...";
@@ -255,14 +294,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Xử lý sự kiện nhấn nút ---
     startNightBtn.addEventListener('click', () => {
-        const currentNightNumber = (roomData.interactiveState?.currentNight || 0) + 1;
+        const state = roomData.interactiveState || {};
+        // Nếu game đã kết thúc, nút này sẽ reset game
+        if (state.phase === 'ended') {
+            if(!confirm("Bạn có muốn reset và bắt đầu game mới không?")) return;
+            // Logic reset game (có thể mở rộng sau)
+            const updates = {};
+            Object.keys(roomData.players).forEach(pId => {
+                updates[`/players/${pId}/isAlive`] = true;
+            });
+            updates['/nightActions'] = null;
+            updates['/nightResults'] = null;
+            updates['/interactiveLog'] = null;
+            database.ref(`rooms/${currentRoomId}`).update(updates);
+        }
+
+        const currentNightNumber = (state.phase === 'ended' ? 0 : state.currentNight || 0) + 1;
         const newState = {
             phase: 'night',
             currentNight: currentNightNumber,
             message: `Đêm ${currentNightNumber} bắt đầu.`
         };
-        database.ref(`rooms/${currentRoomId}/nightActions/${currentNightNumber}`).remove();
-        database.ref(`rooms/${currentRoomId}/interactiveState`).set(newState);
+        
+        if(state.phase === 'ended') {
+             database.ref(`rooms/${currentRoomId}/interactiveState`).set(newState);
+        } else {
+             database.ref(`rooms/${currentRoomId}/interactiveState`).update(newState);
+        }
+        
         addLog(`Đã bắt đầu Đêm ${currentNightNumber}.`);
     });
 
