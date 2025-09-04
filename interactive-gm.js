@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - Module Game Tương Tác (KHÔNG THAY ĐỔI) ===
+// === interactive-gm.js - PHIÊN BẢN SỬA LỖI ĐIỀU KHIỂN & THÊM TÍNH NĂNG GM ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -112,6 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
         startVoteBtn.disabled = true;
         let phaseText = "Thiết lập";
 
+        startNightBtn.innerHTML = '<i class="fas fa-moon"></i> Bắt Đầu Đêm';
+
         switch (state.phase) {
             case 'setup':
                 phaseText = "Sẵn sàng bắt đầu";
@@ -126,13 +128,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 startNightBtn.disabled = false; 
                 startDayBtn.disabled = false;
                 startVoteBtn.disabled = false;
+                startNightBtn.innerHTML = '<i class="fas fa-moon"></i> Bắt Đầu Đêm Tiếp Theo';
                 break;
             case 'voting':
                  phaseText = `Bỏ phiếu Ngày ${state.currentNight}`;
                  startNightBtn.disabled = false;
+                 startNightBtn.innerHTML = '<i class="fas fa-moon"></i> Bắt Đầu Đêm Tiếp Theo';
                  break;
             case 'ended':
                 phaseText = "Game đã kết thúc";
+                startNightBtn.disabled = false;
+                startNightBtn.innerHTML = '<i class="fas fa-redo"></i> Bắt Đầu Game Mới';
                 break;
         }
         currentPhaseDisplay.textContent = phaseText;
@@ -247,6 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // --- Xử lý sự kiện nhấn nút ---
     startNightBtn.addEventListener('click', () => {
         const currentNightNumber = (roomData.interactiveState?.currentNight || 0) + 1;
         const newState = {

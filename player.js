@@ -1,5 +1,5 @@
 // =================================================================
-// === player.js - CẬP NHẬT LOGIC 2 HÀNH ĐỘNG CHO SÓI (Bản đầy đủ) ===
+// === player.js - PHIÊN BẢN SỬA LỖI TƯƠNG TÁC NGƯỜI CHƠI (Bản đầy đủ) ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -443,7 +443,6 @@ document.addEventListener('DOMContentLoaded', () => {
         roleIconEl.style.color = getComputedStyle(document.documentElement).getPropertyValue(factionColorVar);
     }
     
-    // --- DI CHÚC ---
     const countWords = (text) => {
         if (!text) return 0;
         return text.trim().split(/\s+/).filter(word => word.length > 0).length;
@@ -502,16 +501,47 @@ document.addEventListener('DOMContentLoaded', () => {
         publishedWillModal.classList.remove('hidden');
     };
 
+    function displayNightResult(results, nightNumber) {
+        if (document.querySelector('.night-result-popup')) return;
+
+        const publicResult = results.public || {};
+        const privateResult = results.private?.[myPlayerId] || null;
+
+        let message = `<h2>Kết quả đêm ${nightNumber}</h2>`;
+        
+        if (publicResult.deadPlayerNames && publicResult.deadPlayerNames.length > 0) {
+            message += `<p><strong>Nạn nhân:</strong> ${publicResult.deadPlayerNames.join(', ')}</p>`;
+        } else {
+            message += `<p>Đêm nay không có ai chết.</p>`;
+        }
+
+        if (privateResult) {
+            message += `<hr><p><strong>Thông tin riêng của bạn:</strong><br>${privateResult}</p>`;
+        }
+
+        const popup = document.createElement('div');
+        popup.className = 'modal night-result-popup';
+        popup.innerHTML = `
+            <div class="modal-content">
+                ${message}
+                <button id="close-result-popup" class="login-button">Đã hiểu</button>
+            </div>
+        `;
+        document.body.appendChild(popup);
+        popup.querySelector('#close-result-popup').addEventListener('click', () => {
+            popup.remove();
+        });
+    }
+
     // --- MODULE TƯƠNG TÁC ---
     function displayNightActions(roomData, currentNight) {
         interactiveActionSection.classList.remove('hidden');
-        interactiveActionSection.innerHTML = ''; // Xóa sạch nội dung cũ để tạo lại
+        interactiveActionSection.innerHTML = '';
 
         const myRole = allRolesData.find(r => r.name === myPlayerData.roleName) || {};
         const isWolfFaction = myRole.faction === 'Bầy Sói' || myRole.faction === 'Phe Sói';
         const livingPlayers = Object.entries(roomData.players).filter(([id, player]) => player.isAlive);
 
-        // Luôn hiển thị hành động "Bầy cắn" nếu là Sói
         if (isWolfFaction) {
             const wolfBiteAction = {
                 title: "Hành động Bầy Sói: Cắn",
@@ -523,7 +553,6 @@ document.addEventListener('DOMContentLoaded', () => {
             interactiveActionSection.appendChild(createActionPanel(wolfBiteAction, livingPlayers));
         }
 
-        // Kiểm tra các chức năng riêng
         const kinds = myRole.kind ? myRole.kind.split('_') : [];
         kinds.forEach(kind => {
             if ((isWolfFaction && kind === 'kill') || kind === 'empty' || !kind) {
@@ -610,38 +639,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
-    function displayNightResult(results, nightNumber) {
-        if (document.querySelector('.night-result-popup')) return;
-
-        const publicResult = results.public || {};
-        const privateResult = results.private?.[myPlayerId] || null;
-
-        let message = `<h2>Kết quả đêm ${nightNumber}</h2>`;
-        
-        if (publicResult.deadPlayerNames && publicResult.deadPlayerNames.length > 0) {
-            message += `<p><strong>Nạn nhân:</strong> ${publicResult.deadPlayerNames.join(', ')}</p>`;
-        } else {
-            message += `<p>Đêm nay không có ai chết.</p>`;
-        }
-
-        if (privateResult) {
-            message += `<hr><p><strong>Thông tin riêng của bạn:</strong><br>${privateResult}</p>`;
-        }
-
-        const popup = document.createElement('div');
-        popup.className = 'modal night-result-popup';
-        popup.innerHTML = `
-            <div class="modal-content">
-                ${message}
-                <button id="close-result-popup" class="login-button">Đã hiểu</button>
-            </div>
-        `;
-        document.body.appendChild(popup);
-        popup.querySelector('#close-result-popup').addEventListener('click', () => {
-            popup.remove();
-        });
-    }
-
     // --- EVENT LISTENERS ---
     const eventListeners = [
         { el: loginBtn, event: 'click', handler: handleLogin },
@@ -679,14 +676,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- INITIAL LOAD ---
     const initialize = async () => {
-        // Cần file game-logic.js để lấy biến KIND_TO_ACTION_MAP
-        const script = document.createElement('script');
-        script.src = 'game-logic.js';
-        script.onload = async () => {
-            await fetchAllRolesData();
-            checkSessionAndAutoLogin();
-        };
-        document.head.appendChild(script);
+        await fetchAllRolesData();
+        checkSessionAndAutoLogin();
     };
     initialize();
 });
