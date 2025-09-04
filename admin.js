@@ -113,6 +113,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // === HÀM MỚI CHO MODULE TƯƠNG TÁC ===
+    const handleStartInteractiveGM = () => {
+        if (currentRoomId) {
+            const interactiveUrl = `interactive-gm.html?roomId=${currentRoomId}`;
+            window.open(interactiveUrl, '_blank');
+        } else {
+            alert('Lỗi: Không tìm thấy ID phòng hiện tại. Vui lòng chọn một phòng để quản lý trước.');
+        }
+    };
+    // === KẾT THÚC HÀM MỚI ===
+
     const openDeckModal = (context) => {
         deckModalContext = context;
         deckModalGrid.innerHTML = ''; 
@@ -255,10 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             
-            // --- START: CẬP NHẬT RANDOM ---
-            // Sử dụng hàm shuffleArray thay vì sort()
             shuffleArray(remainingRoles);
-            // --- END: CẬP NHẬT RANDOM ---
 
             remainingPlayers.forEach((playerName, index) => {
                 assignedPlayers[playerName] = remainingRoles[index];
@@ -339,11 +347,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let rolesToAssign = [...roomData.rolesToAssign];
             let playerIds = Object.keys(roomData.players);
 
-            // --- START: CẬP NHẬT RANDOM ---
-            // Sử dụng hàm shuffleArray thay vì sort() để đảm bảo ngẫu nhiên
             shuffleArray(rolesToAssign);
             shuffleArray(playerIds);
-            // --- END: CẬP NHẬT RANDOM ---
 
             const updates = {};
             const logPayload = [];
@@ -474,7 +479,6 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch((error) => alert("Lỗi khi xóa phòng: " + error.message));
     };
 
-    // ===== HÀM ĐÃ CẬP NHẬT =====
     const updateCounters = () => {
         const totalPlayers = document.querySelectorAll('input[name="selected-player"]:checked').length;
         let selectedRoleNames = [];
@@ -486,7 +490,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const totalRoles = selectedRoleNames.length;
         
-        // Cập nhật lại đối tượng đếm
         let counts = {
             baySoi: 0,
             pheDan: 0,
@@ -497,7 +500,6 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedRoleNames.forEach(roleName => {
             const roleData = allRolesData.find(r => r.name === roleName);
             if (roleData) {
-                // Logic đếm mới, chính xác theo phe
                 switch (roleData.faction.trim()) {
                     case 'Phe Dân':
                         counts.pheDan++;
@@ -515,12 +517,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Gán lại giá trị cho các phần tử hiển thị
         playerCountEl.textContent = totalPlayers;
-        wolfPackCountEl.textContent = counts.baySoi; // Bầy Sói
-        villagerFactionCountEl.textContent = counts.pheDan; // Phe Dân
-        wolfFactionCountEl.textContent = counts.pheSoi; // Phe Sói
-        neutralFactionCountEl.textContent = counts.pheTrungLap; // Phe Trung Lập
+        wolfPackCountEl.textContent = counts.baySoi;
+        villagerFactionCountEl.textContent = counts.pheDan;
+        wolfFactionCountEl.textContent = counts.pheSoi;
+        neutralFactionCountEl.textContent = counts.pheTrungLap;
         roleCountEl.textContent = totalRoles;
 
         if (totalPlayers === totalRoles && totalPlayers > 0) {
@@ -663,17 +664,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 await playersRef.update(updates);
             }
             
-            // --- START: SỬA LỖI DI CHÚC ---
-            // Thêm logic xóa di chúc đã công khai khi reset game
             const roomUpdates = {
                 '/gameState/status': 'setup',
                 '/gameState/message': 'Quản trò đã reset game.',
                 '/playerPickState': null,
                 '/nightNotes': null,
                 '/playerOrder': null,
-                '/publicData/publishedWill': null // Xóa di chúc đã công khai
+                '/publicData/publishedWill': null
             };
-            // --- END: SỬA LỖI DI CHÚC ---
             await database.ref(`rooms/${currentRoomId}`).update(roomUpdates);
             alert('Đã xóa log trên Google Sheet và reset vai trò người chơi thành công!');
         } catch (error) {
@@ -892,7 +890,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (rolesByFactionContainer) rolesByFactionContainer.addEventListener('input', updateCounters);
     if (refreshRoomsBtn) refreshRoomsBtn.addEventListener('click', loadAndDisplayRooms);
     if (backToSetupBtn) backToSetupBtn.addEventListener('click', resetAdminUI);
-    if (startNightNoteBtn) startNightNoteBtn.addEventListener('click', handleStartNightNote);
     if (openDeckModalBtn) openDeckModalBtn.addEventListener('click', () => openDeckModal('setup'));
     if (editOpenDeckModalBtn) editOpenDeckModalBtn.addEventListener('click', () => openDeckModal('edit'));
     if (closeDeckModalBtn) closeDeckModalBtn.addEventListener('click', closeDeckModal);
@@ -940,6 +937,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (addRoleModal) addRoleModal.classList.add('hidden');
         };
     });
+
+    if (startNightNoteBtn) startNightNoteBtn.addEventListener('click', handleStartNightNote);
+    
+    // === GÁN SỰ KIỆN CHO NÚT MỚI ===
+    const startInteractiveGmBtn = document.getElementById('start-interactive-gm-btn');
+    if (startInteractiveGmBtn) startInteractiveGmBtn.addEventListener('click', handleStartInteractiveGM);
     
     // --- Tải dữ liệu ban đầu ---
     const initialLoad = async () => {

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Trò Tương Tác - Ma Sói</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="assets/admin-style.css">
+    <style>
+        /* Style bổ sung cho giao diện tương tác */
+        .game-status-card {
+            background-color: var(--primary-bg);
+            border: 1px solid var(--special-color);
+            text-align: center;
+            padding: 20px;
+        }
+        .game-status-card h3 {
+            margin-top: 0;
+            color: var(--special-color);
+            font-size: 1.2rem;
+        }
+        #current-phase-display {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--light-text);
+        }
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="main-header">
+            <h1><i class="fas fa-gamepad"></i> Bảng Điều Khiển Tương Tác</h1>
+            <p>Phòng Game: <strong id="room-id-display">Đang tải...</strong></p>
+        </header>
+
+        <main>
+            <section id="interactive-section" class="card">
+                <div id="game-status-card" class="card game-status-card">
+                    <h3>TRẠNG THÁI HIỆN TẠI</h3>
+                    <p id="current-phase-display">Đang chờ...</p>
+                </div>
+
+                <div id="controls-card" class="card">
+                    <h2><i class="fas fa-cogs"></i> Bảng Điều Khiển</h2>
+                    <div class="controls-grid">
+                        <button id="start-night-btn" class="btn-special"><i class="fas fa-moon"></i> Bắt Đầu Đêm</button>
+                        <button id="end-night-btn" disabled><i class="fas fa-sun"></i> Kết Thúc Đêm & Xử Lý</button>
+                        <button id="start-day-btn" disabled><i class="fas fa-users"></i> Bắt Đầu Thảo Luận</button>
+                        <button id="start-vote-btn" disabled><i class="fas fa-gavel"></i> Bắt Đầu Vote</button>
+                        <button id="end-game-btn" class="btn-danger"><i class="fas fa-flag-checkered"></i> Kết Thúc Game</button>
+                    </div>
+                </div>
+
+                <div id="players-card" class="card">
+                     <h2><i class="fas fa-users"></i> Danh Sách Người Chơi (<span id="players-total">0</span>)</h2>
+                     <ul id="player-list">
+                         </ul>
+                </div>
+                 <div id="log-card" class="card">
+                    <h2><i class="fas fa-file-alt"></i> Nhật Ký Hoạt Động</h2>
+                    <div id="game-log">
+                        <p><em>Chưa có hoạt động nào...</em></p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <script src="game-logic.js"></script>
+
+    <script src="interactive-gm.js"></script>
+</body>
+</html>

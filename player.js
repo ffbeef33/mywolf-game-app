@@ -1,6 +1,6 @@
 // =================================================================
-// === player.js - FIX: BỎ GIAO DIỆN TÌM VÀ VÀO GAME, ĐĂNG NHẬP VÀO THẲNG CHẾ ĐỘ CHỜ PHÒNG ===
-console.log("ĐANG CHẠY player.js PHIÊN BẢN FIX FLOW ĐĂNG NHẬP!");
+// === player.js - PHIÊN BẢN CẬP NHẬT CHO MODULE TƯƠNG TÁC ===
+console.log("ĐANG CHẠY player.js PHIÊN BẢN CÓ MODULE TƯƠNG TÁC!");
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Firebase Configuration ---
@@ -39,14 +39,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalRoleFaction = document.getElementById('modal-role-faction');
     const modalRoleDescription = document.getElementById('modal-role-description');
 
-    // --- TÍCH HỢP MODULE VOTE ---
     const votingUiSection = document.getElementById('voting-ui-section');
     const voteTitleDisplay = document.getElementById('vote-title-display');
     const voteTimerDisplay = document.getElementById('vote-timer-display');
     const voteOptionsContainer = document.getElementById('vote-options-container');
     const voteStatusMessage = document.getElementById('vote-status-message');
 
-    // --- TÍNH NĂNG MỚI: DOM Elements cho Di Chúc ---
     const openWillModalBtn = document.getElementById('open-will-modal-btn');
     const willWritingModal = document.getElementById('will-writing-modal');
     const willTextarea = document.getElementById('will-textarea');
@@ -56,15 +54,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const publishedWillModal = document.getElementById('published-will-modal');
     const publishedWillPlayerName = document.getElementById('published-will-player-name');
     const publishedWillContent = document.getElementById('published-will-content');
-    // --- KẾT THÚC TÍNH NĂNG MỚI ---
+    
+    // === START: THÊM MỚI DOM ELEMENTS CHO MODULE TƯƠNG TÁC ===
+    const interactiveActionSection = document.getElementById('interactive-action-section');
+    const actionTitle = document.getElementById('action-title');
+    const actionDescription = document.getElementById('action-description');
+    const actionTargetsContainer = document.getElementById('action-targets-container');
+    const confirmActionButton = document.getElementById('confirm-action-btn');
+    const actionStatusMessage = document.getElementById('action-status-message');
+    // === END: THÊM MỚI ===
 
     let roomListener = null;
-    let publicWillListener = null; // TÍNH NĂNG MỚI
+    let publicWillListener = null;
     let pickTimerInterval = null;
     let voteTimerInterval = null;
     let currentRoomId = null;
-    let myPlayerId = null; // TÍNH NĂNG MỚI
-    let allRolesData = [];
+    let myPlayerId = null;
+    let allRolesData = []; // Dữ liệu vai trò đầy đủ (từ sheet Roles)
+    let allRolesKind = {}; // Dữ liệu Kind của vai trò (từ night-note.js)
+    let myPlayerData = {}; // Lưu trữ dữ liệu của người chơi hiện tại
 
     // --- DATA FETCHING ---
     const fetchAllRolesData = async () => {
@@ -75,47 +83,22 @@ document.addEventListener('DOMContentLoaded', () => {
             allRolesData = rawData.map(role => ({
                 name: (role.RoleName || 'Lỗi').trim(),
                 faction: (role.Faction || 'Chưa phân loại').trim(),
-                description: (role.Describe || 'Không có mô tả.').trim()
+                description: (role.Describe || 'Không có mô tả.').trim(),
+                kind: (role.Kind || 'empty').trim() // Thêm Kind vào đây
             }));
-        } catch (error) {
+
+            // Tạo một map để truy cập Kind dễ dàng hơn
+            allRolesKind = allRolesData.reduce((acc, role) => {
+                acc[role.name] = role.kind;
+                return acc;
+            }, {});
+
+        } catch (error)
+        {
             console.error("Lỗi nghiêm trọng khi tải dữ liệu vai trò:", error);
         }
     };
-
-    // --- LOGIN & SESSION ---
-    const handleLogin = async () => {
-        const password = passwordInput.value.trim();
-        if (!password) {
-            loginError.textContent = 'Vui lòng nhập mật khẩu của bạn.';
-            return;
-        }
-        loginError.textContent = '';
-        loginBtn.disabled = true;
-        loginBtn.textContent = 'Đang xác thực...';
-        try {
-            const response = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password, action: 'login' })
-            });
-            const userData = await response.json();
-            if (!userData.success) throw new Error(userData.message || 'Mật khẩu không hợp lệ.');
-            
-            sessionStorage.setItem('mywolf_username', userData.username);
-            loginSection.classList.add('hidden');
-            gameSection.classList.remove('hidden');
-            playerNameDisplay.textContent = userData.username;
-            showSection(waitingSection);
-            waitingSection.querySelector('.waiting-message').textContent = "Đang chờ quản trò tạo phòng và thêm bạn vào phòng...";
-            listenForRoomCreated(userData.username);
-
-        } catch (error) {
-            loginError.textContent = error.message || 'Đăng nhập thất bại.';
-            loginBtn.disabled = false;
-            loginBtn.textContent = 'Vào Game';
-        }
-    };
-
+    
     const checkSessionAndAutoLogin = () => {
         const username = sessionStorage.getItem('mywolf_username');
         if (username) {
@@ -134,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- CORE GAME LOGIC & UI ---
     const cleanup = () => {
         if (roomListener && currentRoomId) database.ref(`rooms/${currentRoomId}`).off('value', roomListener);
-        if (publicWillListener && currentRoomId) database.ref(`rooms/${currentRoomId}/publicData/publishedWill`).off('value', publicWillListener); // TÍNH NĂNG MỚI
+        if (publicWillListener && currentRoomId) database.ref(`rooms/${currentRoomId}/publicData/publishedWill`).off('value', publicWillListener);
         if (pickTimerInterval) clearInterval(pickTimerInterval);
         if (voteTimerInterval) clearInterval(voteTimerInterval);
         roomListener = publicWillListener = pickTimerInterval = voteTimerInterval = currentRoomId = myPlayerId = null;
@@ -178,7 +161,6 @@ document.addEventListener('DOMContentLoaded', () => {
             waitingSection.querySelector('.waiting-message').textContent = "Mất kết nối với phòng chơi.";
         });
         
-        // TÍNH NĂNG MỚI: Lắng nghe di chúc công khai
         const publicWillRef = database.ref(`rooms/${roomId}/publicData/publishedWill`);
         if(publicWillListener) publicWillRef.off('value', publicWillListener);
         publicWillListener = publicWillRef.on('value', (snapshot) => {
@@ -202,13 +184,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        myPlayerId = myPlayerEntry[0]; // TÍNH NĂNG MỚI: Lưu player ID
-        const myPlayer = myPlayerEntry[1];
+        myPlayerId = myPlayerEntry[0]; 
+        myPlayerData = myPlayerEntry[1]; 
         
-        // Cập nhật trạng thái sống/chết dựa trên night-note mới nhất (nếu có)
-        // Lưu ý: logic này cần khớp với logic tính toán isAlive bên night-note.js
+        // Cập nhật trạng thái sống/chết (dựa vào night note nếu có)
         const nightNotes = roomData.nightNotes;
-        let isAlive = myPlayer.isAlive; // Mặc định
+        let isAlive = myPlayerData.isAlive; 
         if (nightNotes && Array.isArray(nightNotes) && nightNotes.length > 0) {
             const lastNight = nightNotes[nightNotes.length - 1];
             if(lastNight.playersStatus && lastNight.playersStatus[myPlayerId]) {
@@ -216,19 +197,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // TÍNH NĂNG MỚI: Xử lý nút di chúc
-        if (myPlayer.roleName) { // Chỉ hiển thị khi đã có vai trò
+        if (myPlayerData.roleName) {
             playerActionsContainer.classList.remove('hidden');
             openWillModalBtn.disabled = !isAlive;
-            if (!isAlive) {
-                openWillModalBtn.textContent = 'Đã Chết - Không Thể Sửa Di Chúc';
-            } else {
-                openWillModalBtn.innerHTML = '<i class="fa-solid fa-pencil"></i> Viết Di Chúc';
-            }
+            openWillModalBtn.textContent = isAlive ? 'Viết Di Chúc' : 'Đã Chết';
         } else {
             playerActionsContainer.classList.add('hidden');
         }
-        
+
+        // === START: LOGIC MỚI CHO MODULE TƯƠNG TÁC ===
+        const interactiveState = roomData.interactiveState;
+        if (interactiveState && interactiveState.phase === 'night' && isAlive) {
+            // Nếu đang là ban đêm và người chơi còn sống -> hiển thị giao diện hành động
+            hideAllGameCards();
+            displayNightActions(roomData, interactiveState.currentNight);
+            return; // Dừng hàm ở đây để không bị các giao diện khác đè lên
+        }
+        // Nếu không phải ban đêm, đảm bảo giao diện hành động bị ẩn
+        interactiveActionSection.classList.add('hidden');
+        // === END: LOGIC MỚI ===
+
         const votingState = roomData.votingState;
         if (votingState && votingState.status === 'active') {
             if (isAlive) {
@@ -242,9 +230,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (myPlayer.roleName) {
+        if (myPlayerData.roleName) {
             showSection(roleRevealSection);
-            const fullRoleData = allRolesData.find(role => role.name === myPlayer.roleName);
+            const fullRoleData = allRolesData.find(role => role.name === myPlayerData.roleName);
             updateRoleCard(fullRoleData);
         } else if (roomData.playerPickState && roomData.playerPickState.status === 'picking') {
             showSection(playerPickSection);
@@ -257,11 +245,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function showSection(sectionToShow) {
-        [waitingSection, playerPickSection, roleRevealSection, votingUiSection].forEach(section => {
+        [waitingSection, playerPickSection, roleRevealSection, votingUiSection, interactiveActionSection].forEach(section => {
             section.classList.toggle('hidden', section !== sectionToShow);
         });
     }
+
+    // === START: HÀM MỚI ĐỂ ẨN TẤT CẢ GAME CARD CHÍNH ===
+    function hideAllGameCards() {
+         [waitingSection, playerPickSection, roleRevealSection, votingUiSection].forEach(section => {
+            section.classList.add('hidden');
+        });
+    }
+    // === END: HÀM MỚI ===
     
+    // ... (Các hàm cũ như showRoleDescriptionModal, displayRolesInGame, handlePlayerPickState, handleVotingState, ... giữ nguyên)
     const showRoleDescriptionModal = (roleName) => {
         const roleData = allRolesData.find(r => r.name === roleName);
         if (roleData) {
@@ -271,19 +268,16 @@ document.addEventListener('DOMContentLoaded', () => {
             roleDescriptionModal.classList.remove('hidden');
         }
     };
-    
     function displayRolesInGame(roleNames) {
         rolesInGameDisplay.innerHTML = '';
         if (roleNames.length === 0 || allRolesData.length === 0) {
             rolesInGameDisplay.classList.add('hidden');
             return;
         }
-
         const instruction = document.createElement('p');
         instruction.className = 'role-list-instruction';
         instruction.innerHTML = '💡 Chạm vào một vai trò để xem mô tả';
         rolesInGameDisplay.appendChild(instruction);
-
         const rolesByFaction = roleNames.reduce((acc, name) => {
             const roleData = allRolesData.find(r => r.name.trim() === name.trim());
             const faction = roleData ? roleData.faction : 'Chưa phân loại';
@@ -291,16 +285,13 @@ document.addEventListener('DOMContentLoaded', () => {
             acc[faction].push(name);
             return acc;
         }, {});
-
         const factionOrder = ['Phe Sói', 'Bầy Sói', 'Phe Dân', 'Phe trung lập', 'Chưa phân loại'];
-
         const getFactionClassAndIcon = (faction) => {
             if (faction === 'Phe Sói' || faction === 'Bầy Sói') return { class: 'faction-wolf', icon: 'fa-solid fa-paw' };
             if (faction === 'Phe Dân') return { class: 'faction-villager', icon: 'fa-solid fa-shield-halved' };
             if (faction === 'Phe trung lập') return { class: 'faction-neutral', icon: 'fa-solid fa-person-circle-question' };
             return { class: 'faction-unknown', icon: 'fa-solid fa-question' };
         };
-
         factionOrder.forEach(faction => {
             if (rolesByFaction[faction]) {
                 const { class: factionClass, icon: factionIcon } = getFactionClassAndIcon(faction);
@@ -323,10 +314,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 rolesInGameDisplay.appendChild(factionBox);
             }
         });
-
         rolesInGameDisplay.classList.remove('hidden');
     }
-
     function handlePlayerPickState(username, roomId, state) {
         if (pickTimerInterval) clearInterval(pickTimerInterval);
         const updateTimer = () => {
@@ -355,7 +344,6 @@ document.addEventListener('DOMContentLoaded', () => {
             choiceStatus.textContent = 'Đang chờ những người chơi khác...';
         }
     }
-
     function handleVotingState(username, roomId, state) {
         if (voteTimerInterval) clearInterval(voteTimerInterval);
         voteTitleDisplay.textContent = state.title;
@@ -398,7 +386,6 @@ document.addEventListener('DOMContentLoaded', () => {
             voteStatusMessage.textContent = 'Hãy bỏ phiếu...';
         }
     }
-    
     function selectVote(username, roomId, targetId) {
         const choiceRef = database.ref(`rooms/${roomId}/votingState/choices/${username}`);
         choiceRef.once('value', (snapshot) => {
@@ -407,12 +394,10 @@ document.addEventListener('DOMContentLoaded', () => {
             else choiceRef.set(targetId);
         }).catch(err => console.error("Lỗi khi đọc phiếu vote:", err));
     }
-
     function selectRole(username, roomId, choice) {
         database.ref(`rooms/${roomId}/playerPickState/playerChoices/${username}`).set(choice)
             .catch(err => console.error("Lỗi khi gửi lựa chọn:", err));
     }
-    
     function updateRoleCard(roleData) {
         if (!roleData) {
             document.getElementById('role-name').textContent = 'Lỗi';
@@ -443,13 +428,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const factionColorVar = `--${roleFactionEl.classList[1]}-color`;
         roleIconEl.style.color = getComputedStyle(document.documentElement).getPropertyValue(factionColorVar);
     }
-    
-    // --- TÍNH NĂNG MỚI: Logic Di Chúc ---
+    // ... (Các hàm Di Chúc giữ nguyên) ...
     const countWords = (text) => {
         if (!text) return 0;
         return text.trim().split(/\s+/).filter(word => word.length > 0).length;
     };
-
     const updateWordCount = () => {
         const text = willTextarea.value;
         const words = countWords(text);
@@ -462,7 +445,6 @@ document.addEventListener('DOMContentLoaded', () => {
             saveWillBtn.disabled = false;
         }
     };
-    
     const openWillModal = () => {
         if (!currentRoomId || !myPlayerId) return;
         const willRef = database.ref(`rooms/${currentRoomId}/players/${myPlayerId}/will/content`);
@@ -473,7 +455,6 @@ document.addEventListener('DOMContentLoaded', () => {
             willWritingModal.classList.remove('hidden');
         });
     };
-    
     const saveWill = () => {
         if (!currentRoomId || !myPlayerId) return;
         const words = countWords(willTextarea.value);
@@ -481,15 +462,12 @@ document.addEventListener('DOMContentLoaded', () => {
             saveWillStatus.textContent = 'Di chúc quá dài, vui lòng rút gọn!';
             return;
         }
-
         saveWillBtn.disabled = true;
         saveWillStatus.textContent = 'Đang lưu...';
-
         const willData = {
             content: willTextarea.value,
             lastUpdated: firebase.database.ServerValue.TIMESTAMP
         };
-        
         database.ref(`rooms/${currentRoomId}/players/${myPlayerId}/will`).set(willData)
             .then(() => {
                 saveWillStatus.textContent = 'Đã lưu thành công!';
@@ -503,17 +481,107 @@ document.addEventListener('DOMContentLoaded', () => {
                 saveWillBtn.disabled = false;
             });
     };
-    
     const showPublishedWill = (willData) => {
         publishedWillPlayerName.textContent = `Di Chúc của ${willData.playerName}`;
         publishedWillContent.textContent = willData.content || "Người này không để lại di chúc.";
         publishedWillModal.classList.remove('hidden');
     };
-    // --- KẾT THÚC TÍNH NĂNG MỚI ---
+
+    // === START: CÁC HÀM MỚI CHO MODULE TƯƠNG TÁC ===
+
+    /**
+     * Hiển thị giao diện hành động ban đêm cho người chơi.
+     * @param {object} roomData - Toàn bộ dữ liệu của phòng.
+     * @param {number} currentNight - Số đêm hiện tại.
+     */
+    function displayNightActions(roomData, currentNight) {
+        interactiveActionSection.classList.remove('hidden');
+        actionTargetsContainer.innerHTML = '';
+        confirmActionButton.classList.add('hidden');
+        actionStatusMessage.textContent = '';
+
+        const myRoleName = myPlayerData.roleName;
+        const myKind = allRolesKind[myRoleName] || 'empty';
+
+        if (myKind === 'empty') {
+            actionTitle.textContent = "Thư giãn";
+            actionDescription.textContent = "Đêm nay bạn không có chức năng đặc biệt. Hãy chờ trời sáng.";
+            return;
+        }
+
+        actionTitle.textContent = `Chức năng: ${myRoleName}`;
+        actionDescription.textContent = "Chọn một người chơi để thực hiện chức năng.";
+
+        const livingPlayers = Object.entries(roomData.players).filter(([id, player]) => player.isAlive);
+        
+        let selectedTargetId = null;
+
+        livingPlayers.forEach(([id, player]) => {
+            const btn = document.createElement('button');
+            btn.className = 'choice-btn';
+            btn.textContent = player.name;
+            btn.dataset.targetId = id;
+
+            // Xử lý việc tự chọn bản thân
+            if (myPlayerId === id) {
+                btn.textContent += " (Bản thân)";
+            }
+
+            btn.addEventListener('click', () => {
+                // Bỏ chọn nút cũ
+                actionTargetsContainer.querySelector('.selected')?.classList.remove('selected');
+                // Chọn nút mới
+                btn.classList.add('selected');
+                selectedTargetId = id;
+                confirmActionButton.classList.remove('hidden');
+            });
+            actionTargetsContainer.appendChild(btn);
+        });
+        
+        // Gán sự kiện cho nút xác nhận
+        // Phải clone và replace để xóa listener cũ, tránh bị gọi nhiều lần
+        const newConfirmBtn = confirmActionButton.cloneNode(true);
+        newConfirmBtn.addEventListener('click', () => {
+            if (selectedTargetId) {
+                submitNightAction(myKind, selectedTargetId, currentNight);
+            }
+        });
+        confirmActionButton.parentNode.replaceChild(newConfirmBtn, confirmActionButton);
+    }
+
+    /**
+     * Gửi hành động của người chơi lên Firebase.
+     * @param {string} actionKind - Loại hành động (vd: 'shield', 'check').
+     * @param {string} targetId - ID của người chơi được chọn làm mục tiêu.
+     * @param {number} currentNight - Số đêm hiện tại.
+     */
+    function submitNightAction(actionKind, targetId, currentNight) {
+        const actionPath = `rooms/${currentRoomId}/nightActions/${currentNight}/${myPlayerId}`;
+        
+        // Dựa vào Kind để tạo object action
+        // Đây là phiên bản đơn giản, sau này có thể mở rộng cho các vai trò có nhiều chức năng
+        const actionData = {
+            action: actionKind, // Sẽ tương ứng với key trong KIND_TO_ACTION_MAP của night-note
+            target: targetId,
+            actorName: myPlayerData.name,
+            roleName: myPlayerData.roleName
+        };
+
+        database.ref(actionPath).set(actionData)
+            .then(() => {
+                actionStatusMessage.textContent = "Đã gửi hành động thành công! Đang chờ những người khác...";
+                // Vô hiệu hóa các nút sau khi đã chọn
+                actionTargetsContainer.querySelectorAll('button').forEach(btn => btn.disabled = true);
+                document.getElementById('confirm-action-btn').disabled = true;
+            })
+            .catch(error => {
+                actionStatusMessage.textContent = "Lỗi! Không thể gửi hành động: " + error.message;
+            });
+    }
+
+    // === END: CÁC HÀM MỚI ===
 
     // --- EVENT LISTENERS ---
-    loginBtn.addEventListener('click', handleLogin);
-    passwordInput.addEventListener('keyup', (event) => { if (event.key === 'Enter') loginBtn.click(); });
     roleRevealSection.addEventListener('click', () => roleRevealSection.classList.toggle('is-flipped'));
     randomChoiceBtn.addEventListener('click', () => {
         if (currentRoomId) {
@@ -521,18 +589,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (username) selectRole(username, currentRoomId, 'random');
         }
     });
-
     roleDescriptionModal.addEventListener('click', (event) => {
         if (event.target === roleDescriptionModal || event.target.classList.contains('close-modal-btn')) {
             roleDescriptionModal.classList.add('hidden');
         }
     });
-    
-    // --- TÍNH NĂNG MỚI: Event Listeners cho Di Chúc ---
     openWillModalBtn.addEventListener('click', openWillModal);
     willTextarea.addEventListener('input', updateWordCount);
     saveWillBtn.addEventListener('click', saveWill);
-    
     [willWritingModal, publishedWillModal].forEach(modal => {
         if (modal) {
             modal.addEventListener('click', (e) => {
@@ -542,7 +606,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
-    // --- KẾT THÚC TÍNH NĂNG MỚI ---
 
     // --- INITIAL LOAD ---
     const initialize = async () => {

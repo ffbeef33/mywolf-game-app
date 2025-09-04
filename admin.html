@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản Trò - Ma Sói</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="assets/admin-style.css">
 </head>
 <body>
@@ -88,7 +89,14 @@
                 </div>
 
                 <div class="main-action-buttons">
-                    <button id="start-night-note-btn" class="btn-special">Bắt Đầu Ghi Chú Đêm</button>
+                    <button id="start-night-note-btn" class="btn-secondary">
+                        <i class="fas fa-edit"></i> Mở Ghi Chú Đêm (Thủ công)
+                    </button>
+                    
+                    <button id="start-interactive-gm-btn" class="btn-special">
+                        <i class="fas fa-gamepad"></i> Mở Điều Khiển Tương Tác
+                    </button>
+                    
                     <div class="player-pick-controls">
                         <input type="number" id="player-pick-timer" value="60" min="10" title="Thời gian chọn (giây)">
                         <button id="start-player-pick-btn">Bắt Đầu Player Pick</button>
