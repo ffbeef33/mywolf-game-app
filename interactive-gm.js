@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - Module Game Tương Tác cho Quản Trò (Cập nhật Bước 3) ===
+// === interactive-gm.js - Module Game Tương Tác (PHIÊN BẢN HOÀN CHỈNH) ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    // --- Các phần tử DOM ---
+    // --- DOM Elements ---
     const roomIdDisplay = document.getElementById('room-id-display');
     const currentPhaseDisplay = document.getElementById('current-phase-display');
     const playerListUI = document.getElementById('player-list');
@@ -28,20 +28,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const startVoteBtn = document.getElementById('start-vote-btn');
     const endGameBtn = document.getElementById('end-game-btn');
 
-    // --- Biến trạng thái ---
+    // --- State ---
     let currentRoomId = null;
     let roomListener = null;
-    let roomData = {}; 
+    let roomData = {};
+    let allRolesData = {}; // Dùng để lấy faction của role
 
-    const initialize = () => {
+    const initialize = async () => {
         const urlParams = new URLSearchParams(window.location.search);
         currentRoomId = urlParams.get('roomId');
         if (!currentRoomId) {
             document.body.innerHTML = '<h1>Lỗi: Không tìm thấy ID phòng trong URL.</h1>';
             return;
         }
+        await fetchAllRolesData(); // Tải dữ liệu vai trò
         roomIdDisplay.textContent = currentRoomId;
         attachRoomListener();
+    };
+
+    const fetchAllRolesData = async () => {
+        try {
+            const response = await fetch(`/api/sheets?sheetName=Roles`);
+            const rawData = await response.json();
+            allRolesData = rawData.reduce((acc, role) => {
+                if (role.RoleName) {
+                    acc[role.RoleName.trim()] = {
+                        faction: (role.Faction || 'Chưa phân loại').trim(),
+                        kind: (role.Kind || 'empty').trim()
+                    };
+                }
+                return acc;
+            }, {});
+        } catch (error) {
+            console.error("Lỗi tải dữ liệu vai trò:", error);
+        }
     };
 
     const attachRoomListener = () => {
@@ -77,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
             playerListUI.appendChild(li);
         });
     };
-    
+
     const renderGameState = () => {
         const state = roomData.interactiveState || { phase: 'setup', currentNight: 0 };
         startNightBtn.disabled = true;
@@ -99,16 +119,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 startDayBtn.disabled = false;
                 startVoteBtn.disabled = false;
                 break;
-            case 'voting':
-                phaseText = `Bỏ phiếu treo cổ`;
-                break;
             case 'ended':
                 phaseText = "Game đã kết thúc";
                 break;
         }
         currentPhaseDisplay.textContent = phaseText;
     };
-    
+
     const addLog = (message) => {
         const logEntry = {
             timestamp: firebase.database.ServerValue.TIMESTAMP,
@@ -120,7 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
         gameLog.prepend(p);
     };
 
-    // === HÀM XỬ LÝ KẾT QUẢ ĐÊM ===
     const processNightResults = async () => {
         endNightBtn.disabled = true;
         endNightBtn.textContent = "Đang xử lý...";
@@ -131,52 +147,87 @@ document.addEventListener('DOMContentLoaded', () => {
         const allPlayers = roomData.players;
 
         // 1. Lấy trạng thái người chơi từ đầu đêm
-        // (Sẽ cần cải tiến để lấy trạng thái từ đêm trước đó)
         const initialPlayerStatus = Object.fromEntries(
-            Object.entries(allPlayers).map(([id, player]) => [id, { isAlive: player.isAlive, faction: player.faction /* thêm các status khác nếu có */ }])
+            Object.entries(allPlayers).map(([id, player]) => {
+                const roleName = player.roleName || "";
+                const roleInfo = allRolesData[roleName] || {};
+                return [id, { 
+                    isAlive: player.isAlive, 
+                    faction: roleInfo.faction,
+                    kind: roleInfo.kind,
+                    roleName: roleName
+                    // Thêm các trạng thái mặc định khác nếu cần
+                }]
+            })
         );
-
-        // 2. Chuyển đổi actions của người chơi sang định dạng mà hàm logic cần
+        
+        // 2. Chuyển đổi actions
         let actionIdCounter = 0;
-        const formattedActions = Object.entries(playerActions).map(([actorId, actionData]) => ({
-            id: actionIdCounter++,
-            actorId: actorId,
-            targetId: actionData.target,
-            action: actionData.action 
-        }));
-
-        // 3. Chuẩn bị đối tượng nightState để đưa vào hàm tính toán
+        const formattedActions = [];
+        for (const actorId in playerActions) {
+            // Xử lý Sói cắn
+            if (actorId === 'wolf_group') {
+                formattedActions.push({
+                    id: actionIdCounter++,
+                    actorId: 'wolf_group',
+                    targetId: playerActions[actorId].target,
+                    action: 'kill' // Hành động mặc định của Sói
+                });
+            } else {
+                // Xử lý người chơi khác
+                formattedActions.push({
+                    id: actionIdCounter++,
+                    actorId: actorId,
+                    targetId: playerActions[actorId].target,
+                    action: playerActions[actorId].action
+                });
+            }
+        }
+        
         const nightStateForCalc = {
             actions: formattedActions,
             playersStatus: initialPlayerStatus,
-            // Các thuộc tính khác như damageGroups, factionChanges... sẽ được thêm sau
         };
-        
-        // Lấy danh sách người chơi đầy đủ với vai trò để truyền vào hàm tính toán
-        const roomPlayersForCalc = Object.entries(allPlayers).map(([id, data]) => ({ id, ...data }));
+
+        const roomPlayersForCalc = Object.entries(allPlayers).map(([id, data]) => ({ 
+            id, 
+            ...data, 
+            faction: allRolesData[data.roleName]?.faction || 'Chưa phân loại',
+            kind: allRolesData[data.roleName]?.kind || 'empty'
+        }));
         
         // 4. Gọi hàm logic dùng chung
         const results = calculateNightStatus(nightStateForCalc, roomPlayersForCalc);
-        const { finalStatus, deadPlayerNames } = results;
+        const { finalStatus, deadPlayerNames, infoResults } = results;
 
         // 5. Cập nhật dữ liệu lên Firebase
         const updates = {};
         
-        // Cập nhật trạng thái isAlive của người chơi
         for (const playerId in finalStatus) {
-            if (initialPlayerStatus[playerId].isAlive && !finalStatus[playerId].isAlive) {
+            if (initialPlayerStatus[playerId]?.isAlive && !finalStatus[playerId].isAlive) {
                 updates[`/players/${playerId}/isAlive`] = false;
             }
-            // Cập nhật các trạng thái khác nếu cần (giáp, hiệu ứng...)
         }
 
-        // Lưu kết quả công khai
-        updates[`/nightResults/${currentNight}`] = {
+        updates[`/nightResults/${currentNight}/public`] = {
             deadPlayerNames: deadPlayerNames || [],
+            log: infoResults || [],
             timestamp: firebase.database.ServerValue.TIMESTAMP
         };
         
-        // Chuyển sang phase ban ngày
+        // Xử lý và ghi kết quả riêng tư
+        infoResults.forEach(logString => {
+            const match = logString.match(/- (.+?) \((.+?)\) đã (soi|điều tra|kiểm tra) (.+?): (.+)\./);
+            if (match) {
+                const [, roleName, actorName, action, targetName, result] = match;
+                const actor = Object.entries(allPlayers).find(([id, p]) => p.name === actorName);
+                if (actor) {
+                    const actorId = actor[0];
+                    updates[`/nightResults/${currentNight}/private/${actorId}`] = `Bạn đã ${action} ${targetName} và kết quả là: ${result}`;
+                }
+            }
+        });
+
         updates[`/interactiveState/phase`] = 'day';
         updates[`/interactiveState/message`] = `Trời sáng! ${deadPlayerNames.length > 0 ? `Đêm qua đã có ${deadPlayerNames.join(', ')} bị giết.` : 'Đêm qua không có ai chết.'}`;
 
@@ -192,15 +243,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-
-    // --- Xử lý sự kiện nhấn nút ---
+    // --- Gán sự kiện ---
     startNightBtn.addEventListener('click', () => {
         const currentNightNumber = (roomData.interactiveState?.currentNight || 0) + 1;
         const newState = {
             phase: 'night',
             currentNight: currentNightNumber,
-            message: `Đêm ${currentNightNumber} bắt đầu. Người chơi hãy thực hiện chức năng.`
+            message: `Đêm ${currentNightNumber} bắt đầu.`
         };
+        // Xóa action đêm cũ trước khi bắt đầu đêm mới
+        database.ref(`rooms/${currentRoomId}/nightActions/${currentNightNumber}`).remove();
         database.ref(`rooms/${currentRoomId}/interactiveState`).set(newState);
         addLog(`Đã bắt đầu Đêm ${currentNightNumber}.`);
     });
@@ -211,10 +263,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm('Bạn có chắc muốn kết thúc ván chơi này?')) return;
         const newState = {
             phase: 'ended',
-            currentNight: roomData.interactiveState?.currentNight || 0,
             message: `Game đã kết thúc bởi Quản trò.`
         };
-        database.ref(`rooms/${currentRoomId}/interactiveState`).set(newState);
+        database.ref(`rooms/${currentRoomId}/interactiveState`).update(newState);
         addLog(`Đã kết thúc game.`);
     });
 
