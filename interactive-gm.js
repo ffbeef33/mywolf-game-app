@@ -266,14 +266,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 const wolfVotes = actionData.votes || {};
                 if (Object.keys(wolfVotes).length === 0) continue;
 
+                // 1. Đếm số phiếu cho mỗi mục tiêu
                 const voteCounts = Object.values(wolfVotes).reduce((acc, targetId) => {
                     acc[targetId] = (acc[targetId] || 0) + 1;
                     return acc;
                 }, {});
 
+                // 2. Tìm ra số phiếu cao nhất
                 const maxVotes = Math.max(...Object.values(voteCounts));
+
+                // 3. Lọc ra tất cả các mục tiêu có số phiếu bằng số phiếu cao nhất
                 const tiedTargets = Object.keys(voteCounts).filter(targetId => voteCounts[targetId] === maxVotes);
                 
+                // 4. Chọn ngẫu nhiên một mục tiêu từ danh sách hòa nhau (hoặc người duy nhất thắng)
                 const finalTarget = tiedTargets.length > 0 ? tiedTargets[Math.floor(Math.random() * tiedTargets.length)] : null;
 
                 if (finalTarget) {
