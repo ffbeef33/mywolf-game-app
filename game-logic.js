@@ -249,10 +249,12 @@ function calculateNightStatus(nightState, roomPlayers) {
         }
     });
 
+    // === SỬA LỖI: CHO PHÉP HÀNH ĐỘNG INFO ĐI QUA BỘ LỌC KỂ CẢ KHI BỊ VÔ HIỆU HÓA ===
     const executableActions = actions.filter(action => {
         const actionKind = ALL_ACTIONS[action.action]?.key || action.action;
-        const isSelfDisablingAction = actionKind === 'love' || actionKind === 'disable_action' || actionKind === 'freeze';
-        return !disabledPlayerIds.has(action.actorId) || isSelfDisablingAction;
+        const isSelfDisablingAction = ['love', 'disable_action', 'freeze'].includes(actionKind);
+        const isInfoAction = ['audit', 'invest', 'check'].includes(actionKind);
+        return !disabledPlayerIds.has(action.actorId) || isSelfDisablingAction || isInfoAction;
     });
     
     const killifActions = executableActions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
@@ -357,18 +359,28 @@ function calculateNightStatus(nightState, roomPlayers) {
                 }
             }
             
-            // === SỬA LỖI: THÊM "đã" VÀO CÁC CÂU LOG ===
+            // === SỬA LỖI: KIỂM TRA TRẠNG THÁI VÔ HIỆU HÓA TRƯỚC KHI TRẢ KẾT QUẢ ===
             if (actionKind === 'audit') {
-                const currentFaction = finalStatus[targetId]?.faction || target.faction;
-                let isBaySoi = (currentFaction === 'Bầy Sói');
-                if (target.kind.includes('reverse') || target.kind.includes('counteraudit')) isBaySoi = !isBaySoi;
-                const result = isBaySoi ? "thuộc Bầy Sói" : "KHÔNG thuộc Bầy Sói";
+                let result;
+                if (disabledPlayerIds.has(attacker.id)) {
+                    result = "KHÔNG thuộc Bầy Sói"; // Trả về kết quả mặc định nếu bị vô hiệu hóa
+                } else {
+                    const currentFaction = finalStatus[targetId]?.faction || target.faction;
+                    let isBaySoi = (currentFaction === 'Bầy Sói');
+                    if (target.kind.includes('reverse') || target.kind.includes('counteraudit')) isBaySoi = !isBaySoi;
+                    result = isBaySoi ? "thuộc Bầy Sói" : "KHÔNG thuộc Bầy Sói";
+                }
                 infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã soi ${target.name}: ${result}.`);
             }
             if (actionKind === 'invest') {
-                const currentFaction = finalStatus[targetId]?.faction || target.faction;
-                const isAnyWolf = (currentFaction === 'Bầy Sói' || currentFaction === 'Phe Sói');
-                const result = isAnyWolf ? "thuộc Phe Sói" : "KHÔNG thuộc Phe Sói";
+                let result;
+                if (disabledPlayerIds.has(attacker.id)) {
+                    result = "KHÔNG thuộc Phe Sói"; // Trả về kết quả mặc định nếu bị vô hiệu hóa
+                } else {
+                    const currentFaction = finalStatus[targetId]?.faction || target.faction;
+                    const isAnyWolf = (currentFaction === 'Bầy Sói' || currentFaction === 'Phe Sói');
+                    result = isAnyWolf ? "thuộc Phe Sói" : "KHÔNG thuộc Phe Sói";
+                }
                 infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã điều tra ${target.name}: ${result}.`);
             }
             if (actionKind === 'check') {
