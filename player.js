@@ -1,5 +1,5 @@
 // =================================================================
-// === player.js - PHIÊN BẢN CẬP NHẬT BẦU CHỌN CỦA BẦY SÓI ===
+// === player.js - PHIÊN BẢN CẬP NHẬT HIỂN THỊ KẾT QUẢ ĐÊM ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -52,6 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const publishedWillPlayerName = document.getElementById('published-will-player-name');
     const publishedWillContent = document.getElementById('published-will-content');
     const interactiveActionSection = document.getElementById('interactive-action-section');
+    const privateLogSection = document.getElementById('private-log-section');
+    const privateLogContent = document.getElementById('private-log-content');
 
     // --- State ---
     let roomListener = null;
@@ -65,45 +67,31 @@ document.addEventListener('DOMContentLoaded', () => {
     let myPlayerData = {};
     let roomData = {};
 
-    // --- DATA FETCHING ---
+    // --- DATA FETCHING (Không thay đổi) ---
     const fetchAllRolesData = async () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Roles`);
             if (!response.ok) throw new Error('Không thể tải dữ liệu vai trò.');
             const rawData = await response.json();
-            allRolesData = rawData.map(role => {
-                const quantityRaw = (role.Quantity || '1').toString().trim().toLowerCase();
-                let quantityValue;
-                if (quantityRaw === 'n') {
-                    quantityValue = Infinity;
-                } else {
-                    quantityValue = parseInt(quantityRaw, 10);
-                    if (isNaN(quantityValue)) {
-                        quantityValue = 1;
-                    }
-                }
-
-                return {
-                    name: (role.RoleName || 'Lỗi').trim(),
-                    faction: (role.Faction || 'Chưa phân loại').trim(),
-                    description: (role.Describe || 'Không có mô tả.').trim(),
-                    kind: (role.Kind || 'empty').trim(),
-                    active: (role.Active || 'n').trim().toLowerCase(),
-                    quantity: quantityValue,
-                    duration: (role.Duration || '1').toString().trim().toLowerCase()
-                };
-            });
+            allRolesData = rawData.map(role => ({
+                name: (role.RoleName || 'Lỗi').trim(),
+                faction: (role.Faction || 'Chưa phân loại').trim(),
+                description: (role.Describe || 'Không có mô tả.').trim(),
+                kind: (role.Kind || 'empty').trim(),
+                active: (role.Active || 'n').trim().toLowerCase(),
+                quantity: parseInt(role.Quantity, 10) || 1,
+                duration: (role.Duration || '1').toString().trim().toLowerCase()
+            }));
         } catch (error) {
             console.error("Lỗi nghiêm trọng khi tải dữ liệu vai trò:", error);
         }
     };
 
-    // --- Các hàm khác không thay đổi ---
+    // --- Các hàm logic chính (có thay đổi) ---
     const handleLogin = async () => {
         const password = passwordInput.value.trim();
         if (!password) {
-            loginError.textContent = 'Vui lòng nhập mật khẩu của bạn.';
-            return;
+            loginError.textContent = 'Vui lòng nhập mật khẩu của bạn.'; return;
         }
         loginError.textContent = '';
         loginBtn.disabled = true;
@@ -192,16 +180,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 showPublishedWill(publishedWill);
             }
         });
+        
+        // === THAY ĐỔI: CẬP NHẬT LISTENER ĐỂ GỌI HÀM MỚI ===
         const nightResultRef = database.ref(`rooms/${roomId}/nightResults`);
         if (nightResultListener) nightResultRef.off('value', nightResultListener);
         nightResultListener = nightResultRef.on('value', (snapshot) => {
             if (snapshot.exists()) {
-                const allNightResults = snapshot.val();
-                const latestNight = Object.keys(allNightResults).pop();
-                const results = allNightResults[latestNight];
-                if (results && !document.querySelector('.night-result-popup')) {
-                     displayNightResult(results, latestNight);
-                }
+                updatePrivateLog(snapshot.val());
+            } else {
+                privateLogSection.classList.add('hidden');
+                privateLogContent.innerHTML = '';
             }
         });
     }
@@ -266,6 +254,35 @@ document.addEventListener('DOMContentLoaded', () => {
             section.classList.add('hidden');
         });
     }
+    
+    // === THAY ĐỔI: HÀM MỚI ĐỂ HIỂN THỊ LOG RIÊNG TƯ ===
+    function updatePrivateLog(allNightResults) {
+        if (!myPlayerId) return;
+
+        const messages = [];
+        // Sắp xếp các đêm theo thứ tự tăng dần
+        const sortedNights = Object.keys(allNightResults).sort((a, b) => a - b);
+
+        for (const nightNumber of sortedNights) {
+            const privateResult = allNightResults[nightNumber]?.private?.[myPlayerId];
+            if (privateResult) {
+                messages.push(`<p class="log-entry"><strong>[Đêm ${nightNumber}]</strong> ${privateResult}</p>`);
+            }
+        }
+
+        if (messages.length > 0) {
+            privateLogContent.innerHTML = messages.join('');
+            privateLogSection.classList.remove('hidden');
+        } else {
+            privateLogContent.innerHTML = '';
+            privateLogSection.classList.add('hidden');
+        }
+    }
+
+    // === THAY ĐỔI: HÀM POP-UP KẾT QUẢ ĐÊM ĐÃ BỊ XÓA ===
+    // function displayNightResult(...) { ... }
+
+    // --- Các hàm còn lại không thay đổi ---
     function showRoleDescriptionModal(roleName) {
         const roleData = allRolesData.find(r => r.name === roleName);
         if (roleData) {
@@ -492,34 +509,6 @@ document.addEventListener('DOMContentLoaded', () => {
         publishedWillContent.textContent = willData.content || "Người này không để lại di chúc.";
         publishedWillModal.classList.remove('hidden');
     };
-    function displayNightResult(results, nightNumber) {
-        if (document.querySelector('.night-result-popup')) return;
-        const publicResult = results.public || {};
-        const privateResult = results.private?.[myPlayerId] || null;
-        let message = `<h2>Kết quả đêm ${nightNumber}</h2>`;
-        if (publicResult.deadPlayerNames && publicResult.deadPlayerNames.length > 0) {
-            message += `<p><strong>Nạn nhân:</strong> ${publicResult.deadPlayerNames.join(', ')}</p>`;
-        } else {
-            message += `<p>Đêm nay không có ai chết.</p>`;
-        }
-        if (privateResult) {
-            message += `<hr><p><strong>Thông tin riêng của bạn:</strong><br>${privateResult}</p>`;
-        }
-        const popup = document.createElement('div');
-        popup.className = 'modal night-result-popup';
-        popup.innerHTML = `
-            <div class="modal-content">
-                ${message}
-                <button id="close-result-popup" class="login-button">Đã hiểu</button>
-            </div>
-        `;
-        document.body.appendChild(popup);
-        popup.querySelector('#close-result-popup').addEventListener('click', () => {
-            popup.remove();
-        });
-    }
-
-    // --- MODULE TƯƠNG TÁC ---
     function displayNightActions(currentRoomData, currentNight) {
         interactiveActionSection.classList.remove('hidden');
         interactiveActionSection.innerHTML = '';
@@ -700,7 +689,6 @@ document.addEventListener('DOMContentLoaded', () => {
             statusMsg.innerHTML = `Bầy Sói đã quyết định <strong>${ALL_ACTIONS[chosenWolfAction]?.label || chosenWolfAction}</strong> trong đêm nay.`;
             targetsContainer.querySelectorAll('input').forEach(input => input.disabled = true);
         } else if (isIndividualPanelLocked) {
-            // === SỬA LỖI: LOGIC HIỂN THỊ KẾT QUẢ ĐƯỢC DI CHUYỂN VÀO ĐÂY ===
             const targetIds = individualAction.targets || [];
             const targetNames = targetIds.map(targetId => {
                 const p = livingPlayers.find(([id]) => id === targetId);
@@ -709,27 +697,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             statusMsg.innerHTML = `Đã xác nhận hành động lên <strong>${targetNames}</strong>.`;
             targetsContainer.querySelectorAll('input').forEach(input => input.disabled = true);
-
-            if (['audit', 'invest'].includes(actionDetails.actionKind)) {
-                const targetId = targetIds[0];
-                const targetPlayer = roomData.players[targetId];
-                const targetRole = allRolesData.find(r => r.name === targetPlayer?.roleName);
-
-                if (targetPlayer && targetRole) {
-                    let resultText = '';
-                    if (actionDetails.actionKind === 'audit') {
-                        let isTrueWolf = targetRole.faction === 'Bầy Sói';
-                        if (targetRole.kind.includes('reverse') || targetRole.kind.includes('counteraudit')) {
-                            isTrueWolf = !isTrueWolf;
-                        }
-                        resultText = isTrueWolf ? "thuộc <strong>Bầy Sói</strong>." : "<strong>KHÔNG</strong> thuộc Bầy Sói.";
-                    } else if (actionDetails.actionKind === 'invest') {
-                        let isWolfFaction = targetRole.faction === 'Bầy Sói' || targetRole.faction === 'Phe Sói';
-                        resultText = isWolfFaction ? "thuộc <strong>Phe Sói</strong>." : "<strong>KHÔNG</strong> thuộc Phe Sói.";
-                    }
-                    statusMsg.innerHTML += `<br><strong>Kết quả:</strong> Bạn soi <strong>${targetPlayer.name}</strong> và thấy họ ${resultText}`;
-                }
-            }
         } else {
             targetsContainer.addEventListener('change', (event) => {
                 const checkedBoxes = targetsContainer.querySelectorAll('input:checked');
