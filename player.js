@@ -533,52 +533,49 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- MODULE TƯƠNG TÁC (ĐÃ SỬA LỖI) ---
+    // --- MODULE TƯƠNG TÁC (ĐÃ CẬP NHẬT) ---
     function displayNightActions(roomData, currentNight) {
         interactiveActionSection.classList.remove('hidden');
         interactiveActionSection.innerHTML = '';
-
+    
         const myRole = allRolesData.find(r => r.name === myPlayerData.roleName) || {};
         const isWolfFaction = myRole.faction === 'Bầy Sói' || myRole.faction === 'Phe Sói';
         const livingPlayers = Object.entries(roomData.players).filter(([id, player]) => player.isAlive);
         let hasIndividualActions = false;
-
+    
         // 1. Hiển thị hành động chung của Bầy Sói (nếu có)
         if (isWolfFaction) {
             const wolfBiteAction = {
                 title: "Hành động Bầy Sói: Cắn",
                 description: "Thống nhất chọn một mục tiêu để loại bỏ khỏi làng.",
-                actionKind: 'kill', // 'kill' là action key đúng
+                actionKind: 'kill',
                 path: `rooms/${currentRoomId}/nightActions/${currentNight}/wolf_group`,
                 confirmText: "Xác nhận Cắn"
             };
             interactiveActionSection.appendChild(createActionPanel(wolfBiteAction, livingPlayers));
         }
-
+    
         // 2. Hiển thị các hành động cá nhân của người chơi
         const kinds = myRole.kind ? myRole.kind.split('_') : [];
         kinds.forEach(kind => {
-            const actionInfo = KIND_TO_ACTION_MAP[kind]; // Lấy thông tin từ game-logic
-
-            // Bỏ qua nếu 'kind' không hợp lệ, là 'empty', hoặc là chức năng 'kill' của Sói (vì đã xử lý ở trên)
+            const actionInfo = KIND_TO_ACTION_MAP[kind];
+    
             if (!actionInfo || (isWolfFaction && kind === 'kill') || kind === 'empty') {
                 return;
             }
-
+    
             hasIndividualActions = true;
             
             const individualAction = {
                 title: `Chức năng riêng: ${actionInfo.label}`,
                 description: `Chọn mục tiêu để thực hiện chức năng ${actionInfo.label}.`,
-                // === ĐÂY LÀ DÒNG ĐÃ SỬA LỖI ===
-                // Gửi đi "actionInfo.key" (ví dụ: 'protect') thay vì "kind" (ví dụ: 'shield')
                 actionKind: actionInfo.key, 
                 path: `rooms/${currentRoomId}/nightActions/${currentNight}/${myPlayerId}`,
                 confirmText: `Xác nhận ${actionInfo.label}`
             };
             interactiveActionSection.appendChild(createActionPanel(individualAction, livingPlayers));
         });
-
+    
         // 3. Hiển thị thông báo nếu người chơi không có hành động nào
         if (!hasIndividualActions && !isWolfFaction) {
              interactiveActionSection.innerHTML = `
@@ -593,14 +590,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const panel = document.createElement('div');
         panel.className = 'game-card';
         panel.style.marginBottom = '20px';
-
+    
         let targetsHTML = '';
         livingPlayers.forEach(([id, player]) => {
             let playerName = player.name;
             if (myPlayerId === id) playerName += " (Bản thân)";
             targetsHTML += `<button class="choice-btn" data-target-id="${id}">${playerName}</button>`;
         });
-
+    
         panel.innerHTML = `
             <h2 class="action-title">${actionDetails.title}</h2>
             <p class="action-description">${actionDetails.description}</p>
@@ -608,12 +605,12 @@ document.addEventListener('DOMContentLoaded', () => {
             <button class="confirm-action-btn hidden">${actionDetails.confirmText}</button>
             <p class="choice-status-message"></p>
         `;
-
+    
         const targetsContainer = panel.querySelector('.action-targets-container');
         const confirmBtn = panel.querySelector('.confirm-action-btn');
         const statusMsg = panel.querySelector('.choice-status-message');
         let selectedTargetId = null;
-
+    
         targetsContainer.addEventListener('click', (e) => {
             if (e.target.tagName === 'BUTTON') {
                 targetsContainer.querySelector('.selected')?.classList.remove('selected');
@@ -622,26 +619,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 confirmBtn.classList.remove('hidden');
             }
         });
-
+    
         confirmBtn.addEventListener('click', () => {
             if (selectedTargetId) {
                 const actionData = {
                     action: actionDetails.actionKind,
                     target: selectedTargetId
                 };
-                submitNightAction(actionDetails.path, actionData, { targetsContainer, confirmBtn, statusMsg });
+                submitNightAction(actionDetails.path, actionData, { targetsContainer, confirmBtn, statusMsg }, livingPlayers);
             }
         });
-
+    
         return panel;
     }
-
-    function submitNightAction(path, data, uiElements) {
+    
+    function submitNightAction(path, data, uiElements, livingPlayers) {
         database.ref(path).set(data)
             .then(() => {
-                uiElements.statusMsg.textContent = "Đã gửi hành động thành công!";
-                uiElements.targetsContainer.querySelectorAll('button').forEach(btn => btn.disabled = true);
+                const targetPlayerEntry = livingPlayers.find(([id, player]) => id === data.target);
+                const targetName = targetPlayerEntry ? targetPlayerEntry[1].name : 'Mục tiêu';
+    
+                // Hiển thị thông báo xác nhận với tên mục tiêu
+                uiElements.statusMsg.innerHTML = `Đã xác nhận hành động lên <strong>${targetName}</strong>.`;
+                
+                // Vô hiệu hóa các nút và làm mờ các lựa chọn không được chọn
+                uiElements.targetsContainer.querySelectorAll('button').forEach(btn => {
+                    btn.disabled = true;
+                    if (btn.dataset.targetId !== data.target) {
+                        btn.style.opacity = '0.5';
+                    } else {
+                        btn.classList.add('selected'); // Đảm bảo lựa chọn cuối cùng vẫn được tô sáng
+                    }
+                });
+    
+                // Ẩn nút xác nhận đi
                 uiElements.confirmBtn.disabled = true;
+                uiElements.confirmBtn.classList.add('hidden');
             })
             .catch(error => {
                 uiElements.statusMsg.textContent = "Lỗi! Không thể gửi hành động: " + error.message;
