@@ -116,9 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (actorId === 'wolf_group') {
                 const wolfVotes = actionData.votes || {};
-                // Chỉ hiển thị mục tiêu cuối cùng được quyết định, hoặc tất cả các phiếu bầu nếu muốn chi tiết
                 const targets = Object.values(wolfVotes);
-                const uniqueTargets = [...new Set(targets)]; // Lấy các mục tiêu duy nhất
+                const uniqueTargets = [...new Set(targets)]; 
                 targetNames = uniqueTargets.map(targetId => roomData.players[targetId]?.name || 'Mục tiêu lạ').join(', ');
             } else {
                  const targets = Array.isArray(actionData.targets) ? actionData.targets : [];
@@ -259,36 +258,55 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let actionIdCounter = 0;
         const formattedActions = [];
+        const updates = {}; // *** KHỞI TẠO BIẾN UPDATES Ở ĐÂY
+
         for (const actorId in playerActions) {
             const actionData = playerActions[actorId];
 
             if (actorId === 'wolf_group') {
+                const wolfAction = actionData.action;
                 const wolfVotes = actionData.votes || {};
                 if (Object.keys(wolfVotes).length === 0) continue;
 
-                // 1. Đếm số phiếu cho mỗi mục tiêu
                 const voteCounts = Object.values(wolfVotes).reduce((acc, targetId) => {
                     acc[targetId] = (acc[targetId] || 0) + 1;
                     return acc;
                 }, {});
-
-                // 2. Tìm ra số phiếu cao nhất
                 const maxVotes = Math.max(...Object.values(voteCounts));
-
-                // 3. Lọc ra tất cả các mục tiêu có số phiếu bằng số phiếu cao nhất
                 const tiedTargets = Object.keys(voteCounts).filter(targetId => voteCounts[targetId] === maxVotes);
-                
-                // 4. Chọn ngẫu nhiên một mục tiêu từ danh sách hòa nhau (hoặc người duy nhất thắng)
-                const finalTarget = tiedTargets.length > 0 ? tiedTargets[Math.floor(Math.random() * tiedTargets.length)] : null;
+                const finalTargetId = tiedTargets.length > 0 ? tiedTargets[Math.floor(Math.random() * tiedTargets.length)] : null;
 
-                if (finalTarget) {
-                    formattedActions.push({
-                        id: actionIdCounter++,
-                        actorId: 'wolf_group',
-                        targets: [finalTarget],
-                        action: 'kill'
-                    });
+                if (finalTargetId) {
+                    if (wolfAction === 'curse') {
+                        const cursedPlayer = allPlayers[finalTargetId];
+                        const allWolves = Object.entries(allPlayers).filter(([id, p]) => {
+                           const role = allRolesData[p.roleName] || {};
+                           return (role.faction === 'Bầy Sói' || role.faction === 'Phe Sói');
+                        });
+
+                        updates[`/players/${finalTargetId}/roleName`] = 'Ma Sói';
+                        updates[`/interactiveState/curseAbility/status`] = 'used';
+                        
+                        // Gửi thông báo cho người bị nguyền
+                        updates[`/nightResults/${currentNight}/private/${finalTargetId}`] = 'Bạn đã bị Bầy Sói nguyền rủa và biến thành một trong số chúng!';
+
+                        // Gửi thông báo cho các Sói khác
+                        allWolves.forEach(([wolfId, wolfPlayer]) => {
+                            if (wolfId !== finalTargetId) {
+                                updates[`/nightResults/${currentNight}/private/${wolfId}`] = `${cursedPlayer.name} đã bị nguyền và gia nhập Bầy Sói!`;
+                            }
+                        });
+
+                    } else { // Mặc định là 'cắn'
+                        formattedActions.push({
+                            id: actionIdCounter++,
+                            actorId: 'wolf_group',
+                            targets: [finalTargetId],
+                            action: 'kill'
+                        });
+                    }
                 }
+
             } else {
                 formattedActions.push({
                     id: actionIdCounter++,
@@ -320,12 +338,21 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const results = calculateNightStatus(nightStateForCalc, roomPlayersForCalc);
         const { finalStatus, deadPlayerNames, infoResults } = results;
-
-        const updates = {};
         
         Object.keys(finalStatus).forEach(playerId => {
-            if (initialPlayerStatus[playerId]?.isAlive && !finalStatus[playerId].isAlive) {
+            const originalPlayerState = initialPlayerStatus[playerId];
+            const finalPlayerState = finalStatus[playerId];
+            if (originalPlayerState?.isAlive && !finalPlayerState.isAlive) {
                 updates[`/players/${playerId}/isAlive`] = false;
+
+                // *** KIỂM TRA MỞ KHÓA CHỨC NĂNG NGUYỀN ***
+                const deadPlayerRole = allRolesData[originalPlayerState.roleName] || {};
+                const isWolf = deadPlayerRole.faction === 'Bầy Sói' || deadPlayerRole.faction === 'Phe Sói';
+                const curseState = roomData.interactiveState?.curseAbility?.status || 'locked';
+
+                if (isWolf && curseState === 'locked') {
+                    updates['/interactiveState/curseAbility/status'] = 'available';
+                }
             }
         });
 
@@ -360,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Xử lý sự kiện nhấn nút (giữ nguyên) ---
+    // --- Xử lý sự kiện nhấn nút ---
     startNightBtn.addEventListener('click', () => {
         const state = roomData.interactiveState || {};
         
@@ -377,7 +404,8 @@ document.addEventListener('DOMContentLoaded', () => {
             updates['/interactiveState'] = {
                 phase: 'night',
                 currentNight: 1,
-                message: `Đêm 1 bắt đầu.`
+                message: `Đêm 1 bắt đầu.`,
+                curseAbility: { status: 'locked' } // Reset trạng thái nguyền
             };
             
             database.ref(`rooms/${currentRoomId}`).update(updates);
@@ -385,14 +413,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const currentNightNumber = (state.currentNight || 0) + 1;
-        const newState = {
+        const updates = {
             phase: 'night',
             currentNight: currentNightNumber,
             message: `Đêm ${currentNightNumber} bắt đầu.`
         };
         
-        database.ref(`rooms/${currentRoomId}/interactiveState`).update(newState);
+        // Khởi tạo trạng thái nguyền nếu chưa có
+        if (!state.curseAbility) {
+            updates['curseAbility'] = { status: 'locked' };
+        }
+        
+        database.ref(`rooms/${currentRoomId}/interactiveState`).update(updates);
     });
+
     endNightBtn.addEventListener('click', processNightResults);
     startDayBtn.addEventListener('click', () => {
         const currentNightNumber = roomData.interactiveState?.currentNight || 1;

@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let myPlayerData = {};
     let roomData = {};
 
-    // --- DATA FETCHING ---
+    // --- DATA FETCHING (Không thay đổi) ---
     const fetchAllRolesData = async () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Roles`);
@@ -524,24 +524,44 @@ document.addEventListener('DOMContentLoaded', () => {
         interactiveActionSection.classList.remove('hidden');
         interactiveActionSection.innerHTML = '';
     
-        const myRole = allRolesData.find(r => r.name === myPlayerData.roleName) || {};
-        const isWolfFaction = myRole.faction === 'Bầy Sói' || myRole.faction === 'Phe Sói';
+        const myRoleData = allRolesData.find(r => r.name === myPlayerData.roleName) || {};
+        const isWolfFaction = myRoleData.faction === 'Bầy Sói' || myRoleData.faction === 'Phe Sói';
         const livingPlayers = Object.entries(currentRoomData.players).filter(([id, player]) => player.isAlive);
         let hasIndividualActions = false;
     
+        // *** LOGIC MỚI CHO SÓI ***
         if (isWolfFaction) {
-            const wolfBiteAction = {
-                title: "Hành động Bầy Sói: Cắn",
-                description: "Thống nhất chọn một mục tiêu để loại bỏ khỏi làng.",
-                actionKind: 'kill',
-                path: `rooms/${currentRoomId}/nightActions/${currentNight}/wolf_group`,
-                roleInfo: { ...myRole, quantity: 1 },
-                confirmText: "Xác nhận Cắn"
-            };
-            interactiveActionSection.appendChild(createActionPanel(wolfBiteAction, livingPlayers));
+            const curseState = currentRoomData.interactiveState?.curseAbility?.status || 'locked';
+            const wolfActionData = currentRoomData.nightActions?.[currentNight]?.wolf_group || {};
+            const chosenAction = wolfActionData.action;
+
+            // Panel Cắn
+            if (!chosenAction || chosenAction === 'kill') {
+                const wolfBiteAction = {
+                    title: "Hành động Bầy Sói: Cắn",
+                    description: "Thống nhất chọn một mục tiêu để loại bỏ khỏi làng.",
+                    actionKind: 'kill',
+                    isWolfGroupAction: true,
+                    confirmText: "Xác nhận Cắn"
+                };
+                interactiveActionSection.appendChild(createActionPanel(wolfBiteAction, livingPlayers));
+            }
+
+            // Panel Nguyền (chỉ hiển thị nếu có thể và chưa có hành động nào được chọn)
+            if (curseState === 'available' && (!chosenAction || chosenAction === 'curse')) {
+                 const wolfCurseAction = {
+                    title: "Hành động Bầy Sói: Nguyền (Dùng 1 lần)",
+                    description: "Chọn một người chơi để biến họ thành Sói. Sẽ không có ai bị cắn trong đêm nay.",
+                    actionKind: 'curse',
+                    isWolfGroupAction: true,
+                    confirmText: "Xác nhận Nguyền"
+                };
+                interactiveActionSection.appendChild(createActionPanel(wolfCurseAction, livingPlayers));
+            }
+
         }
     
-        const kinds = myRole.kind ? myRole.kind.split('_') : [];
+        const kinds = myRoleData.kind ? myRoleData.kind.split('_') : [];
         kinds.forEach(kind => {
             const actionInfo = KIND_TO_ACTION_MAP[kind];
     
@@ -549,7 +569,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const activeRule = myRole.active;
+            const activeRule = myRoleData.active;
             const nightNumber = currentNight;
             
             const parts = activeRule.split('_');
@@ -584,9 +604,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 title: `Chức năng riêng: ${actionInfo.label}`,
                 description: `Chọn mục tiêu để thực hiện chức năng.`,
                 actionKind: actionInfo.key, 
-                path: `rooms/${currentRoomId}/nightActions/${currentNight}/${myPlayerId}`,
+                isWolfGroupAction: false,
                 confirmText: `Xác nhận ${actionInfo.label}`,
-                roleInfo: myRole
+                roleInfo: myRoleData
             };
             interactiveActionSection.appendChild(createActionPanel(individualAction, livingPlayers));
         });
@@ -600,57 +620,61 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // === HÀM CREATEACTIONPANEL ĐÃ NÂNG CẤP ===
     function createActionPanel(actionDetails, livingPlayers) {
         const panel = document.createElement('div');
         panel.className = 'game-card';
         panel.style.marginBottom = '20px';
     
         const currentNight = roomData.interactiveState?.currentNight;
-        const isWolfPanel = actionDetails.path.endsWith('wolf_group');
-        const targetLimit = actionDetails.roleInfo.quantity;
+        const actionPath = actionDetails.isWolfGroupAction
+            ? `rooms/${currentRoomId}/nightActions/${currentNight}/wolf_group`
+            : `rooms/${currentRoomId}/nightActions/${currentNight}/${myPlayerId}`;
+        
+        const targetLimit = actionDetails.roleInfo ? actionDetails.roleInfo.quantity : 1;
         
         // Lấy dữ liệu hành động và phiếu bầu
-        let existingAction = null;
-        let wolfVotes = {};
+        let wolfActionData = {};
         if (currentNight && roomData.nightActions?.[currentNight]) {
-            if (isWolfPanel) {
-                existingAction = roomData.nightActions[currentNight].wolf_group;
-                wolfVotes = existingAction?.votes || {};
-            } else {
-                let actionSource = roomData.nightActions[currentNight][myPlayerId];
-                if(actionSource && actionSource.action === actionDetails.actionKind) {
-                    existingAction = actionSource;
-                }
+             if(actionDetails.isWolfGroupAction) {
+                wolfActionData = roomData.nightActions[currentNight].wolf_group || {};
+             }
+        }
+        const chosenWolfAction = wolfActionData.action;
+        const wolfVotes = wolfActionData.votes || {};
+        const myWolfVote = wolfVotes[myPlayerId];
+        
+        let individualAction = null;
+        if (!actionDetails.isWolfGroupAction && currentNight && roomData.nightActions?.[currentNight]?.[myPlayerId]) {
+            let actionSource = roomData.nightActions[currentNight][myPlayerId];
+            if(actionSource && actionSource.action === actionDetails.actionKind) {
+                individualAction = actionSource;
             }
         }
-        const existingTargets = existingAction ? (Array.isArray(existingAction.targets) ? existingAction.targets : []) : [];
-        const myWolfVote = wolfVotes[myPlayerId];
+        const individualTargets = individualAction ? (Array.isArray(individualAction.targets) ? individualAction.targets : []) : [];
+        
 
-        // Đếm phiếu bầu của sói
         const voteCounts = {};
-        if (isWolfPanel) {
+        if (actionDetails.isWolfGroupAction && chosenWolfAction === actionDetails.actionKind) {
             for (const wolfId in wolfVotes) {
                 const targetId = wolfVotes[wolfId];
                 voteCounts[targetId] = (voteCounts[targetId] || 0) + 1;
             }
         }
 
-        // Tạo danh sách mục tiêu
         let targetsHTML = '';
         livingPlayers.forEach(([id, player]) => {
             let playerName = player.name;
             if (myPlayerId === id) playerName += " (Bản thân)";
             
             let isSelected = false;
-            if(isWolfPanel) {
-                isSelected = myWolfVote === id;
+            if(actionDetails.isWolfGroupAction) {
+                isSelected = (myWolfVote === id && chosenWolfAction === actionDetails.actionKind);
             } else {
-                isSelected = existingTargets.includes(id);
+                isSelected = individualTargets.includes(id);
             }
             
             const inputType = targetLimit > 1 ? 'checkbox' : 'radio';
-            const voteDisplay = isWolfPanel && voteCounts[id] > 0 ? `<span class="vote-count">(${voteCounts[id]} phiếu)</span>` : '';
+            const voteDisplay = (actionDetails.isWolfGroupAction && voteCounts[id] > 0) ? `<span class="vote-count">(${voteCounts[id]} phiếu)</span>` : '';
 
             targetsHTML += `
                 <div class="target-item" style="display: flex; align-items: center; gap: 8px; padding: 5px; border-radius: 4px;">
@@ -674,9 +698,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const confirmBtn = panel.querySelector('.confirm-action-btn');
         const statusMsg = panel.querySelector('.choice-status-message');
     
-        // Giao diện cho Sói không bị khóa, chỉ hiển thị phiếu bầu
-        if (existingAction && !isWolfPanel) {
-             const targetNames = existingTargets.map(targetId => {
+        // Logic khóa giao diện
+        const isWolfPanelLockedToOtherAction = actionDetails.isWolfGroupAction && chosenWolfAction && chosenWolfAction !== actionDetails.actionKind;
+        const isIndividualPanelLocked = !actionDetails.isWolfGroupAction && individualAction;
+
+        if (isWolfPanelLockedToOtherAction) {
+            statusMsg.innerHTML = `Bầy Sói đã quyết định <strong>${ALL_ACTIONS[chosenWolfAction]?.label || chosenWolfAction}</strong> trong đêm nay.`;
+            targetsContainer.querySelectorAll('input').forEach(input => input.disabled = true);
+        } else if (isIndividualPanelLocked) {
+             const targetNames = individualTargets.map(targetId => {
                 const p = livingPlayers.find(([id]) => id === targetId);
                 return p ? p[1].name : 'Mục tiêu';
             }).join(', ');
@@ -685,10 +715,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             targetsContainer.addEventListener('change', (event) => {
                 const checkedBoxes = targetsContainer.querySelectorAll('input:checked');
-                if (targetLimit > 1) {
-                    if (checkedBoxes.length > targetLimit) {
-                        event.target.checked = false; 
-                    }
+                if (targetLimit > 1 && checkedBoxes.length > targetLimit) {
+                    event.target.checked = false;
                 }
                 const currentSelectionCount = targetsContainer.querySelectorAll('input:checked').length;
                 confirmBtn.classList.toggle('hidden', currentSelectionCount === 0 || currentSelectionCount > targetLimit);
@@ -697,12 +725,12 @@ document.addEventListener('DOMContentLoaded', () => {
             confirmBtn.addEventListener('click', () => {
                 const selectedTargets = Array.from(targetsContainer.querySelectorAll('input:checked')).map(cb => cb.value);
                 
-                if (isWolfPanel) {
+                if (actionDetails.isWolfGroupAction) {
                     if (selectedTargets.length > 0) {
-                        const votePath = `${actionDetails.path}/votes/${myPlayerId}`;
-                        const actionPath = `${actionDetails.path}/action`;
-                        database.ref(actionPath).set('kill'); // Đảm bảo node action tồn tại
-                        database.ref(votePath).set(selectedTargets[0]);
+                        const updates = {};
+                        updates[`${actionPath}/action`] = actionDetails.actionKind;
+                        updates[`${actionPath}/votes/${myPlayerId}`] = selectedTargets[0];
+                        database.ref().update(updates);
                     }
                 } else {
                      if (selectedTargets.length > 0 && selectedTargets.length <= targetLimit) {
@@ -710,24 +738,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             action: actionDetails.actionKind,
                             targets: selectedTargets 
                         };
-                        submitNightAction(actionDetails.path, actionData);
+                        database.ref(actionPath).set(actionData);
                     }
                 }
             });
         }
     
         return panel;
-    }
-    
-    function submitNightAction(path, data) {
-        database.ref(path).set(data)
-            .catch(error => {
-                const panel = document.querySelector(`[data-path="${path}"]`);
-                if(panel) {
-                    const statusMsg = panel.querySelector('.choice-status-message');
-                    if(statusMsg) statusMsg.textContent = "Lỗi! Không thể gửi hành động: " + error.message;
-                }
-            });
     }
 
     // --- EVENT LISTENERS ---
