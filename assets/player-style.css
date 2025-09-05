@@ -251,3 +251,18 @@ button:disabled {
     max-height: 60vh;
     overflow-y: auto;
 }
+
+/* === CSS MỚI CHO HIỂN THỊ PHIẾU BẦU CỦA SÓI === */
+.vote-count {
+    font-weight: bold;
+    color: var(--wolf-color);
+    margin-left: 8px;
+    font-style: italic;
+}
+
+.target-item label {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    align-items: center;
+}

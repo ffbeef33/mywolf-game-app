@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - PHIÊN BẢN PHÂN CHIA PHE & SỬA LỖI ===
+// === interactive-gm.js - PHIÊN BẢN CẬP NHẬT LOGIC BẦU CHỌN CỦA SÓI ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -112,9 +112,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         for(const actorId in actions) {
             const actionData = actions[actorId];
-            const targets = Array.isArray(actionData.targets) ? actionData.targets : [];
-            const targetNames = targets.map(targetId => roomData.players[targetId]?.name || 'Mục tiêu lạ').join(', ');
+            let targetNames = '';
 
+            if (actorId === 'wolf_group') {
+                const wolfVotes = actionData.votes || {};
+                // Chỉ hiển thị mục tiêu cuối cùng được quyết định, hoặc tất cả các phiếu bầu nếu muốn chi tiết
+                const targets = Object.values(wolfVotes);
+                const uniqueTargets = [...new Set(targets)]; // Lấy các mục tiêu duy nhất
+                targetNames = uniqueTargets.map(targetId => roomData.players[targetId]?.name || 'Mục tiêu lạ').join(', ');
+            } else {
+                 const targets = Array.isArray(actionData.targets) ? actionData.targets : [];
+                 targetNames = targets.map(targetId => roomData.players[targetId]?.name || 'Mục tiêu lạ').join(', ');
+            }
+            
             let actorName = "Bầy Sói";
             if (actorId !== 'wolf_group') {
                 actorName = roomData.players[actorId]?.name || 'Người chơi không xác định';
@@ -127,18 +137,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // === HÀM RENDER DANH SÁCH NGƯỜI CHƠI ĐÃ NÂNG CẤP ===
     const renderPlayerList = () => {
         const players = roomData.players || {};
         playerListUI.innerHTML = '';
         playersTotalDisplay.textContent = Object.keys(players).length;
 
         const playersByFaction = {
-            'Bầy Sói': [],
-            'Phe Sói': [],
-            'Phe Dân': [],
-            'Phe trung lập': [],
-            'Khác': []
+            'Bầy Sói': [], 'Phe Sói': [], 'Phe Dân': [], 'Phe trung lập': [], 'Khác': []
         };
 
         Object.entries(players).forEach(([id, player]) => {
@@ -220,7 +225,6 @@ document.addEventListener('DOMContentLoaded', () => {
         currentPhaseDisplay.textContent = phaseText;
     };
     
-    // Hàm processNightResults không thay đổi
     const processNightResults = async () => {
         endNightBtn.disabled = true;
         endNightBtn.textContent = "Đang xử lý...";
@@ -240,24 +244,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     faction: roleInfo.faction || 'Chưa phân loại',
                     roleName: roleName,
                     kind: kind,
-                    isDisabled: false,
-                    isPermanentlyDisabled: false,
-                    isPermanentlyProtected: false,
-                    isPermanentlyNotified: false,
-                    hasPermanentKillAbility: false,
-                    hasPermanentCounterWard: false,
+                    isDisabled: false, isPermanentlyDisabled: false, isPermanentlyProtected: false,
+                    isPermanentlyNotified: false, hasPermanentKillAbility: false, hasPermanentCounterWard: false,
                     armor: (kind === 'armor1' ? 2 : 1),
                     delayKillAvailable: (kind === 'delaykill'),
-                    isDoomed: false,
-                    deathLinkTarget: null,
-                    sacrificedBy: null,
-                    transformedState: null,
-                    groupId: null,
-                    markedForDelayKill: false,
-                    originalRoleName: null,
-                    activeRule: roleInfo.active || 'n',
-                    quantity: roleInfo.quantity || 1,
-                    duration: roleInfo.duration || '1',
+                    isDoomed: false, deathLinkTarget: null, sacrificedBy: null,
+                    transformedState: null, groupId: null, markedForDelayKill: false,
+                    originalRoleName: null, activeRule: roleInfo.active || 'n',
+                    quantity: roleInfo.quantity || 1, duration: roleInfo.duration || '1',
                     isBoobyTrapped: false,
                 }];
             })
@@ -267,12 +261,37 @@ document.addEventListener('DOMContentLoaded', () => {
         const formattedActions = [];
         for (const actorId in playerActions) {
             const actionData = playerActions[actorId];
-            formattedActions.push({
-                id: actionIdCounter++,
-                actorId: actorId,
-                targets: Array.isArray(actionData.targets) ? actionData.targets : [],
-                action: actionData.action
-            });
+
+            if (actorId === 'wolf_group') {
+                const wolfVotes = actionData.votes || {};
+                if (Object.keys(wolfVotes).length === 0) continue;
+
+                const voteCounts = Object.values(wolfVotes).reduce((acc, targetId) => {
+                    acc[targetId] = (acc[targetId] || 0) + 1;
+                    return acc;
+                }, {});
+
+                const maxVotes = Math.max(...Object.values(voteCounts));
+                const tiedTargets = Object.keys(voteCounts).filter(targetId => voteCounts[targetId] === maxVotes);
+                
+                const finalTarget = tiedTargets.length > 0 ? tiedTargets[Math.floor(Math.random() * tiedTargets.length)] : null;
+
+                if (finalTarget) {
+                    formattedActions.push({
+                        id: actionIdCounter++,
+                        actorId: 'wolf_group',
+                        targets: [finalTarget],
+                        action: 'kill'
+                    });
+                }
+            } else {
+                formattedActions.push({
+                    id: actionIdCounter++,
+                    actorId: actorId,
+                    targets: Array.isArray(actionData.targets) ? actionData.targets : [],
+                    action: actionData.action
+                });
+            }
         }
         
         const nightStateForCalc = {
@@ -284,8 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const roomPlayersForCalc = Object.entries(allPlayers).map(([id, data]) => {
             const roleInfo = allRolesData[data.roleName] || {};
             return { 
-                id, 
-                ...data, 
+                id, ...data, 
                 baseFaction: roleInfo.faction || 'Chưa phân loại',
                 faction: roleInfo.faction || 'Chưa phân loại',
                 kind: roleInfo.kind || 'empty',
