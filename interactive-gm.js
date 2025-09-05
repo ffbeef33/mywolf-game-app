@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - PHIÊN BẢN SỬA LỖI XỬ LÝ TRẠNG THÁI ĐÊM ===
+// === interactive-gm.js - PHIÊN BẢN SỬA LỖI XỬ LÝ NHIỀU MỤC TIÊU ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -54,11 +54,10 @@ document.addEventListener('DOMContentLoaded', () => {
             allRolesData = rawData.reduce((acc, role) => {
                 if (role.RoleName) {
                     const roleName = role.RoleName.trim();
-                     // CẬP NHẬT: Nạp đầy đủ các thuộc tính Active, Kind, Quantity, Duration
                      acc[roleName] = {
                         name: roleName,
                         faction: (role.Faction || 'Chưa phân loại').trim(),
-                        active: (role.Active || '0').trim(),
+                        active: (role.Active || 'n').trim().toLowerCase(),
                         kind: (role.Kind || 'empty').trim(),
                         quantity: parseInt(role.Quantity, 10) || 1,
                         duration: (role.Duration || '1').toString().trim().toLowerCase()
@@ -113,15 +112,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         for(const actorId in actions) {
             const actionData = actions[actorId];
-            const targetId = actionData.target;
+            const targets = Array.isArray(actionData.targets) ? actionData.targets : [];
+            const targetNames = targets.map(targetId => roomData.players[targetId]?.name || 'Mục tiêu lạ').join(', ');
+
             let actorName = "Bầy Sói";
             if (actorId !== 'wolf_group') {
                 actorName = roomData.players[actorId]?.name || 'Người chơi không xác định';
             }
-            const targetName = roomData.players[targetId]?.name || 'Mục tiêu không xác định';
+            
             const actionLabel = ALL_ACTIONS[actionData.action]?.label || actionData.action;
             const p = document.createElement('p');
-            p.innerHTML = `[ĐÊM] <strong>${actorName}</strong> đã chọn <em>${actionLabel}</em> <strong>${targetName}</strong>.`;
+            p.innerHTML = `[ĐÊM] <strong>${actorName}</strong> đã chọn <em>${actionLabel}</em> <strong>${targetNames}</strong>.`;
             gameLog.prepend(p);
         }
     }
@@ -219,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     groupId: null,
                     markedForDelayKill: false,
                     originalRoleName: null,
-                    activeRule: roleInfo.active || '0',
+                    activeRule: roleInfo.active || 'n',
                     quantity: roleInfo.quantity || 1,
                     duration: roleInfo.duration || '1',
                     isBoobyTrapped: false,
@@ -230,21 +231,13 @@ document.addEventListener('DOMContentLoaded', () => {
         let actionIdCounter = 0;
         const formattedActions = [];
         for (const actorId in playerActions) {
-            if (actorId === 'wolf_group') {
-                formattedActions.push({
-                    id: actionIdCounter++,
-                    actorId: 'wolf_group',
-                    targetId: playerActions[actorId].target,
-                    action: 'kill'
-                });
-            } else {
-                formattedActions.push({
-                    id: actionIdCounter++,
-                    actorId: actorId,
-                    targetId: playerActions[actorId].target,
-                    action: playerActions[actorId].action
-                });
-            }
+            const actionData = playerActions[actorId];
+            formattedActions.push({
+                id: actionIdCounter++,
+                actorId: actorId,
+                targets: Array.isArray(actionData.targets) ? actionData.targets : [],
+                action: actionData.action
+            });
         }
         
         const nightStateForCalc = {
@@ -261,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 baseFaction: roleInfo.faction || 'Chưa phân loại',
                 faction: roleInfo.faction || 'Chưa phân loại',
                 kind: roleInfo.kind || 'empty',
-                activeRule: roleInfo.active || '0',
+                activeRule: roleInfo.active || 'n',
                 quantity: roleInfo.quantity || 1,
                 duration: roleInfo.duration || '1'
             };
@@ -317,15 +310,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if(!confirm("Bạn có muốn reset và bắt đầu game mới không? Hành động này sẽ xóa toàn bộ lịch sử đêm và hồi sinh người chơi.")) return;
             
             const updates = {};
-            // 1. Hồi sinh tất cả người chơi
             Object.keys(roomData.players).forEach(pId => {
                 updates[`/players/${pId}/isAlive`] = true;
             });
-            // 2. Xóa dữ liệu cũ
             updates['/nightActions'] = null;
             updates['/nightResults'] = null;
             updates['/interactiveLog'] = null;
-            // 3. Reset trạng thái game
             updates['/interactiveState'] = {
                 phase: 'night',
                 currentNight: 1,

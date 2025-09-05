@@ -1,8 +1,7 @@
 // =================================================================
-// === game-logic.js - Bộ não xử lý logic đêm dùng chung ===
+// === game-logic.js - PHIÊN BẢN HỖ TRỢ NHIỀU MỤC TIÊU ===
 // =================================================================
 
-// Các hằng số định nghĩa hành động, được chuyển từ night-note.js
 const KIND_TO_ACTION_MAP = {
     'shield': { key: 'protect', label: 'Bảo vệ', type: 'defense' },
     'save': { key: 'save', label: 'Cứu', type: 'defense' },
@@ -46,12 +45,6 @@ ALL_ACTIONS['gm_disable_night'] = { label: 'Bị vô hiệu hoá (1 Đêm)', typ
 ALL_ACTIONS['gm_disable_perm'] = { label: 'Bị vô hiệu hoá (Vĩnh viễn)', type: 'debuff' };
 
 
-/**
- * Hàm tính toán kết quả đêm, được chuyển nguyên bản từ night-note.js
- * @param {object} nightState - Trạng thái của đêm cần tính toán.
- * @param {Array} roomPlayers - Danh sách tất cả người chơi trong phòng.
- * @returns {object} - Kết quả đêm bao gồm { finalStatus, deadPlayerNames, infoResults, ... }
- */
 function calculateNightStatus(nightState, roomPlayers) {
     if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [], infoResults: [], loveRedirects: {} };
         
@@ -109,14 +102,16 @@ function calculateNightStatus(nightState, roomPlayers) {
     });
     
     const disabledByAbilityPlayerIds = new Set();
-    actions.forEach(({ actorId, targetId, action }) => {
-        const actorLiveStatus = liveStatuses[actorId];
-        if (actorLiveStatus && !actorLiveStatus.isDisabled) {
-            const actionKind = ALL_ACTIONS[action]?.key || action;
-            if (actionKind === 'love' || actionKind === 'disable_action' || actionKind === 'freeze') {
-                disabledByAbilityPlayerIds.add(targetId);
+    actions.forEach(({ actorId, targets, action }) => {
+        (targets || []).forEach(targetId => {
+            const actorLiveStatus = liveStatuses[actorId];
+            if (actorLiveStatus && !actorLiveStatus.isDisabled) {
+                const actionKind = ALL_ACTIONS[action]?.key || action;
+                if (actionKind === 'love' || actionKind === 'disable_action' || actionKind === 'freeze') {
+                    disabledByAbilityPlayerIds.add(targetId);
+                }
             }
-        }
+        });
     });
 
     disabledByAbilityPlayerIds.forEach(pId => {
@@ -125,124 +120,126 @@ function calculateNightStatus(nightState, roomPlayers) {
         }
     });
 
-    actions.forEach(({ actorId, targetId, action }) => {
-        const actor = roomPlayers.find(p => p.id === actorId);
-        const isWolfAction = actorId === 'wolf_group';
+    actions.forEach(({ actorId, targets, action }) => {
+        (targets || []).forEach(targetId => {
+            const actor = roomPlayers.find(p => p.id === actorId);
+            const isWolfAction = actorId === 'wolf_group';
 
-        if (!isWolfAction && actor && liveStatuses[actorId] && liveStatuses[actorId].isDisabled) {
-            const actionKindCheck = ALL_ACTIONS[action]?.key || action;
-            if (actionKindCheck !== 'love' && actionKindCheck !== 'disable_action' && actionKindCheck !== 'freeze') {
-                return;
+            if (!isWolfAction && actor && liveStatuses[actorId] && liveStatuses[actorId].isDisabled) {
+                const actionKindCheck = ALL_ACTIONS[action]?.key || action;
+                if (actionKindCheck !== 'love' && actionKindCheck !== 'disable_action' && actionKindCheck !== 'freeze') {
+                    return;
+                }
             }
-        }
-        
-        if (!isWolfAction && !actor) return;
-        
-        const target = roomPlayers.find(p => p.id === targetId);
-        const targetStatus = liveStatuses[targetId];
-        if (!target || !targetStatus) return;
-        
-        const actionKind = ALL_ACTIONS[action]?.key || action;
-        const duration = actor ? (actor.duration || '1') : '1';
+            
+            if (!isWolfAction && !actor) return;
+            
+            const target = roomPlayers.find(p => p.id === targetId);
+            const targetStatus = liveStatuses[targetId];
+            if (!target || !targetStatus) return;
+            
+            const actionKind = ALL_ACTIONS[action]?.key || action;
+            const duration = actor ? (actor.duration || '1') : '1';
 
-        if (actionKind === 'countershield') {
-            counterShieldedTargets.add(targetId);
-        }
-        else if (actionKind === 'disable_action') {
-            if (duration === 'n') {
-                finalStatus[targetId].isPermanentlyDisabled = true;
+            if (actionKind === 'countershield') {
+                counterShieldedTargets.add(targetId);
             }
-        }
-        else if (actionKind === 'freeze') {
-            if (!counterShieldedTargets.has(targetId)) {
-                targetStatus.isProtected = true;
-            }
-        }
-        else if (actionKind === 'gm_add_armor') targetStatus.armor++;
-        else if (actionKind === 'protect' || actionKind === 'gm_protect') {
-             if(!counterShieldedTargets.has(targetId)) targetStatus.isProtected = true;
-             if (duration === 'n') {
-                finalStatus[targetId].isPermanentlyProtected = true;
-            }
-        }
-        else if (actionKind === 'sacrifice') {
-             damageRedirects[targetId] = actorId;
-             if (duration === 'n') {
-                finalStatus[actorId].sacrificedBy = targetId;
-            }
-        }
-        else if (actionKind === 'checkcounter') {
-            counterWards[targetId] = { actorId: actorId, triggered: false };
-            if (duration === 'n') {
-                finalStatus[targetId].hasPermanentCounterWard = true;
-            }
-        }
-        else if (actionKind === 'checkdmg') {
-            if (liveStatuses[actorId]) {
-                liveStatuses[actorId].deathLinkTarget = targetId;
+            else if (actionKind === 'disable_action') {
                 if (duration === 'n') {
-                    finalStatus[actorId].deathLinkTarget = targetId;
+                    finalStatus[targetId].isPermanentlyDisabled = true;
                 }
             }
-        }
-        else if (actionKind === 'givekill') {
-            targetStatus.tempStatus.hasKillAbility = true;
-            if (duration === 'n') {
-                finalStatus[targetId].hasPermanentKillAbility = true;
-            }
-        }
-        else if (actionKind === 'givearmor') {
-            targetStatus.armor = 2;
-            if (liveStatuses[actorId]) liveStatuses[actorId].armor = 2;
-            damageRedirects[targetId] = actorId;
-        }
-        else if (actionKind === 'choosesacrifier') {
-            if (finalStatus[actorId]) {
-                finalStatus[actorId].sacrificedBy = targetId;
-                damageRedirects[actorId] = targetId;
-                infoResults.push(`- ${actor.roleName} (${actor.name}) đã chọn ${target.name} làm người thế mạng.`);
-            }
-        }
-        else if (actionKind === 'transform') {
-            if (finalStatus[actorId]) {
-                const newRoleData = allRolesData[target.roleName];
-                if (newRoleData) {
-                    finalStatus[actorId].transformedState = {
-                        roleName: target.roleName,
-                        kind: newRoleData.kind,
-                        activeRule: newRoleData.active,
-                        quantity: newRoleData.quantity,
-                        duration: newRoleData.duration
-                    };
-                    infoResults.push(`- ${actor.roleName} (${actor.name}) sẽ biến thành ${target.roleName} vào đêm mai.`);
+            else if (actionKind === 'freeze') {
+                if (!counterShieldedTargets.has(targetId)) {
+                    targetStatus.isProtected = true;
                 }
             }
-        }
-        else if (actionKind === 'killdelay') {
-            if (finalStatus[targetId]) {
-                finalStatus[targetId].markedForDelayKill = true;
-                infoResults.push(`- ${actor.roleName} (${actor.name}) đã nguyền rủa ${target.name}.`);
+            else if (actionKind === 'gm_add_armor') targetStatus.armor++;
+            else if (actionKind === 'protect' || actionKind === 'gm_protect') {
+                 if(!counterShieldedTargets.has(targetId)) targetStatus.isProtected = true;
+                 if (duration === 'n') {
+                    finalStatus[targetId].isPermanentlyProtected = true;
+                }
             }
-        }
-        else if (actionKind === 'gather') targetStatus.gatheredBy = actorId;
-        else if (actionKind === 'noti') {
-            targetStatus.isNotified = true;
-            if (duration === 'n') {
-                finalStatus[targetId].isPermanentlyNotified = true;
+            else if (actionKind === 'sacrifice') {
+                 damageRedirects[targetId] = actorId;
+                 if (duration === 'n') {
+                    finalStatus[actorId].sacrificedBy = targetId;
+                }
             }
-        }
-         else if (actionKind === 'boom') {
-            if(finalStatus[targetId]) finalStatus[targetId].isBoobyTrapped = true;
-        }
-        else if (actionKind === 'love') {
-            if (liveStatuses[actorId]) liveStatuses[actorId].isImmuneToWolves = true;
-            loveRedirects[targetId] = actorId;
+            else if (actionKind === 'checkcounter') {
+                counterWards[targetId] = { actorId: actorId, triggered: false };
+                if (duration === 'n') {
+                    finalStatus[targetId].hasPermanentCounterWard = true;
+                }
+            }
+            else if (actionKind === 'checkdmg') {
+                if (liveStatuses[actorId]) {
+                    liveStatuses[actorId].deathLinkTarget = targetId;
+                    if (duration === 'n') {
+                        finalStatus[actorId].deathLinkTarget = targetId;
+                    }
+                }
+            }
+            else if (actionKind === 'givekill') {
+                targetStatus.tempStatus.hasKillAbility = true;
+                if (duration === 'n') {
+                    finalStatus[targetId].hasPermanentKillAbility = true;
+                }
+            }
+            else if (actionKind === 'givearmor') {
+                targetStatus.armor = 2;
+                if (liveStatuses[actorId]) liveStatuses[actorId].armor = 2;
+                damageRedirects[targetId] = actorId;
+            }
+            else if (actionKind === 'choosesacrifier') {
+                if (finalStatus[actorId]) {
+                    finalStatus[actorId].sacrificedBy = targetId;
+                    damageRedirects[actorId] = targetId;
+                    infoResults.push(`- ${actor.roleName} (${actor.name}) đã chọn ${target.name} làm người thế mạng.`);
+                }
+            }
+            else if (actionKind === 'transform') {
+                if (finalStatus[actorId]) {
+                    const newRoleData = allRolesData[target.roleName];
+                    if (newRoleData) {
+                        finalStatus[actorId].transformedState = {
+                            roleName: target.roleName,
+                            kind: newRoleData.kind,
+                            activeRule: newRoleData.active,
+                            quantity: newRoleData.quantity,
+                            duration: newRoleData.duration
+                        };
+                        infoResults.push(`- ${actor.roleName} (${actor.name}) sẽ biến thành ${target.roleName} vào đêm mai.`);
+                    }
+                }
+            }
+            else if (actionKind === 'killdelay') {
+                if (finalStatus[targetId]) {
+                    finalStatus[targetId].markedForDelayKill = true;
+                    infoResults.push(`- ${actor.roleName} (${actor.name}) đã nguyền rủa ${target.name}.`);
+                }
+            }
+            else if (actionKind === 'gather') targetStatus.gatheredBy = actorId;
+            else if (actionKind === 'noti') {
+                targetStatus.isNotified = true;
+                if (duration === 'n') {
+                    finalStatus[targetId].isPermanentlyNotified = true;
+                }
+            }
+             else if (actionKind === 'boom') {
+                if(finalStatus[targetId]) finalStatus[targetId].isBoobyTrapped = true;
+            }
+            else if (actionKind === 'love') {
+                if (liveStatuses[actorId]) liveStatuses[actorId].isImmuneToWolves = true;
+                loveRedirects[targetId] = actorId;
 
-            if(target.faction === 'Bầy Sói') {
-                if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
-                infoResults.push(`- ${actor.name} đã chết vì yêu nhầm Sói (${target.name}).`);
+                if(target.faction === 'Bầy Sói') {
+                    if (liveStatuses[actorId]) liveStatuses[actorId].damage++;
+                    infoResults.push(`- ${actor.name} đã chết vì yêu nhầm Sói (${target.name}).`);
+                }
             }
-        }
+        });
     });
     
     const disabledPlayerIds = new Set();
@@ -261,138 +258,142 @@ function calculateNightStatus(nightState, roomPlayers) {
     const killifActions = executableActions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
     const otherActions = executableActions.filter(({ action }) => !['killif', 'curse', 'collect', 'transform', 'love'].includes(ALL_ACTIONS[action]?.key || action));
 
-    otherActions.forEach(({ actorId, targetId, action }) => {
-        const attacker = roomPlayers.find(p => p.id === actorId);
-        let finalTargetId = targetId;
+    otherActions.forEach(({ actorId, targets, action }) => {
+        (targets || []).forEach(targetId => {
+            const attacker = roomPlayers.find(p => p.id === actorId);
+            let finalTargetId = targetId;
 
-        const isWolfBite = (action === 'kill' && actorId === 'wolf_group');
-        const isWolfCurse = (action === 'curse' && actorId === 'wolf_group');
+            const isWolfBite = (action === 'kill' && actorId === 'wolf_group');
+            const isWolfCurse = (action === 'curse' && actorId === 'wolf_group');
 
-        if (loveRedirects[targetId] && (isWolfBite || isWolfCurse)) {
-            const loverId = loveRedirects[targetId];
-            const loverStatus = liveStatuses[loverId];
-            const originalTarget = roomPlayers.find(p => p.id === targetId);
-            const newTarget = roomPlayers.find(p => p.id === loverId);
-            const actionName = isWolfBite ? 'Sói cắn' : 'Nguyền';
-            infoResults.push(`- ${newTarget.name} đã nhận thay ${actionName} cho ${originalTarget.name}.`);
-            
-            if (isWolfBite && loverStatus && !loverStatus.isProtected) {
-                loverStatus.damage++;
+            if (loveRedirects[targetId] && (isWolfBite || isWolfCurse)) {
+                const loverId = loveRedirects[targetId];
+                const loverStatus = liveStatuses[loverId];
+                const originalTarget = roomPlayers.find(p => p.id === targetId);
+                const newTarget = roomPlayers.find(p => p.id === loverId);
+                const actionName = isWolfBite ? 'Sói cắn' : 'Nguyền';
+                infoResults.push(`- ${newTarget.name} đã nhận thay ${actionName} cho ${originalTarget.name}.`);
+                
+                if (isWolfBite && loverStatus && !loverStatus.isProtected) {
+                    loverStatus.damage++;
+                }
+                
+                return; 
             }
             
-            return; 
-        }
-        
-        const target = roomPlayers.find(p => p.id === finalTargetId);
-        const actionKind = ALL_ACTIONS[action]?.key || action;
+            const target = roomPlayers.find(p => p.id === finalTargetId);
+            const actionKind = ALL_ACTIONS[action]?.key || action;
 
-        if (action === 'kill' || actionKind === 'gm_kill') {
-            const ultimateTargetId = damageRedirects[finalTargetId] || finalTargetId;
-            const targetStatus = liveStatuses[ultimateTargetId];
-            if (targetStatus && !targetStatus.isProtected && !targetStatus.isImmuneToWolves) {
-                targetStatus.damage++;
-                if (targetStatus.isBoobyTrapped) {
-                    const originalAttacker = (actorId === 'wolf_group') ? {id: 'wolf_group', name: 'Bầy Sói'} : attacker;
-                    if (originalAttacker.id === 'wolf_group') {
-                        const livingWolves = roomPlayers.filter(p => (p.faction === 'Bầy Sói' || p.faction === 'Phe Sói') && finalStatus[p.id]?.isAlive);
-                        if (livingWolves.length > 0) {
-                            const randomWolf = livingWolves[Math.floor(Math.random() * livingWolves.length)];
-                            if (liveStatuses[randomWolf.id] && !liveStatuses[randomWolf.id].isProtected) {
-                                liveStatuses[randomWolf.id].damage++;
-                                infoResults.push(`- Sói ${randomWolf.name} đã chết do boom khi cắn ${target.name}.`);
+            if (action === 'kill' || actionKind === 'gm_kill') {
+                const ultimateTargetId = damageRedirects[finalTargetId] || finalTargetId;
+                const targetStatus = liveStatuses[ultimateTargetId];
+                if (targetStatus && !targetStatus.isProtected && !targetStatus.isImmuneToWolves) {
+                    targetStatus.damage++;
+                    if (targetStatus.isBoobyTrapped) {
+                        const originalAttacker = (actorId === 'wolf_group') ? {id: 'wolf_group', name: 'Bầy Sói'} : attacker;
+                        if (originalAttacker.id === 'wolf_group') {
+                            const livingWolves = roomPlayers.filter(p => (p.faction === 'Bầy Sói' || p.faction === 'Phe Sói') && finalStatus[p.id]?.isAlive);
+                            if (livingWolves.length > 0) {
+                                const randomWolf = livingWolves[Math.floor(Math.random() * livingWolves.length)];
+                                if (liveStatuses[randomWolf.id] && !liveStatuses[randomWolf.id].isProtected) {
+                                    liveStatuses[randomWolf.id].damage++;
+                                    infoResults.push(`- Sói ${randomWolf.name} đã chết do boom khi cắn ${target.name}.`);
+                                }
                             }
+                        } else if (liveStatuses[originalAttacker.id] && !liveStatuses[originalAttacker.id].isProtected) {
+                            liveStatuses[originalAttacker.id].damage++;
+                            infoResults.push(`- ${originalAttacker.name} bị nổ boom khi tấn công ${target.name}.`);
                         }
-                    } else if (liveStatuses[originalAttacker.id] && !liveStatuses[originalAttacker.id].isProtected) {
-                        liveStatuses[originalAttacker.id].damage++;
-                        infoResults.push(`- ${originalAttacker.name} bị nổ boom khi tấn công ${target.name}.`);
+                        targetStatus.isBoobyTrapped = false;
+                        finalStatus[ultimateTargetId].isBoobyTrapped = false;
                     }
-                    targetStatus.isBoobyTrapped = false;
-                    finalStatus[ultimateTargetId].isBoobyTrapped = false;
                 }
+                return;
             }
-            return;
-        }
 
-        if (!attacker || !target) return;
-        
-        const attackerHasKill = actionKind.includes('kill') || (liveStatuses[actorId] && liveStatuses[actorId].tempStatus.hasKillAbility);
+            if (!attacker || !target) return;
+            
+            const attackerHasKill = actionKind.includes('kill') || (liveStatuses[actorId] && liveStatuses[actorId].tempStatus.hasKillAbility);
 
-        if (attackerHasKill && actionKind !== 'killdelay') {
-            const ultimateTargetId = damageRedirects[finalTargetId] || finalTargetId;
-            const finalTarget = roomPlayers.find(p => p.id === ultimateTargetId);
-            const finalTargetStatus = liveStatuses[ultimateTargetId];
-            
-            if (!finalTarget || !finalTargetStatus || finalTargetStatus.isProtected) return;
-            
-            let shouldDamage = true;
-            if(actionKind === 'killwolf' && !(finalTarget.faction === 'Bầy Sói' || finalTarget.faction === 'Phe Sói')) shouldDamage = false;
-            if(actionKind === 'killvillager'){
-                if(finalTarget.roleName === 'Dân') shouldDamage = true;
-                else {
-                    shouldDamage = false;
-                    if (liveStatuses[actorId] && !liveStatuses[actorId].isProtected) liveStatuses[actorId].damage++;
-                }
-            }
-            
-            if(shouldDamage) {
-                finalTargetStatus.damage++;
-                if (finalTargetStatus.isBoobyTrapped) {
-                     if (liveStatuses[attacker.id] && !liveStatuses[attacker.id].isProtected) {
-                        liveStatuses[attacker.id].damage++;
-                        infoResults.push(`- ${attacker.name} bị nổ boom khi tấn công ${finalTarget.name}.`);
+            if (attackerHasKill && actionKind !== 'killdelay') {
+                const ultimateTargetId = damageRedirects[finalTargetId] || finalTargetId;
+                const finalTarget = roomPlayers.find(p => p.id === ultimateTargetId);
+                const finalTargetStatus = liveStatuses[ultimateTargetId];
+                
+                if (!finalTarget || !finalTargetStatus || finalTargetStatus.isProtected) return;
+                
+                let shouldDamage = true;
+                if(actionKind === 'killwolf' && !(finalTarget.faction === 'Bầy Sói' || finalTarget.faction === 'Phe Sói')) shouldDamage = false;
+                if(actionKind === 'killvillager'){
+                    if(finalTarget.roleName === 'Dân') shouldDamage = true;
+                    else {
+                        shouldDamage = false;
+                        if (liveStatuses[actorId] && !liveStatuses[actorId].isProtected) liveStatuses[actorId].damage++;
                     }
-                    finalTargetStatus.isBoobyTrapped = false;
-                    finalStatus[ultimateTargetId].isBoobyTrapped = false;
+                }
+                
+                if(shouldDamage) {
+                    finalTargetStatus.damage++;
+                    if (finalTargetStatus.isBoobyTrapped) {
+                         if (liveStatuses[attacker.id] && !liveStatuses[attacker.id].isProtected) {
+                            liveStatuses[attacker.id].damage++;
+                            infoResults.push(`- ${attacker.name} bị nổ boom khi tấn công ${finalTarget.name}.`);
+                        }
+                        finalTargetStatus.isBoobyTrapped = false;
+                        finalStatus[ultimateTargetId].isBoobyTrapped = false;
+                    }
+                }
+                
+                if (finalTarget.kind === 'counter' && !liveStatuses[attacker.id].isProtected) {
+                    if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
+                }
+                if (ultimateTargetId !== finalTargetId && !liveStatuses[attacker.id].isProtected) {
+                     if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
+                }
+                const ward = counterWards[ultimateTargetId];
+                if ((ward || finalStatus[ultimateTargetId]?.hasPermanentCounterWard) && (!ward || !ward.triggered) && !liveStatuses[attacker.id].isProtected) {
+                    if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
+                    if (ward) ward.triggered = true;
                 }
             }
             
-            if (finalTarget.kind === 'counter' && !liveStatuses[attacker.id].isProtected) {
-                if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
+            if (actionKind === 'audit') {
+                const currentFaction = finalStatus[targetId]?.faction || target.faction;
+                let isBaySoi = (currentFaction === 'Bầy Sói');
+                if (target.kind.includes('reverse') || target.kind.includes('counteraudit')) isBaySoi = !isBaySoi;
+                const result = isBaySoi ? "thuộc Bầy Sói" : "KHÔNG thuộc Bầy Sói";
+                infoResults.push(`- ${attacker.roleName} (${attacker.name}) soi ${target.name}: ${result}.`);
             }
-            if (ultimateTargetId !== finalTargetId && !liveStatuses[attacker.id].isProtected) {
-                 if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
+            if (actionKind === 'invest') {
+                const currentFaction = finalStatus[targetId]?.faction || target.faction;
+                const isAnyWolf = (currentFaction === 'Bầy Sói' || currentFaction === 'Phe Sói');
+                const result = isAnyWolf ? "thuộc Phe Sói" : "KHÔNG thuộc Phe Sói";
+                infoResults.push(`- ${attacker.roleName} (${attacker.name}) điều tra ${target.name}: ${result}.`);
             }
-            const ward = counterWards[ultimateTargetId];
-            if ((ward || finalStatus[ultimateTargetId]?.hasPermanentCounterWard) && (!ward || !ward.triggered) && !liveStatuses[attacker.id].isProtected) {
-                if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
-                if (ward) ward.triggered = true;
+            if (actionKind === 'check') {
+                infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã kiểm tra ${target.name}.`);
             }
-        }
-        
-        if (actionKind === 'audit') {
-            const currentFaction = finalStatus[targetId]?.faction || target.faction;
-            let isBaySoi = (currentFaction === 'Bầy Sói');
-            if (target.kind.includes('reverse') || target.kind.includes('counteraudit')) isBaySoi = !isBaySoi;
-            const result = isBaySoi ? "thuộc Bầy Sói" : "KHÔNG thuộc Bầy Sói";
-            infoResults.push(`- ${attacker.roleName} (${attacker.name}) soi ${target.name}: ${result}.`);
-        }
-        if (actionKind === 'invest') {
-            const currentFaction = finalStatus[targetId]?.faction || target.faction;
-            const isAnyWolf = (currentFaction === 'Bầy Sói' || currentFaction === 'Phe Sói');
-            const result = isAnyWolf ? "thuộc Phe Sói" : "KHÔNG thuộc Phe Sói";
-            infoResults.push(`- ${attacker.roleName} (${attacker.name}) điều tra ${target.name}: ${result}.`);
-        }
-        if (actionKind === 'check') {
-            infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã kiểm tra ${target.name}.`);
-        }
+        });
     });
 
-    killifActions.forEach(({ actorId, targetId }) => {
-        const attacker = roomPlayers.find(p => p.id === actorId);
-        const target = roomPlayers.find(p => p.id === targetId);
-        if (!attacker || !target) return;
-        
-        const finalTargetId = damageRedirects[targetId] || targetId;
-        const targetStatus = liveStatuses[finalTargetId];
+    killifActions.forEach(({ actorId, targets }) => {
+        (targets || []).forEach(targetId => {
+            const attacker = roomPlayers.find(p => p.id === actorId);
+            const target = roomPlayers.find(p => p.id === targetId);
+            if (!attacker || !target) return;
+            
+            const finalTargetId = damageRedirects[targetId] || targetId;
+            const targetStatus = liveStatuses[finalTargetId];
 
-        if (targetStatus) {
-            if (targetStatus.damage > 0) {
-                targetStatus.isSavedByKillif = true;
-                infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã CỨU ${target.name} (do mục tiêu đã bị tấn công).`);
-            } else {
-                if(!targetStatus.isProtected) targetStatus.damage++;
+            if (targetStatus) {
+                if (targetStatus.damage > 0) {
+                    targetStatus.isSavedByKillif = true;
+                    infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã CỨU ${target.name} (do mục tiêu đã bị tấn công).`);
+                } else {
+                    if(!targetStatus.isProtected) targetStatus.damage++;
+                }
             }
-        }
+        });
     });
 
     const damageGroups = nightState.damageGroups || {};
@@ -435,28 +436,30 @@ function calculateNightStatus(nightState, roomPlayers) {
         group.forEach(pId => { liveStatuses[pId].damage = totalDamage; });
     });
 
-    executableActions.forEach(({ actorId, targetId, action }) => {
+    executableActions.forEach(({ actorId, targets, action }) => {
          const actor = roomPlayers.find(p => p.id === actorId);
          if (!actor) return;
          
-         const actionKind = ALL_ACTIONS[action]?.key || action;
-         if (actionKind.includes('save') || actionKind === 'gm_save') {
-             const targetStatus = liveStatuses[targetId];
-             if (targetStatus) {
-                if (actor.kind === 'save_gather' && targetStatus.gatheredBy) {
-                    const groupToSave = gatherGroups[targetStatus.gatheredBy];
-                    if (groupToSave) groupToSave.forEach(pId => { liveStatuses[pId].isSaved = true; });
-                } else {
-                    targetStatus.isSaved = true;
+         (targets || []).forEach(targetId => {
+            const actionKind = ALL_ACTIONS[action]?.key || action;
+            if (actionKind.includes('save') || actionKind === 'gm_save') {
+                const targetStatus = liveStatuses[targetId];
+                if (targetStatus) {
+                   if (actor.kind === 'save_gather' && targetStatus.gatheredBy) {
+                       const groupToSave = gatherGroups[targetStatus.gatheredBy];
+                       if (groupToSave) groupToSave.forEach(pId => { liveStatuses[pId].isSaved = true; });
+                   } else {
+                       targetStatus.isSaved = true;
+                   }
                 }
-             }
-         }
+            }
+        });
     });
 
     const saveAllAction = executableActions.find(a => (ALL_ACTIONS[a.action]?.key || a.action) === 'saveall');
-    const didSaveAll = saveAllAction && saveAllAction.targetId === saveAllAction.actorId;
-
-    if (didSaveAll) {
+    let didSaveAll = false;
+    if (saveAllAction && saveAllAction.targets && saveAllAction.targets.includes(saveAllAction.actorId)) {
+        didSaveAll = true;
         infoResults.push(`- ${roomPlayers.find(p=>p.id===saveAllAction.actorId).name} đã cứu tất cả mọi người!`);
     }
 
