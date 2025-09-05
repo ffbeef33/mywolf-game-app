@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let myPlayerId = null;
     let allRolesData = [];
     let myPlayerData = {};
+    let roomData = {}; // Biến toàn cục để lưu dữ liệu phòng
 
     // --- DATA FETCHING ---
     const fetchAllRolesData = async () => {
@@ -164,8 +165,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const roomRef = database.ref(`rooms/${roomId}`);
         roomListener = roomRef.on('value', (snapshot) => {
-            const roomData = snapshot.val();
-            if (roomData) {
+            const newRoomData = snapshot.val();
+            if (newRoomData) {
+                roomData = newRoomData; // Cập nhật biến toàn cục
                 updateGameState(username, roomId, roomData);
             } else {
                 showSection(waitingSection);
@@ -196,11 +198,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function updateGameState(username, roomId, roomData) {
+    function updateGameState(username, roomId, currentRoomData) {
         roomIdDisplay.textContent = roomId;
-        displayRolesInGame(roomData.rolesToAssign || []);
+        displayRolesInGame(currentRoomData.rolesToAssign || []);
         
-        const myPlayerEntry = Object.entries(roomData.players).find(([id, p]) => p.name === username);
+        const myPlayerEntry = Object.entries(currentRoomData.players).find(([id, p]) => p.name === username);
         if (!myPlayerEntry) {
             showSection(waitingSection);
             playerActionsContainer.classList.add('hidden');
@@ -219,16 +221,16 @@ document.addEventListener('DOMContentLoaded', () => {
             playerActionsContainer.classList.add('hidden');
         }
 
-        const interactiveState = roomData.interactiveState;
+        const interactiveState = currentRoomData.interactiveState;
         if (interactiveState && interactiveState.phase === 'night' && myPlayerData.isAlive) {
             hideAllGameCards();
-            displayNightActions(roomData, interactiveState.currentNight);
+            displayNightActions(currentRoomData, interactiveState.currentNight);
             return; 
         }
         
         interactiveActionSection.classList.add('hidden');
 
-        const votingState = roomData.votingState;
+        const votingState = currentRoomData.votingState;
         if (votingState && votingState.status === 'active') {
             if (myPlayerData.isAlive) {
                 showSection(votingUiSection);
@@ -245,9 +247,9 @@ document.addEventListener('DOMContentLoaded', () => {
             showSection(roleRevealSection);
             const fullRoleData = allRolesData.find(role => role.name === myPlayerData.roleName);
             updateRoleCard(fullRoleData);
-        } else if (roomData.playerPickState && roomData.playerPickState.status === 'picking') {
+        } else if (currentRoomData.playerPickState && currentRoomData.playerPickState.status === 'picking') {
             showSection(playerPickSection);
-            handlePlayerPickState(username, roomId, roomData.playerPickState);
+            handlePlayerPickState(username, roomId, currentRoomData.playerPickState);
         } else {
             showSection(waitingSection);
             waitingSection.querySelector('h2').textContent = "Đang chờ Quản Trò...";
@@ -534,13 +536,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- MODULE TƯƠNG TÁC (ĐÃ CẬP NHẬT) ---
-    function displayNightActions(roomData, currentNight) {
+    function displayNightActions(currentRoomData, currentNight) {
         interactiveActionSection.classList.remove('hidden');
         interactiveActionSection.innerHTML = '';
     
         const myRole = allRolesData.find(r => r.name === myPlayerData.roleName) || {};
         const isWolfFaction = myRole.faction === 'Bầy Sói' || myRole.faction === 'Phe Sói';
-        const livingPlayers = Object.entries(roomData.players).filter(([id, player]) => player.isAlive);
+        const livingPlayers = Object.entries(currentRoomData.players).filter(([id, player]) => player.isAlive);
         let hasIndividualActions = false;
     
         // 1. Hiển thị hành động chung của Bầy Sói (nếu có)
@@ -591,11 +593,24 @@ document.addEventListener('DOMContentLoaded', () => {
         panel.className = 'game-card';
         panel.style.marginBottom = '20px';
     
+        const currentNight = roomData.interactiveState?.currentNight;
+        let existingAction = null;
+        if (currentNight && roomData.nightActions?.[currentNight]) {
+            // Kiểm tra hành động của Sói
+            if (actionDetails.actionKind === 'kill' && roomData.nightActions[currentNight].wolf_group) {
+                existingAction = roomData.nightActions[currentNight].wolf_group;
+            // Kiểm tra hành động của cá nhân (phải khớp cả actionKind để tránh ghi đè nếu có nhiều action)
+            } else if (roomData.nightActions[currentNight][myPlayerId] && roomData.nightActions[currentNight][myPlayerId].action === actionDetails.actionKind) {
+                existingAction = roomData.nightActions[currentNight][myPlayerId];
+            }
+        }
+    
         let targetsHTML = '';
         livingPlayers.forEach(([id, player]) => {
             let playerName = player.name;
             if (myPlayerId === id) playerName += " (Bản thân)";
-            targetsHTML += `<button class="choice-btn" data-target-id="${id}">${playerName}</button>`;
+            const isSelected = existingAction && existingAction.target === id;
+            targetsHTML += `<button class="choice-btn ${isSelected ? 'selected' : ''}" data-target-id="${id}">${playerName}</button>`;
         });
     
         panel.innerHTML = `
@@ -611,24 +626,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const statusMsg = panel.querySelector('.choice-status-message');
         let selectedTargetId = null;
     
-        targetsContainer.addEventListener('click', (e) => {
-            if (e.target.tagName === 'BUTTON') {
-                targetsContainer.querySelector('.selected')?.classList.remove('selected');
-                e.target.classList.add('selected');
-                selectedTargetId = e.target.dataset.targetId;
-                confirmBtn.classList.remove('hidden');
-            }
-        });
+        if (existingAction) {
+            const targetPlayerEntry = livingPlayers.find(([id, player]) => id === existingAction.target);
+            const targetName = targetPlayerEntry ? targetPlayerEntry[1].name : 'Mục tiêu';
+            statusMsg.innerHTML = `Đã xác nhận hành động lên <strong>${targetName}</strong>.`;
+            targetsContainer.querySelectorAll('button').forEach(btn => {
+                btn.disabled = true;
+                if (btn.dataset.targetId !== existingAction.target) {
+                    btn.style.opacity = '0.5';
+                }
+            });
+        } else {
+            targetsContainer.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    targetsContainer.querySelector('.selected')?.classList.remove('selected');
+                    e.target.classList.add('selected');
+                    selectedTargetId = e.target.dataset.targetId;
+                    confirmBtn.classList.remove('hidden');
+                }
+            });
     
-        confirmBtn.addEventListener('click', () => {
-            if (selectedTargetId) {
-                const actionData = {
-                    action: actionDetails.actionKind,
-                    target: selectedTargetId
-                };
-                submitNightAction(actionDetails.path, actionData, { targetsContainer, confirmBtn, statusMsg }, livingPlayers);
-            }
-        });
+            confirmBtn.addEventListener('click', () => {
+                if (selectedTargetId) {
+                    const actionData = {
+                        action: actionDetails.actionKind,
+                        target: selectedTargetId
+                    };
+                    submitNightAction(actionDetails.path, actionData, { targetsContainer, confirmBtn, statusMsg }, livingPlayers);
+                }
+            });
+        }
     
         return panel;
     }
@@ -639,20 +666,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const targetPlayerEntry = livingPlayers.find(([id, player]) => id === data.target);
                 const targetName = targetPlayerEntry ? targetPlayerEntry[1].name : 'Mục tiêu';
     
-                // Hiển thị thông báo xác nhận với tên mục tiêu
                 uiElements.statusMsg.innerHTML = `Đã xác nhận hành động lên <strong>${targetName}</strong>.`;
                 
-                // Vô hiệu hóa các nút và làm mờ các lựa chọn không được chọn
                 uiElements.targetsContainer.querySelectorAll('button').forEach(btn => {
                     btn.disabled = true;
                     if (btn.dataset.targetId !== data.target) {
                         btn.style.opacity = '0.5';
                     } else {
-                        btn.classList.add('selected'); // Đảm bảo lựa chọn cuối cùng vẫn được tô sáng
+                        btn.classList.add('selected');
                     }
                 });
     
-                // Ẩn nút xác nhận đi
                 uiElements.confirmBtn.disabled = true;
                 uiElements.confirmBtn.classList.add('hidden');
             })

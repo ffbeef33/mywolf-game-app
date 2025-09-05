@@ -54,6 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
             allRolesData = rawData.reduce((acc, role) => {
                 if (role.RoleName) {
                     const roleName = role.RoleName.trim();
+                     // CẬP NHẬT: Nạp đầy đủ các thuộc tính Active, Kind, Quantity, Duration
                      acc[roleName] = {
                         name: roleName,
                         faction: (role.Faction || 'Chưa phân loại').trim(),
@@ -193,8 +194,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const playerActions = roomData.nightActions?.[currentNight] || {};
         const allPlayers = roomData.players;
 
-        // === SỬA LỖI TẠI ĐÂY: Tạo đối tượng trạng thái ban đầu đầy đủ ===
-        // Logic này được lấy từ night-note.js để đảm bảo tính nhất quán
         const initialPlayerStatus = Object.fromEntries(
             Object.entries(allPlayers).map(([id, player]) => {
                 const roleName = player.roleName || "";
@@ -202,11 +201,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const kind = roleInfo.kind || 'empty';
                 return [id, { 
                     isAlive: player.isAlive,
-                    // --- Các thuộc tính cốt lõi cần cho game-logic ---
                     faction: roleInfo.faction || 'Chưa phân loại',
                     roleName: roleName,
                     kind: kind,
-                    // --- Các thuộc tính trạng thái mặc định từ night-note ---
                     isDisabled: false,
                     isPermanentlyDisabled: false,
                     isPermanentlyProtected: false,
@@ -253,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const nightStateForCalc = {
             actions: formattedActions,
             playersStatus: initialPlayerStatus,
-            initialPlayersStatus: JSON.parse(JSON.stringify(initialPlayerStatus)) // Thêm bản sao cho logic reset
+            initialPlayersStatus: JSON.parse(JSON.stringify(initialPlayerStatus))
         };
 
         const roomPlayersForCalc = Object.entries(allPlayers).map(([id, data]) => {
@@ -276,7 +273,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const updates = {};
         
         Object.keys(finalStatus).forEach(playerId => {
-            // Chỉ cập nhật nếu trạng thái isAlive thay đổi từ true sang false
             if (initialPlayerStatus[playerId]?.isAlive && !finalStatus[playerId].isAlive) {
                 updates[`/players/${playerId}/isAlive`] = false;
             }
@@ -305,10 +301,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             await database.ref(`rooms/${currentRoomId}`).update(updates);
-            // Không cần addLog thủ công vì listener sẽ tự render lại
         } catch (error) {
             console.error("Lỗi khi cập nhật kết quả đêm:", error);
-            // addLog(`Lỗi khi xử lý đêm: ${error.message}`);
         } finally {
             endNightBtn.disabled = false;
             endNightBtn.innerHTML = '<i class="fas fa-sun"></i> Kết Thúc Đêm & Xử Lý';
