@@ -1,5 +1,5 @@
 // =================================================================
-// === player.js - PHIÊN BẢN CUỐI CÙNG, SỬA LỖI LOGIC ACTIVE, QUANTITY, DURATION ===
+// === player.js - PHIÊN BẢN CUỐI CÙNG, SỬA LỖI NÚT UNDEFINED ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -535,7 +535,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 description: "Thống nhất chọn một mục tiêu để loại bỏ khỏi làng.",
                 actionKind: 'kill',
                 path: `rooms/${currentRoomId}/nightActions/${currentNight}/wolf_group`,
-                roleInfo: { ...myRole, quantity: 1 }
+                roleInfo: { ...myRole, quantity: 1 },
+                confirmText: "Xác nhận Cắn" // SỬA LỖI NÚT UNDEFINED
             };
             interactiveActionSection.appendChild(createActionPanel(wolfBiteAction, livingPlayers));
         }

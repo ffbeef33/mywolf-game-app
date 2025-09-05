@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - PHIÊN BẢN SỬA LỖI XỬ LÝ NHIỀU MỤC TIÊU ===
+// === interactive-gm.js - PHIÊN BẢN PHÂN CHIA PHE & SỬA LỖI ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -127,21 +127,55 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // === HÀM RENDER DANH SÁCH NGƯỜI CHƠI ĐÃ NÂNG CẤP ===
     const renderPlayerList = () => {
         const players = roomData.players || {};
         playerListUI.innerHTML = '';
         playersTotalDisplay.textContent = Object.keys(players).length;
+
+        const playersByFaction = {
+            'Bầy Sói': [],
+            'Phe Sói': [],
+            'Phe Dân': [],
+            'Phe trung lập': [],
+            'Khác': []
+        };
+
         Object.entries(players).forEach(([id, player]) => {
-            const li = document.createElement('li');
-            li.className = 'player-item';
-            if (!player.isAlive) {
-                li.classList.add('dead');
+            const roleName = player.roleName || '';
+            const roleData = allRolesData[roleName] || {};
+            const faction = roleData.faction || 'Khác';
+            
+            if (playersByFaction.hasOwnProperty(faction)) {
+                playersByFaction[faction].push({ id, ...player });
+            } else {
+                playersByFaction['Khác'].push({ id, ...player });
             }
-            li.innerHTML = `
-                <span class="player-name">${player.name} <strong>(${player.roleName || 'Chưa có vai'})</strong></span>
-                <button class="btn-secondary gm-action-btn" data-player-id="${id}" data-player-name="${player.name}">Hành động</button>
-            `;
-            playerListUI.appendChild(li);
+        });
+
+        const factionOrder = ['Bầy Sói', 'Phe Sói', 'Phe Dân', 'Phe trung lập', 'Khác'];
+
+        factionOrder.forEach(faction => {
+            const groupPlayers = playersByFaction[faction];
+            if (groupPlayers.length > 0) {
+                const headerLi = document.createElement('li');
+                headerLi.className = 'faction-header-li';
+                headerLi.textContent = faction;
+                playerListUI.appendChild(headerLi);
+
+                groupPlayers.sort((a, b) => a.name.localeCompare(b.name)).forEach(player => {
+                    const li = document.createElement('li');
+                    li.className = 'player-item';
+                    if (!player.isAlive) {
+                        li.classList.add('dead');
+                    }
+                    li.innerHTML = `
+                        <span class="player-name">${player.name} <strong>(${player.roleName || 'Chưa có vai'})</strong></span>
+                        <button class="btn-secondary gm-action-btn" data-player-id="${player.id}" data-player-name="${player.name}">Hành động</button>
+                    `;
+                    playerListUI.appendChild(li);
+                });
+            }
         });
     };
     
@@ -186,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentPhaseDisplay.textContent = phaseText;
     };
     
+    // Hàm processNightResults không thay đổi
     const processNightResults = async () => {
         endNightBtn.disabled = true;
         endNightBtn.textContent = "Đang xử lý...";
@@ -302,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Xử lý sự kiện nhấn nút ---
+    // --- Xử lý sự kiện nhấn nút (giữ nguyên) ---
     startNightBtn.addEventListener('click', () => {
         const state = roomData.interactiveState || {};
         
@@ -335,9 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         database.ref(`rooms/${currentRoomId}/interactiveState`).update(newState);
     });
-
     endNightBtn.addEventListener('click', processNightResults);
-    
     startDayBtn.addEventListener('click', () => {
         const currentNightNumber = roomData.interactiveState?.currentNight || 1;
         database.ref(`rooms/${currentRoomId}/interactiveState`).update({
@@ -345,7 +378,6 @@ document.addEventListener('DOMContentLoaded', () => {
             message: `Ngày ${currentNightNumber}. Mọi người thảo luận.`
         });
     });
-
     startVoteBtn.addEventListener('click', () => {
         const currentNightNumber = roomData.interactiveState?.currentNight || 1;
          database.ref(`rooms/${currentRoomId}/interactiveState`).update({
@@ -353,7 +385,6 @@ document.addEventListener('DOMContentLoaded', () => {
             message: `Ngày ${currentNightNumber}. Bắt đầu bỏ phiếu.`
         });
     });
-    
     endGameBtn.addEventListener('click', () => {
         if (!confirm('Bạn có chắc muốn kết thúc ván chơi này?')) return;
         const newState = {
@@ -362,7 +393,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         database.ref(`rooms/${currentRoomId}/interactiveState`).update(newState);
     });
-    
     playerListUI.addEventListener('click', (e) => {
         if (e.target && e.target.classList.contains('gm-action-btn')) {
             const playerId = e.target.dataset.playerId;
