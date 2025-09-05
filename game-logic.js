@@ -357,18 +357,19 @@ function calculateNightStatus(nightState, roomPlayers) {
                 }
             }
             
+            // === SỬA LỖI: THÊM "đã" VÀO CÁC CÂU LOG ===
             if (actionKind === 'audit') {
                 const currentFaction = finalStatus[targetId]?.faction || target.faction;
                 let isBaySoi = (currentFaction === 'Bầy Sói');
                 if (target.kind.includes('reverse') || target.kind.includes('counteraudit')) isBaySoi = !isBaySoi;
                 const result = isBaySoi ? "thuộc Bầy Sói" : "KHÔNG thuộc Bầy Sói";
-                infoResults.push(`- ${attacker.roleName} (${attacker.name}) soi ${target.name}: ${result}.`);
+                infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã soi ${target.name}: ${result}.`);
             }
             if (actionKind === 'invest') {
                 const currentFaction = finalStatus[targetId]?.faction || target.faction;
                 const isAnyWolf = (currentFaction === 'Bầy Sói' || currentFaction === 'Phe Sói');
                 const result = isAnyWolf ? "thuộc Phe Sói" : "KHÔNG thuộc Phe Sói";
-                infoResults.push(`- ${attacker.roleName} (${attacker.name}) điều tra ${target.name}: ${result}.`);
+                infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã điều tra ${target.name}: ${result}.`);
             }
             if (actionKind === 'check') {
                 infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã kiểm tra ${target.name}.`);
