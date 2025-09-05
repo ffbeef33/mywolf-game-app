@@ -249,12 +249,11 @@ function calculateNightStatus(nightState, roomPlayers) {
         }
     });
 
-    // === SỬA LỖI: CHO PHÉP HÀNH ĐỘNG INFO ĐI QUA BỘ LỌC KỂ CẢ KHI BỊ VÔ HIỆU HÓA ===
     const executableActions = actions.filter(action => {
         const actionKind = ALL_ACTIONS[action.action]?.key || action.action;
         const isSelfDisablingAction = ['love', 'disable_action', 'freeze'].includes(actionKind);
-        const isInfoAction = ['audit', 'invest', 'check'].includes(actionKind);
-        return !disabledPlayerIds.has(action.actorId) || isSelfDisablingAction || isInfoAction;
+        // Cho phép tất cả hành động đi qua, sẽ kiểm tra disable bên trong logic xử lý
+        return true; 
     });
     
     const killifActions = executableActions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
@@ -283,8 +282,37 @@ function calculateNightStatus(nightState, roomPlayers) {
                 return; 
             }
             
-            const target = roomPlayers.find(p => p.id === finalTargetId);
+            let target = roomPlayers.find(p => p.id === finalTargetId);
             const actionKind = ALL_ACTIONS[action]?.key || action;
+
+            if (!attacker || !target) return;
+
+            // === SỬA LỖI LOGIC VÔ HIỆU HÓA CHO VAI TRÒ INFO ===
+            // Nếu người hành động bị vô hiệu hóa và hành động là loại thông tin
+            if (disabledPlayerIds.has(attacker.id) && ['audit', 'invest', 'check'].includes(actionKind)) {
+                // Tìm một người chơi Phe Dân bất kỳ để làm mục tiêu giả
+                const fakeVillagerTarget = roomPlayers.find(p => p.baseFaction === 'Phe Dân');
+                if (fakeVillagerTarget) {
+                    target = fakeVillagerTarget; // Thay đổi mục tiêu kiểm tra thành Dân
+                } else {
+                    // Trường hợp hiếm không có Dân, trả về kết quả mặc định và dừng lại
+                    if (actionKind === 'audit') {
+                        infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã soi ${roomPlayers.find(p => p.id === finalTargetId).name}: KHÔNG thuộc Bầy Sói.`);
+                    }
+                    if (actionKind === 'invest') {
+                        infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã điều tra ${roomPlayers.find(p => p.id === finalTargetId).name}: KHÔNG thuộc Phe Sói.`);
+                    }
+                    if (actionKind === 'check') {
+                         infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã kiểm tra ${roomPlayers.find(p => p.id === finalTargetId).name}.`);
+                    }
+                    return; // Bỏ qua phần xử lý còn lại cho hành động này
+                }
+            } else if (disabledPlayerIds.has(attacker.id)) {
+                // Nếu bị vô hiệu hóa nhưng không phải hành động info, hủy hành động
+                return;
+            }
+            // =======================================================
+
 
             if (action === 'kill' || actionKind === 'gm_kill') {
                 const ultimateTargetId = damageRedirects[finalTargetId] || finalTargetId;
@@ -312,8 +340,6 @@ function calculateNightStatus(nightState, roomPlayers) {
                 }
                 return;
             }
-
-            if (!attacker || !target) return;
             
             const attackerHasKill = actionKind.includes('kill') || (liveStatuses[actorId] && liveStatuses[actorId].tempStatus.hasKillAbility);
 
@@ -359,32 +385,21 @@ function calculateNightStatus(nightState, roomPlayers) {
                 }
             }
             
-            // === SỬA LỖI: KIỂM TRA TRẠNG THÁI VÔ HIỆU HÓA TRƯỚC KHI TRẢ KẾT QUẢ ===
             if (actionKind === 'audit') {
-                let result;
-                if (disabledPlayerIds.has(attacker.id)) {
-                    result = "KHÔNG thuộc Bầy Sói"; // Trả về kết quả mặc định nếu bị vô hiệu hóa
-                } else {
-                    const currentFaction = finalStatus[targetId]?.faction || target.faction;
-                    let isBaySoi = (currentFaction === 'Bầy Sói');
-                    if (target.kind.includes('reverse') || target.kind.includes('counteraudit')) isBaySoi = !isBaySoi;
-                    result = isBaySoi ? "thuộc Bầy Sói" : "KHÔNG thuộc Bầy Sói";
-                }
-                infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã soi ${target.name}: ${result}.`);
+                const currentFaction = finalStatus[target.id]?.faction || target.faction;
+                let isBaySoi = (currentFaction === 'Bầy Sói');
+                if (target.kind.includes('reverse') || target.kind.includes('counteraudit')) isBaySoi = !isBaySoi;
+                const result = isBaySoi ? "thuộc Bầy Sói" : "KHÔNG thuộc Bầy Sói";
+                infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã soi ${roomPlayers.find(p => p.id === finalTargetId).name}: ${result}.`);
             }
             if (actionKind === 'invest') {
-                let result;
-                if (disabledPlayerIds.has(attacker.id)) {
-                    result = "KHÔNG thuộc Phe Sói"; // Trả về kết quả mặc định nếu bị vô hiệu hóa
-                } else {
-                    const currentFaction = finalStatus[targetId]?.faction || target.faction;
-                    const isAnyWolf = (currentFaction === 'Bầy Sói' || currentFaction === 'Phe Sói');
-                    result = isAnyWolf ? "thuộc Phe Sói" : "KHÔNG thuộc Phe Sói";
-                }
-                infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã điều tra ${target.name}: ${result}.`);
+                const currentFaction = finalStatus[target.id]?.faction || target.faction;
+                const isAnyWolf = (currentFaction === 'Bầy Sói' || currentFaction === 'Phe Sói');
+                const result = isAnyWolf ? "thuộc Phe Sói" : "KHÔNG thuộc Phe Sói";
+                infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã điều tra ${roomPlayers.find(p => p.id === finalTargetId).name}: ${result}.`);
             }
             if (actionKind === 'check') {
-                infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã kiểm tra ${target.name}.`);
+                infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã kiểm tra ${roomPlayers.find(p => p.id === finalTargetId).name}.`);
             }
         });
     });
@@ -451,7 +466,7 @@ function calculateNightStatus(nightState, roomPlayers) {
 
     executableActions.forEach(({ actorId, targets, action }) => {
          const actor = roomPlayers.find(p => p.id === actorId);
-         if (!actor) return;
+         if (!actor || disabledPlayerIds.has(actorId)) return; // Thêm kiểm tra disable ở đây cho các hành động khác
          
          (targets || []).forEach(targetId => {
             const actionKind = ALL_ACTIONS[action]?.key || action;
