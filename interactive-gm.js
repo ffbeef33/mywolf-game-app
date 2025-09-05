@@ -284,7 +284,6 @@ document.addEventListener('DOMContentLoaded', () => {
                            return (role.faction === 'Bầy Sói' || role.faction === 'Phe Sói');
                         });
 
-                        // === SỬA LỖI: LOGIC TÌM VAI SÓI ĐỂ GÁN KHI BỊ NGUYỀN ===
                         let newWolfRoleName = null;
                         const wolfRolesInGame = Object.values(allRolesData).filter(role => role.faction === 'Bầy Sói');
                         
@@ -299,7 +298,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (!newWolfRoleName && wolfRolesInGame.length > 0) {
                             newWolfRoleName = wolfRolesInGame[0].name;
                         }
-                        // === KẾT THÚC SỬA LỖI ===
 
                         if (newWolfRoleName) {
                             updates[`/players/${finalTargetId}/roleName`] = newWolfRoleName;
@@ -413,20 +411,26 @@ document.addEventListener('DOMContentLoaded', () => {
             if(!confirm("Bạn có muốn reset và bắt đầu game mới không? Hành động này sẽ xóa toàn bộ lịch sử đêm và hồi sinh người chơi.")) return;
             
             const updates = {};
+            // === SỬA LỖI: RESET LẠI VAI TRÒ CỦA NGƯỜI CHƠI KHI BẮT ĐẦU GAME MỚI ===
             Object.keys(roomData.players).forEach(pId => {
                 updates[`/players/${pId}/isAlive`] = true;
+                updates[`/players/${pId}/roleName`] = null; // Đặt lại vai trò về null
             });
+            // === KẾT THÚC SỬA LỖI ===
+
             updates['/nightActions'] = null;
             updates['/nightResults'] = null;
             updates['/interactiveLog'] = null;
             updates['/interactiveState'] = {
-                phase: 'night',
-                currentNight: 1,
-                message: `Đêm 1 bắt đầu.`,
+                phase: 'setup', // Quay về trạng thái setup để chờ chia bài lại
+                currentNight: 0,
+                message: `Game đã được reset. Chờ Quản trò chia lại vai trò.`,
                 curseAbility: { status: 'locked' } 
             };
             
             database.ref(`rooms/${currentRoomId}`).update(updates);
+            // Sau khi reset, nên quay về trang admin để chia bài lại
+            alert("Game đã được reset! Vui lòng quay lại trang Admin để bắt đầu chia lại vai trò cho ván mới.");
             return;
         }
 
