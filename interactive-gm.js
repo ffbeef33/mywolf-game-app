@@ -258,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let actionIdCounter = 0;
         const formattedActions = [];
-        const updates = {}; // *** KHỞI TẠO BIẾN UPDATES Ở ĐÂY
+        const updates = {}; 
 
         for (const actorId in playerActions) {
             const actionData = playerActions[actorId];
@@ -284,20 +284,39 @@ document.addEventListener('DOMContentLoaded', () => {
                            return (role.faction === 'Bầy Sói' || role.faction === 'Phe Sói');
                         });
 
-                        updates[`/players/${finalTargetId}/roleName`] = 'Ma Sói';
-                        updates[`/interactiveState/curseAbility/status`] = 'used';
+                        // === SỬA LỖI: LOGIC TÌM VAI SÓI ĐỂ GÁN KHI BỊ NGUYỀN ===
+                        let newWolfRoleName = null;
+                        const wolfRolesInGame = Object.values(allRolesData).filter(role => role.faction === 'Bầy Sói');
                         
-                        // Gửi thông báo cho người bị nguyền
-                        updates[`/nightResults/${currentNight}/private/${finalTargetId}`] = 'Bạn đã bị Bầy Sói nguyền rủa và biến thành một trong số chúng!';
-
-                        // Gửi thông báo cho các Sói khác
-                        allWolves.forEach(([wolfId, wolfPlayer]) => {
-                            if (wolfId !== finalTargetId) {
-                                updates[`/nightResults/${currentNight}/private/${wolfId}`] = `${cursedPlayer.name} đã bị nguyền và gia nhập Bầy Sói!`;
+                        const priorityWolfRoles = ['Sói', 'Sói thường']; 
+                        for (const roleName of priorityWolfRoles) {
+                            if (wolfRolesInGame.some(role => role.name === roleName)) {
+                                newWolfRoleName = roleName;
+                                break;
                             }
-                        });
+                        }
 
-                    } else { // Mặc định là 'cắn'
+                        if (!newWolfRoleName && wolfRolesInGame.length > 0) {
+                            newWolfRoleName = wolfRolesInGame[0].name;
+                        }
+                        // === KẾT THÚC SỬA LỖI ===
+
+                        if (newWolfRoleName) {
+                            updates[`/players/${finalTargetId}/roleName`] = newWolfRoleName;
+                            updates[`/interactiveState/curseAbility/status`] = 'used';
+                            
+                            updates[`/nightResults/${currentNight}/private/${finalTargetId}`] = 'Bạn đã bị Bầy Sói nguyền rủa và biến thành một trong số chúng!';
+
+                            allWolves.forEach(([wolfId, wolfPlayer]) => {
+                                if (wolfId !== finalTargetId) {
+                                    updates[`/nightResults/${currentNight}/private/${wolfId}`] = `${cursedPlayer.name} đã bị nguyền và gia nhập Bầy Sói!`;
+                                }
+                            });
+                        } else {
+                            console.error("Lỗi Nguyền: Không tìm thấy vai trò nào thuộc phe 'Bầy Sói' trong thiết lập game để gán cho người bị nguyền.");
+                        }
+
+                    } else { 
                         formattedActions.push({
                             id: actionIdCounter++,
                             actorId: 'wolf_group',
@@ -345,7 +364,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (originalPlayerState?.isAlive && !finalPlayerState.isAlive) {
                 updates[`/players/${playerId}/isAlive`] = false;
 
-                // *** KIỂM TRA MỞ KHÓA CHỨC NĂNG NGUYỀN ***
                 const deadPlayerRole = allRolesData[originalPlayerState.roleName] || {};
                 const isWolf = deadPlayerRole.faction === 'Bầy Sói' || deadPlayerRole.faction === 'Phe Sói';
                 const curseState = roomData.interactiveState?.curseAbility?.status || 'locked';
@@ -405,7 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 phase: 'night',
                 currentNight: 1,
                 message: `Đêm 1 bắt đầu.`,
-                curseAbility: { status: 'locked' } // Reset trạng thái nguyền
+                curseAbility: { status: 'locked' } 
             };
             
             database.ref(`rooms/${currentRoomId}`).update(updates);
@@ -419,7 +437,6 @@ document.addEventListener('DOMContentLoaded', () => {
             message: `Đêm ${currentNightNumber} bắt đầu.`
         };
         
-        // Khởi tạo trạng thái nguyền nếu chưa có
         if (!state.curseAbility) {
             updates['curseAbility'] = { status: 'locked' };
         }
