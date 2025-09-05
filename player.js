@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let myPlayerData = {};
     let roomData = {};
 
-    // --- DATA FETCHING (Không thay đổi) ---
+    // --- DATA FETCHING ---
     const fetchAllRolesData = async () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Roles`);
@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Các hàm logic chính (có thay đổi) ---
+    // --- Các hàm logic chính ---
     const handleLogin = async () => {
         const password = passwordInput.value.trim();
         if (!password) {
@@ -181,7 +181,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // === THAY ĐỔI: CẬP NHẬT LISTENER ĐỂ GỌI HÀM MỚI ===
         const nightResultRef = database.ref(`rooms/${roomId}/nightResults`);
         if (nightResultListener) nightResultRef.off('value', nightResultListener);
         nightResultListener = nightResultRef.on('value', (snapshot) => {
@@ -255,18 +254,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // === THAY ĐỔI: HÀM MỚI ĐỂ HIỂN THỊ LOG RIÊNG TƯ ===
+    // === THAY ĐỔI: HÀM MỚI ĐỂ HIỂN THỊ LOG RIÊNG TƯ BAO GỒM CẢ NGƯỜI CHẾT ===
     function updatePrivateLog(allNightResults) {
         if (!myPlayerId) return;
 
         const messages = [];
-        // Sắp xếp các đêm theo thứ tự tăng dần
-        const sortedNights = Object.keys(allNightResults).sort((a, b) => a - b);
+        const sortedNights = Object.keys(allNightResults).sort((a, b) => parseInt(a) - parseInt(b));
 
         for (const nightNumber of sortedNights) {
-            const privateResult = allNightResults[nightNumber]?.private?.[myPlayerId];
+            const nightData = allNightResults[nightNumber];
+            if (!nightData) continue;
+
+            const publicResult = nightData.public;
+            const privateResult = nightData.private?.[myPlayerId];
+            const nightMessages = [];
+
+            // 1. Thêm thông tin công khai về người chết
+            if (publicResult) {
+                if (publicResult.deadPlayerNames && publicResult.deadPlayerNames.length > 0) {
+                    nightMessages.push(`<strong>Nạn nhân:</strong> ${publicResult.deadPlayerNames.join(', ')}.`);
+                } else {
+                    nightMessages.push('Không có ai chết trong đêm nay.');
+                }
+            }
+
+            // 2. Thêm thông tin riêng tư (soi, nguyền, v.v.)
             if (privateResult) {
-                messages.push(`<p class="log-entry"><strong>[Đêm ${nightNumber}]</strong> ${privateResult}</p>`);
+                nightMessages.push(`<em>Thông tin riêng:</em> ${privateResult}`);
+            }
+
+            // 3. Kết hợp thành một mục cho đêm đó
+            if (nightMessages.length > 0) {
+                messages.push(`<p class="log-entry"><strong>[Đêm ${nightNumber}]</strong><br>${nightMessages.join('<br>')}</p>`);
             }
         }
 
@@ -278,9 +297,6 @@ document.addEventListener('DOMContentLoaded', () => {
             privateLogSection.classList.add('hidden');
         }
     }
-
-    // === THAY ĐỔI: HÀM POP-UP KẾT QUẢ ĐÊM ĐÃ BỊ XÓA ===
-    // function displayNightResult(...) { ... }
 
     // --- Các hàm còn lại không thay đổi ---
     function showRoleDescriptionModal(roleName) {
