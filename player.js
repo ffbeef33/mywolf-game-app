@@ -533,7 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- MODULE TƯƠNG TÁC ---
+    // --- MODULE TƯƠNG TÁC (ĐÃ SỬA LỖI) ---
     function displayNightActions(roomData, currentNight) {
         interactiveActionSection.classList.remove('hidden');
         interactiveActionSection.innerHTML = '';
@@ -541,37 +541,46 @@ document.addEventListener('DOMContentLoaded', () => {
         const myRole = allRolesData.find(r => r.name === myPlayerData.roleName) || {};
         const isWolfFaction = myRole.faction === 'Bầy Sói' || myRole.faction === 'Phe Sói';
         const livingPlayers = Object.entries(roomData.players).filter(([id, player]) => player.isAlive);
+        let hasIndividualActions = false;
 
+        // 1. Hiển thị hành động chung của Bầy Sói (nếu có)
         if (isWolfFaction) {
             const wolfBiteAction = {
                 title: "Hành động Bầy Sói: Cắn",
                 description: "Thống nhất chọn một mục tiêu để loại bỏ khỏi làng.",
-                actionKind: 'kill',
+                actionKind: 'kill', // 'kill' là action key đúng
                 path: `rooms/${currentRoomId}/nightActions/${currentNight}/wolf_group`,
                 confirmText: "Xác nhận Cắn"
             };
             interactiveActionSection.appendChild(createActionPanel(wolfBiteAction, livingPlayers));
         }
 
+        // 2. Hiển thị các hành động cá nhân của người chơi
         const kinds = myRole.kind ? myRole.kind.split('_') : [];
         kinds.forEach(kind => {
-            if ((isWolfFaction && kind === 'kill') || kind === 'empty' || !kind) {
+            const actionInfo = KIND_TO_ACTION_MAP[kind]; // Lấy thông tin từ game-logic
+
+            // Bỏ qua nếu 'kind' không hợp lệ, là 'empty', hoặc là chức năng 'kill' của Sói (vì đã xử lý ở trên)
+            if (!actionInfo || (isWolfFaction && kind === 'kill') || kind === 'empty') {
                 return;
             }
-            
-            const actionInfo = KIND_TO_ACTION_MAP[kind] || { label: kind };
 
+            hasIndividualActions = true;
+            
             const individualAction = {
                 title: `Chức năng riêng: ${actionInfo.label}`,
                 description: `Chọn mục tiêu để thực hiện chức năng ${actionInfo.label}.`,
-                actionKind: kind,
+                // === ĐÂY LÀ DÒNG ĐÃ SỬA LỖI ===
+                // Gửi đi "actionInfo.key" (ví dụ: 'protect') thay vì "kind" (ví dụ: 'shield')
+                actionKind: actionInfo.key, 
                 path: `rooms/${currentRoomId}/nightActions/${currentNight}/${myPlayerId}`,
                 confirmText: `Xác nhận ${actionInfo.label}`
             };
             interactiveActionSection.appendChild(createActionPanel(individualAction, livingPlayers));
         });
 
-        if (!isWolfFaction && kinds.every(k => k === 'empty' || !k)) {
+        // 3. Hiển thị thông báo nếu người chơi không có hành động nào
+        if (!hasIndividualActions && !isWolfFaction) {
              interactiveActionSection.innerHTML = `
                 <div class="game-card">
                     <h2>Thư giãn</h2>

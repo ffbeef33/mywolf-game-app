@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - PHIÊN BẢN SỬA LỖI RESET GAME ===
+// === interactive-gm.js - PHIÊN BẢN SỬA LỖI XỬ LÝ TRẠNG THÁI ĐÊM ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -53,9 +53,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const rawData = await response.json();
             allRolesData = rawData.reduce((acc, role) => {
                 if (role.RoleName) {
-                    acc[role.RoleName.trim()] = {
+                    const roleName = role.RoleName.trim();
+                     acc[roleName] = {
+                        name: roleName,
                         faction: (role.Faction || 'Chưa phân loại').trim(),
-                        kind: (role.Kind || 'empty').trim()
+                        active: (role.Active || '0').trim(),
+                        kind: (role.Kind || 'empty').trim(),
+                        quantity: parseInt(role.Quantity, 10) || 1,
+                        duration: (role.Duration || '1').toString().trim().toLowerCase()
                     };
                 }
                 return acc;
@@ -113,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 actorName = roomData.players[actorId]?.name || 'Người chơi không xác định';
             }
             const targetName = roomData.players[targetId]?.name || 'Mục tiêu không xác định';
-            const actionLabel = KIND_TO_ACTION_MAP[actionData.action]?.label || actionData.action;
+            const actionLabel = ALL_ACTIONS[actionData.action]?.label || actionData.action;
             const p = document.createElement('p');
             p.innerHTML = `[ĐÊM] <strong>${actorName}</strong> đã chọn <em>${actionLabel}</em> <strong>${targetName}</strong>.`;
             gameLog.prepend(p);
@@ -188,16 +193,40 @@ document.addEventListener('DOMContentLoaded', () => {
         const playerActions = roomData.nightActions?.[currentNight] || {};
         const allPlayers = roomData.players;
 
+        // === SỬA LỖI TẠI ĐÂY: Tạo đối tượng trạng thái ban đầu đầy đủ ===
+        // Logic này được lấy từ night-note.js để đảm bảo tính nhất quán
         const initialPlayerStatus = Object.fromEntries(
             Object.entries(allPlayers).map(([id, player]) => {
                 const roleName = player.roleName || "";
                 const roleInfo = allRolesData[roleName] || {};
+                const kind = roleInfo.kind || 'empty';
                 return [id, { 
-                    isAlive: player.isAlive, 
-                    faction: roleInfo.faction,
-                    kind: roleInfo.kind,
-                    roleName: roleName
-                }]
+                    isAlive: player.isAlive,
+                    // --- Các thuộc tính cốt lõi cần cho game-logic ---
+                    faction: roleInfo.faction || 'Chưa phân loại',
+                    roleName: roleName,
+                    kind: kind,
+                    // --- Các thuộc tính trạng thái mặc định từ night-note ---
+                    isDisabled: false,
+                    isPermanentlyDisabled: false,
+                    isPermanentlyProtected: false,
+                    isPermanentlyNotified: false,
+                    hasPermanentKillAbility: false,
+                    hasPermanentCounterWard: false,
+                    armor: (kind === 'armor1' ? 2 : 1),
+                    delayKillAvailable: (kind === 'delaykill'),
+                    isDoomed: false,
+                    deathLinkTarget: null,
+                    sacrificedBy: null,
+                    transformedState: null,
+                    groupId: null,
+                    markedForDelayKill: false,
+                    originalRoleName: null,
+                    activeRule: roleInfo.active || '0',
+                    quantity: roleInfo.quantity || 1,
+                    duration: roleInfo.duration || '1',
+                    isBoobyTrapped: false,
+                }];
             })
         );
         
@@ -224,25 +253,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const nightStateForCalc = {
             actions: formattedActions,
             playersStatus: initialPlayerStatus,
+            initialPlayersStatus: JSON.parse(JSON.stringify(initialPlayerStatus)) // Thêm bản sao cho logic reset
         };
 
-        const roomPlayersForCalc = Object.entries(allPlayers).map(([id, data]) => ({ 
-            id, 
-            ...data, 
-            faction: allRolesData[data.roleName]?.faction || 'Chưa phân loại',
-            kind: allRolesData[data.roleName]?.kind || 'empty'
-        }));
+        const roomPlayersForCalc = Object.entries(allPlayers).map(([id, data]) => {
+            const roleInfo = allRolesData[data.roleName] || {};
+            return { 
+                id, 
+                ...data, 
+                baseFaction: roleInfo.faction || 'Chưa phân loại',
+                faction: roleInfo.faction || 'Chưa phân loại',
+                kind: roleInfo.kind || 'empty',
+                activeRule: roleInfo.active || '0',
+                quantity: roleInfo.quantity || 1,
+                duration: roleInfo.duration || '1'
+            };
+        });
         
         const results = calculateNightStatus(nightStateForCalc, roomPlayersForCalc);
         const { finalStatus, deadPlayerNames, infoResults } = results;
 
         const updates = {};
         
-        for (const playerId in finalStatus) {
+        Object.keys(finalStatus).forEach(playerId => {
+            // Chỉ cập nhật nếu trạng thái isAlive thay đổi từ true sang false
             if (initialPlayerStatus[playerId]?.isAlive && !finalStatus[playerId].isAlive) {
                 updates[`/players/${playerId}/isAlive`] = false;
             }
-        }
+        });
 
         updates[`/nightResults/${currentNight}/public`] = {
             deadPlayerNames: deadPlayerNames || [],
@@ -267,10 +305,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             await database.ref(`rooms/${currentRoomId}`).update(updates);
-            addLog(`Xử lý đêm ${currentNight} thành công. ${deadPlayerNames.length} người chết.`);
+            // Không cần addLog thủ công vì listener sẽ tự render lại
         } catch (error) {
             console.error("Lỗi khi cập nhật kết quả đêm:", error);
-            addLog(`Lỗi khi xử lý đêm: ${error.message}`);
+            // addLog(`Lỗi khi xử lý đêm: ${error.message}`);
         } finally {
             endNightBtn.disabled = false;
             endNightBtn.innerHTML = '<i class="fas fa-sun"></i> Kết Thúc Đêm & Xử Lý';
@@ -301,7 +339,6 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             
             database.ref(`rooms/${currentRoomId}`).update(updates);
-            addLog(`Đã reset và bắt đầu game mới.`);
             return;
         }
 
@@ -313,7 +350,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         
         database.ref(`rooms/${currentRoomId}/interactiveState`).update(newState);
-        addLog(`Đã bắt đầu Đêm ${currentNightNumber}.`);
     });
 
     endNightBtn.addEventListener('click', processNightResults);
@@ -324,7 +360,6 @@ document.addEventListener('DOMContentLoaded', () => {
             phase: 'day',
             message: `Ngày ${currentNightNumber}. Mọi người thảo luận.`
         });
-        addLog(`Bắt đầu giai đoạn Thảo luận.`);
     });
 
     startVoteBtn.addEventListener('click', () => {
@@ -333,7 +368,6 @@ document.addEventListener('DOMContentLoaded', () => {
             phase: 'voting',
             message: `Ngày ${currentNightNumber}. Bắt đầu bỏ phiếu.`
         });
-        addLog(`Bắt đầu giai đoạn Bỏ phiếu.`);
     });
     
     endGameBtn.addEventListener('click', () => {
@@ -343,7 +377,6 @@ document.addEventListener('DOMContentLoaded', () => {
             message: `Game đã kết thúc bởi Quản trò.`
         };
         database.ref(`rooms/${currentRoomId}/interactiveState`).update(newState);
-        addLog(`Đã kết thúc game.`);
     });
     
     playerListUI.addEventListener('click', (e) => {
@@ -357,12 +390,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (action === '1') {
                 if (confirm(`Bạn có chắc muốn GIẾT ${playerName}?`)) {
                     playerRef.set(false);
-                    addLog(`Đã GIẾT người chơi ${playerName} (thủ công).`);
                 }
             } else if (action === '2') {
                 if (confirm(`Bạn có chắc muốn HỒI SINH ${playerName}?`)) {
                     playerRef.set(true);
-                    addLog(`Đã HỒI SINH người chơi ${playerName} (thủ công).`);
                 }
             }
         }
