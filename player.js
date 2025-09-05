@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Các hàm khác không thay đổi (giữ nguyên) ---
+    // --- Các hàm khác không thay đổi ---
     const handleLogin = async () => {
         const password = passwordInput.value.trim();
         if (!password) {
@@ -519,7 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- MODULE TƯƠNG TÁC (LOGIC ACTIVE ĐÃ HOÀN CHỈNH) ---
+    // --- MODULE TƯƠNG TÁC ---
     function displayNightActions(currentRoomData, currentNight) {
         interactiveActionSection.classList.remove('hidden');
         interactiveActionSection.innerHTML = '';
@@ -529,13 +529,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const livingPlayers = Object.entries(currentRoomData.players).filter(([id, player]) => player.isAlive);
         let hasIndividualActions = false;
     
-        // *** LOGIC MỚI CHO SÓI ***
         if (isWolfFaction) {
             const curseState = currentRoomData.interactiveState?.curseAbility?.status || 'locked';
             const wolfActionData = currentRoomData.nightActions?.[currentNight]?.wolf_group || {};
             const chosenAction = wolfActionData.action;
 
-            // Panel Cắn
             if (!chosenAction || chosenAction === 'kill') {
                 const wolfBiteAction = {
                     title: "Hành động Bầy Sói: Cắn",
@@ -547,7 +545,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 interactiveActionSection.appendChild(createActionPanel(wolfBiteAction, livingPlayers));
             }
 
-            // Panel Nguyền (chỉ hiển thị nếu có thể và chưa có hành động nào được chọn)
             if (curseState === 'available' && (!chosenAction || chosenAction === 'curse')) {
                  const wolfCurseAction = {
                     title: "Hành động Bầy Sói: Nguyền (Dùng 1 lần)",
@@ -632,7 +629,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const targetLimit = actionDetails.roleInfo ? actionDetails.roleInfo.quantity : 1;
         
-        // Lấy dữ liệu hành động và phiếu bầu
         let wolfActionData = {};
         if (currentNight && roomData.nightActions?.[currentNight]) {
              if(actionDetails.isWolfGroupAction) {
@@ -651,7 +647,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         const individualTargets = individualAction ? (Array.isArray(individualAction.targets) ? individualAction.targets : []) : [];
-        
 
         const voteCounts = {};
         if (actionDetails.isWolfGroupAction && chosenWolfAction === actionDetails.actionKind) {
@@ -698,7 +693,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const confirmBtn = panel.querySelector('.confirm-action-btn');
         const statusMsg = panel.querySelector('.choice-status-message');
     
-        // Logic khóa giao diện
         const isWolfPanelLockedToOtherAction = actionDetails.isWolfGroupAction && chosenWolfAction && chosenWolfAction !== actionDetails.actionKind;
         const isIndividualPanelLocked = !actionDetails.isWolfGroupAction && individualAction;
 
@@ -725,20 +719,41 @@ document.addEventListener('DOMContentLoaded', () => {
             confirmBtn.addEventListener('click', () => {
                 const selectedTargets = Array.from(targetsContainer.querySelectorAll('input:checked')).map(cb => cb.value);
                 
-                if (actionDetails.isWolfGroupAction) {
+                // === CẬP NHẬT: LOGIC MỚI ĐỂ HIỂN THỊ KẾT QUẢ NGAY LẬP TỨC ===
+                if (!actionDetails.isWolfGroupAction && selectedTargets.length > 0) {
+                    const actionData = {
+                        action: actionDetails.actionKind,
+                        targets: selectedTargets 
+                    };
+                    database.ref(actionPath).set(actionData);
+
+                    // Chỉ tính và hiển thị kết quả cho các vai trò thông tin
+                    if (['audit', 'invest'].includes(actionDetails.actionKind)) {
+                        const targetId = selectedTargets[0];
+                        const targetPlayer = roomData.players[targetId];
+                        const targetRole = allRolesData.find(r => r.name === targetPlayer.roleName);
+
+                        if (targetPlayer && targetRole) {
+                            let resultText = '';
+                            if (actionDetails.actionKind === 'audit') {
+                                let isTrueWolf = targetRole.faction === 'Bầy Sói';
+                                if (targetRole.kind.includes('reverse') || targetRole.kind.includes('counteraudit')) {
+                                    isTrueWolf = !isTrueWolf;
+                                }
+                                resultText = isTrueWolf ? "thuộc <strong>Bầy Sói</strong>." : "<strong>KHÔNG</strong> thuộc Bầy Sói.";
+                            } else if (actionDetails.actionKind === 'invest') {
+                                let isWolfFaction = targetRole.faction === 'Bầy Sói' || targetRole.faction === 'Phe Sói';
+                                resultText = isWolfFaction ? "thuộc <strong>Phe Sói</strong>." : "<strong>KHÔNG</strong> thuộc Phe Sói.";
+                            }
+                            statusMsg.innerHTML = `Kết quả: Bạn soi <strong>${targetPlayer.name}</strong> và thấy họ ${resultText}`;
+                        }
+                    }
+                } else if (actionDetails.isWolfGroupAction) { // Logic cho Sói giữ nguyên
                     if (selectedTargets.length > 0) {
                         const updates = {};
                         updates[`${actionPath}/action`] = actionDetails.actionKind;
                         updates[`${actionPath}/votes/${myPlayerId}`] = selectedTargets[0];
                         database.ref().update(updates);
-                    }
-                } else {
-                     if (selectedTargets.length > 0 && selectedTargets.length <= targetLimit) {
-                        const actionData = {
-                            action: actionDetails.actionKind,
-                            targets: selectedTargets 
-                        };
-                        database.ref(actionPath).set(actionData);
                     }
                 }
             });
