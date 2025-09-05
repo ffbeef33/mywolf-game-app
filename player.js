@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let myPlayerData = {};
     let roomData = {};
 
-    // --- DATA FETCHING (Không thay đổi) ---
+    // --- DATA FETCHING ---
     const fetchAllRolesData = async () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Roles`);
@@ -700,12 +700,36 @@ document.addEventListener('DOMContentLoaded', () => {
             statusMsg.innerHTML = `Bầy Sói đã quyết định <strong>${ALL_ACTIONS[chosenWolfAction]?.label || chosenWolfAction}</strong> trong đêm nay.`;
             targetsContainer.querySelectorAll('input').forEach(input => input.disabled = true);
         } else if (isIndividualPanelLocked) {
-             const targetNames = individualTargets.map(targetId => {
+            // === SỬA LỖI: LOGIC HIỂN THỊ KẾT QUẢ ĐƯỢC DI CHUYỂN VÀO ĐÂY ===
+            const targetIds = individualAction.targets || [];
+            const targetNames = targetIds.map(targetId => {
                 const p = livingPlayers.find(([id]) => id === targetId);
                 return p ? p[1].name : 'Mục tiêu';
             }).join(', ');
+
             statusMsg.innerHTML = `Đã xác nhận hành động lên <strong>${targetNames}</strong>.`;
             targetsContainer.querySelectorAll('input').forEach(input => input.disabled = true);
+
+            if (['audit', 'invest'].includes(actionDetails.actionKind)) {
+                const targetId = targetIds[0];
+                const targetPlayer = roomData.players[targetId];
+                const targetRole = allRolesData.find(r => r.name === targetPlayer?.roleName);
+
+                if (targetPlayer && targetRole) {
+                    let resultText = '';
+                    if (actionDetails.actionKind === 'audit') {
+                        let isTrueWolf = targetRole.faction === 'Bầy Sói';
+                        if (targetRole.kind.includes('reverse') || targetRole.kind.includes('counteraudit')) {
+                            isTrueWolf = !isTrueWolf;
+                        }
+                        resultText = isTrueWolf ? "thuộc <strong>Bầy Sói</strong>." : "<strong>KHÔNG</strong> thuộc Bầy Sói.";
+                    } else if (actionDetails.actionKind === 'invest') {
+                        let isWolfFaction = targetRole.faction === 'Bầy Sói' || targetRole.faction === 'Phe Sói';
+                        resultText = isWolfFaction ? "thuộc <strong>Phe Sói</strong>." : "<strong>KHÔNG</strong> thuộc Phe Sói.";
+                    }
+                    statusMsg.innerHTML += `<br><strong>Kết quả:</strong> Bạn soi <strong>${targetPlayer.name}</strong> và thấy họ ${resultText}`;
+                }
+            }
         } else {
             targetsContainer.addEventListener('change', (event) => {
                 const checkedBoxes = targetsContainer.querySelectorAll('input:checked');
@@ -719,41 +743,20 @@ document.addEventListener('DOMContentLoaded', () => {
             confirmBtn.addEventListener('click', () => {
                 const selectedTargets = Array.from(targetsContainer.querySelectorAll('input:checked')).map(cb => cb.value);
                 
-                // === CẬP NHẬT: LOGIC MỚI ĐỂ HIỂN THỊ KẾT QUẢ NGAY LẬP TỨC ===
-                if (!actionDetails.isWolfGroupAction && selectedTargets.length > 0) {
-                    const actionData = {
-                        action: actionDetails.actionKind,
-                        targets: selectedTargets 
-                    };
-                    database.ref(actionPath).set(actionData);
-
-                    // Chỉ tính và hiển thị kết quả cho các vai trò thông tin
-                    if (['audit', 'invest'].includes(actionDetails.actionKind)) {
-                        const targetId = selectedTargets[0];
-                        const targetPlayer = roomData.players[targetId];
-                        const targetRole = allRolesData.find(r => r.name === targetPlayer.roleName);
-
-                        if (targetPlayer && targetRole) {
-                            let resultText = '';
-                            if (actionDetails.actionKind === 'audit') {
-                                let isTrueWolf = targetRole.faction === 'Bầy Sói';
-                                if (targetRole.kind.includes('reverse') || targetRole.kind.includes('counteraudit')) {
-                                    isTrueWolf = !isTrueWolf;
-                                }
-                                resultText = isTrueWolf ? "thuộc <strong>Bầy Sói</strong>." : "<strong>KHÔNG</strong> thuộc Bầy Sói.";
-                            } else if (actionDetails.actionKind === 'invest') {
-                                let isWolfFaction = targetRole.faction === 'Bầy Sói' || targetRole.faction === 'Phe Sói';
-                                resultText = isWolfFaction ? "thuộc <strong>Phe Sói</strong>." : "<strong>KHÔNG</strong> thuộc Phe Sói.";
-                            }
-                            statusMsg.innerHTML = `Kết quả: Bạn soi <strong>${targetPlayer.name}</strong> và thấy họ ${resultText}`;
-                        }
-                    }
-                } else if (actionDetails.isWolfGroupAction) { // Logic cho Sói giữ nguyên
+                if (actionDetails.isWolfGroupAction) {
                     if (selectedTargets.length > 0) {
                         const updates = {};
                         updates[`${actionPath}/action`] = actionDetails.actionKind;
                         updates[`${actionPath}/votes/${myPlayerId}`] = selectedTargets[0];
                         database.ref().update(updates);
+                    }
+                } else {
+                     if (selectedTargets.length > 0 && selectedTargets.length <= targetLimit) {
+                        const actionData = {
+                            action: actionDetails.actionKind,
+                            targets: selectedTargets 
+                        };
+                        database.ref(actionPath).set(actionData);
                     }
                 }
             });
