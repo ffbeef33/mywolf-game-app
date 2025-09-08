@@ -574,7 +574,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const livingPlayers = Object.entries(currentRoomData.players).filter(([id, player]) => player.isAlive);
         let hasIndividualActions = false;
 
-        if (myPlayerData.roleName && myPlayerData.roleName.toLowerCase() === 'wizard') {
+        // =================================================================
+        // === BẮT ĐẦU LOGIC HIỂN THỊ CHO WIZARD (ĐÃ SỬA LỖI) ===
+        // =================================================================
+        if (myRoleData.kind === 'wizard') {
             const wizardState = myPlayerData.wizardAbilityState || 'save_available';
             
             if (wizardState === 'save_available') {
@@ -598,6 +601,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 interactiveActionSection.appendChild(createActionPanel(wizardKillAction, livingPlayers));
             }
         }
+        // =================================================================
+        // === KẾT THÚC LOGIC HIỂN THỊ CHO WIZARD ===
+        // =================================================================
     
         if (isWolfFaction) {
             const curseState = currentRoomData.interactiveState?.curseAbility?.status || 'locked';
