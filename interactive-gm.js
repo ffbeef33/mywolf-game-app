@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - PHIÊN BẢN CẬP NHẬT VỚI ASSASSIN ===
+// === interactive-gm.js - CẬP NHẬT LOG ASSASSIN ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -306,9 +306,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             } 
-            // =================================================================
-            // === BẮT ĐẦU LOGIC XỬ LÝ CHO ASSASSIN ===
-            // =================================================================
             else if (actionData.action === 'assassinate') {
                 const assassin = allPlayers[actorId];
                 const target = allPlayers[actionData.targetId];
@@ -316,6 +313,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const actualRole = target.roleName;
                 const guessedRole = actionData.guess;
+
+                // THAY ĐỔI: Tin nhắn trung lập
+                updates[`/nightResults/${currentNight}/private/${actorId}`] = `Bạn đã chọn ám sát ${target.name}. Kết quả sẽ được định đoạt vào sáng mai.`;
 
                 if (actualRole === guessedRole) {
                     // Đoán đúng, giết mục tiêu
@@ -325,21 +325,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         targets: [actionData.targetId],
                         action: 'kill'
                     });
-                    updates[`/nightResults/${currentNight}/private/${actorId}`] = `Bạn đã ám sát thành công ${target.name} (đoán đúng vai trò ${actualRole}).`;
                 } else {
                     // Đoán sai, tự sát
                     formattedActions.push({
                         id: actionIdCounter++,
-                        actorId: actorId, // Nguồn gốc vẫn là assassin
-                        targets: [actorId], // Nhưng mục tiêu là chính mình
+                        actorId: actorId,
+                        targets: [actorId],
                         action: 'kill'
                     });
-                    updates[`/nightResults/${currentNight}/private/${actorId}`] = `Bạn đã ám sát thất bại ${target.name} (đoán ${guessedRole}, nhưng vai trò thật là ${actualRole}). Bạn đã phải trả giá.`;
                 }
             }
-            // =================================================================
-            // === KẾT THÚC LOGIC XỬ LÝ CHO ASSASSIN ===
-            // =================================================================
             else {
                 formattedActions.push({
                     id: actionIdCounter++,
@@ -444,7 +439,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Xử lý sự kiện nhấn nút ---
-    // ... (toàn bộ phần xử lý sự kiện nhấn nút giữ nguyên) ...
     startNightBtn.addEventListener('click', () => {
         const state = roomData.interactiveState || {};
         
