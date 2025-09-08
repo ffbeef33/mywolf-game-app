@@ -1,5 +1,5 @@
 // =================================================================
-// === game-logic.js - PHIÊN BẢN GỐC + WIZARD (SỬA LỖI CUỐI CÙNG) ===
+// === game-logic.js - PHIÊN BẢN HỖ TRỢ NHIỀU MỤC TIÊU & WIZARD & ASSASSIN ===
 // =================================================================
 
 const KIND_TO_ACTION_MAP = {
@@ -30,9 +30,9 @@ const KIND_TO_ACTION_MAP = {
     'boom': { key: 'boom', label: 'Cài Boom', type: 'debuff' },
     'love': { key: 'love', label: 'Yêu', type: 'conditional' },
     'saveall': { key: 'saveall', label: 'Cứu Hết', type: 'defense' },
-    // === PHẦN CHÈN THÊM CHO WIZARD (1/3) ===
     'wizard': { key: 'wizard_save', label: 'Cứu Thế', type: 'conditional' },
     'wizard_kill': { key: 'wizard_kill', label: 'Giết', type: 'damage' },
+    'assassin': { key: 'assassinate', label: 'Ám sát', type: 'conditional' },
 };
 
 const ALL_ACTIONS = Object.values(KIND_TO_ACTION_MAP).reduce((acc, action) => {
@@ -285,9 +285,8 @@ function calculateNightStatus(nightState, roomPlayers) {
             let target = roomPlayers.find(p => p.id === finalTargetId);
             const actionKind = ALL_ACTIONS[action]?.key || action;
 
-            // PHỤC HỒI CẤU TRÚC GỐC: KIỂM TRA SÓI CẮN TRƯỚC
             if (action === 'kill' || actionKind === 'gm_kill') {
-                if (!target) return; // Thêm kiểm tra target an toàn
+                if (!target) return;
                 const ultimateTargetId = damageRedirects[finalTargetId] || finalTargetId;
                 const targetStatus = liveStatuses[ultimateTargetId];
                 if (targetStatus && !targetStatus.isProtected && !targetStatus.isImmuneToWolves) {
@@ -311,10 +310,9 @@ function calculateNightStatus(nightState, roomPlayers) {
                         finalStatus[ultimateTargetId].isBoobyTrapped = false;
                     }
                 }
-                return; // Kết thúc xử lý cho hành động này
+                return;
             }
 
-            // PHỤC HỒI CẤU TRÚC GỐC: KIỂM TRA ACTOR SAU KHI ĐÃ XỬ LÝ SÓI
             if (!attacker || !target) return;
             
             if (disabledPlayerIds.has(attacker.id) && ['audit', 'invest', 'check'].includes(actionKind)) {
@@ -330,7 +328,7 @@ function calculateNightStatus(nightState, roomPlayers) {
             } else if (disabledPlayerIds.has(attacker.id)) {
                 return;
             }
-
+            
             const attackerHasKill = actionKind.includes('kill') || (liveStatuses[actorId] && liveStatuses[actorId].tempStatus.hasKillAbility);
 
             if (attackerHasKill && actionKind !== 'killdelay') {
@@ -481,7 +479,6 @@ function calculateNightStatus(nightState, roomPlayers) {
         infoResults.push(`- ${roomPlayers.find(p=>p.id===saveAllAction.actorId).name} đã cứu tất cả mọi người!`);
     }
 
-    // === BẮT ĐẦU PHẦN CHÈN THÊM CHO WIZARD (2/3) ===
     const wizardAction = executableActions.find(a => (ALL_ACTIONS[a.action]?.key || a.action) === 'wizard_save');
     let wizardSavedPlayerNames = [];
 
@@ -527,7 +524,6 @@ function calculateNightStatus(nightState, roomPlayers) {
             }
         }
     }
-    // === KẾT THÚC PHẦN CHÈN THÊM CHO WIZARD (2/3) ===
 
     let deadPlayerIdsThisNight = new Set();
     const finalNightResolution = {};
@@ -607,6 +603,5 @@ function calculateNightStatus(nightState, roomPlayers) {
 
     const deadPlayerNames = Array.from(deadPlayerIdsThisNight).map(id => roomPlayers.find(p => p.id === id)?.name).filter(Boolean);
     
-    // === PHẦN CHÈN THÊM CHO WIZARD (3/3) ===
     return { liveStatuses, finalStatus, deadPlayerNames, infoResults, loveRedirects, wizardSavedPlayerNames };
 }

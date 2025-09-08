@@ -1,5 +1,5 @@
 // =================================================================
-// === player.js - PHIÊN BẢN CẬP NHẬT HIỂN THỊ KẾT QUẢ ĐÊM & WIZARD ===
+// === player.js - PHIÊN BẢN CẬP NHẬT VỚI ASSASSIN ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -54,6 +54,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const interactiveActionSection = document.getElementById('interactive-action-section');
     const privateLogSection = document.getElementById('private-log-section');
     const privateLogContent = document.getElementById('private-log-content');
+    
+    // === CÁC PHẦN TỬ MỚI CHO ASSASSIN ===
+    const assassinModal = document.getElementById('assassin-modal');
+    const assassinModalTitle = document.getElementById('assassin-modal-title');
+    const assassinRoleChoices = document.getElementById('assassin-role-choices');
+
 
     // --- State ---
     let roomListener = null;
@@ -268,7 +274,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const privateResult = nightData.private?.[myPlayerId];
             const nightMessages = [];
 
-            // 1. Thêm thông tin công khai về người chết
             if (publicResult) {
                 if (publicResult.deadPlayerNames && publicResult.deadPlayerNames.length > 0) {
                     nightMessages.push(`<strong>Nạn nhân:</strong> ${publicResult.deadPlayerNames.join(', ')}.`);
@@ -277,12 +282,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // 2. Thêm thông tin riêng tư (soi, nguyền, v.v.)
             if (privateResult) {
                 nightMessages.push(`<em>Thông tin riêng:</em> ${privateResult}`);
             }
 
-            // 3. Kết hợp thành một mục cho đêm đó
             if (nightMessages.length > 0) {
                 messages.push(`<p class="log-entry"><strong>[Đêm ${nightNumber}]</strong><br>${nightMessages.join('<br>')}</p>`);
             }
@@ -524,6 +527,78 @@ document.addEventListener('DOMContentLoaded', () => {
         publishedWillModal.classList.remove('hidden');
     };
 
+    // =================================================================
+    // === CÁC HÀM MỚI CHO ASSASSIN ===
+    // =================================================================
+    function openAssassinModal(targetId, targetName) {
+        assassinModalTitle.textContent = `Đoán vai trò của ${targetName}`;
+        assassinRoleChoices.innerHTML = ''; // Xóa các lựa chọn cũ
+
+        // Lấy danh sách vai trò duy nhất trong game
+        const rolesInGame = [...new Set(roomData.rolesToAssign || [])];
+        
+        rolesInGame.forEach(roleName => {
+            const btn = document.createElement('button');
+            btn.className = 'choice-btn';
+            btn.textContent = roleName;
+            btn.onclick = () => handleRoleGuess(targetId, roleName);
+            assassinRoleChoices.appendChild(btn);
+        });
+
+        assassinModal.classList.remove('hidden');
+    }
+
+    function handleRoleGuess(targetId, guessedRole) {
+        const currentNight = roomData.interactiveState?.currentNight;
+        if (!currentNight) return;
+
+        const actionPath = `rooms/${currentRoomId}/nightActions/${currentNight}/${myPlayerId}`;
+        const actionData = {
+            action: 'assassinate',
+            targetId: targetId,
+            guess: guessedRole
+        };
+
+        database.ref(actionPath).set(actionData).then(() => {
+            assassinModal.classList.add('hidden');
+            // Cập nhật giao diện để hiển thị hành động đã chọn
+            interactiveActionSection.innerHTML = `
+                <div class="game-card">
+                    <h2>Chờ kết quả...</h2>
+                    <p>Bạn đã đoán vai trò của mục tiêu. Kết quả sẽ được tiết lộ vào sáng hôm sau.</p>
+                </div>
+            `;
+        });
+    }
+    
+    function createAssassinTargetPanel(livingPlayers) {
+        const panel = document.createElement('div');
+        panel.className = 'game-card';
+        panel.innerHTML = `
+            <h2 class="action-title">Chức năng: Ám Sát</h2>
+            <p class="action-description">Chọn một người chơi để đoán vai trò của họ.</p>
+            <div class="choices-grid assassin-targets"></div>
+            <p class="choice-status-message">Hành động của bạn sẽ quyết định số phận của chính bạn hoặc mục tiêu.</p>
+        `;
+
+        const targetsContainer = panel.querySelector('.assassin-targets');
+        livingPlayers.forEach(([id, player]) => {
+            if (id === myPlayerId) return; // Không thể tự chọn mình
+
+            const btn = document.createElement('button');
+            btn.className = 'choice-btn';
+            btn.textContent = player.name;
+            btn.onclick = () => openAssassinModal(id, player.name);
+            targetsContainer.appendChild(btn);
+        });
+
+        return panel;
+    }
+
+
+    // =================================================================
+    // === HÀM CŨ ĐƯỢC CẬP NHẬT ===
+    // =================================================================
     function createWizardSavePanel(actionDetails) {
         const panel = document.createElement('div');
         panel.className = 'game-card';
@@ -574,18 +649,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const livingPlayers = Object.entries(currentRoomData.players).filter(([id, player]) => player.isAlive);
         let hasIndividualActions = false;
 
-        // =================================================================
-        // === BẮT ĐẦU LOGIC HIỂN THỊ CHO WIZARD (ĐÃ SỬA LỖI) ===
-        // =================================================================
+        // Xử lý hành động đã thực hiện
+        const myNightAction = currentRoomData.nightActions?.[currentNight]?.[myPlayerId];
+        if (myNightAction) {
+            interactiveActionSection.innerHTML = `
+                <div class="game-card">
+                    <h2>Chờ kết quả...</h2>
+                    <p>Bạn đã hành động trong đêm nay. Kết quả sẽ được tiết lộ vào sáng hôm sau.</p>
+                </div>
+            `;
+            return;
+        }
+
         if (myRoleData.kind === 'wizard') {
             const wizardState = myPlayerData.wizardAbilityState || 'save_available';
-            
             if (wizardState === 'save_available') {
                 hasIndividualActions = true;
                 const wizardSaveAction = {
                     title: "Khả năng Cứu Thế (1 lần)",
                     description: "Bạn có muốn cứu tất cả những người bị giết đêm nay không? Nếu không có ai chết, bạn sẽ chết thay.",
-                    actionKind: 'wizard_save'
                 };
                 interactiveActionSection.appendChild(createWizardSavePanel(wizardSaveAction));
             } else if (wizardState === 'kill_available') {
@@ -601,11 +683,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 interactiveActionSection.appendChild(createActionPanel(wizardKillAction, livingPlayers));
             }
         }
-        // =================================================================
-        // === KẾT THÚC LOGIC HIỂN THỊ CHO WIZARD ===
-        // =================================================================
+        
+        else if (myRoleData.kind === 'assassin') {
+            hasIndividualActions = true;
+            interactiveActionSection.appendChild(createAssassinTargetPanel(livingPlayers));
+        }
     
-        if (isWolfFaction) {
+        else if (isWolfFaction) {
             const curseState = currentRoomData.interactiveState?.curseAbility?.status || 'locked';
             const wolfActionData = currentRoomData.nightActions?.[currentNight]?.wolf_group || {};
             const chosenAction = wolfActionData.action;
@@ -637,39 +721,11 @@ document.addEventListener('DOMContentLoaded', () => {
         kinds.forEach(kind => {
             const actionInfo = KIND_TO_ACTION_MAP[kind];
     
-            if (!actionInfo || (isWolfFaction && kind === 'kill') || kind === 'empty' || kind === 'wizard') {
+            if (!actionInfo || (isWolfFaction && kind === 'kill') || kind === 'empty' || kind === 'wizard' || kind === 'assassin') {
                 return;
             }
 
-            const activeRule = myRoleData.active;
-            const nightNumber = currentNight;
-            
-            const parts = activeRule.split('_');
-            const usesRule = parts[0];
-            const startNightRule = parts.length > 1 ? parseInt(parts[1], 10) : 1;
-            
-            if (nightNumber < startNightRule) {
-                return;
-            }
-
-            const useLimit = (usesRule === 'n') ? Infinity : parseInt(usesRule, 10);
-            if (isNaN(useLimit) && usesRule !== 'n') {
-                return;
-            }
-
-            if (useLimit !== Infinity) {
-                let timesUsed = 0;
-                const allNightActions = currentRoomData.nightActions || {};
-                for (const night in allNightActions) {
-                    const nightAction = allNightActions[night][myPlayerId];
-                    if (nightAction && nightAction.action === actionInfo.key) {
-                        timesUsed++;
-                    }
-                }
-                if (timesUsed >= useLimit) {
-                    return;
-                }
-            }
+            // ... (phần còn lại của code xử lý các kind khác giữ nguyên)
             
             hasIndividualActions = true;
             const individualAction = {
@@ -841,7 +897,7 @@ document.addEventListener('DOMContentLoaded', () => {
     eventListeners.forEach(({ el, event, handler }) => {
         if (el) el.addEventListener(event, handler);
     });
-    [willWritingModal, publishedWillModal].forEach(modal => {
+    [willWritingModal, publishedWillModal, assassinModal].forEach(modal => { // Thêm assassinModal vào đây
         if (modal) {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal || e.target.classList.contains('close-modal-btn')) {

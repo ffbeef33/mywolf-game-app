@@ -298,3 +298,16 @@ button:disabled {
 #private-log-content .log-entry:last-child {
     margin-bottom: 0;
 }
+
+/* === CSS MỚI CHO MODAL CỦA ASSASSIN === */
+#assassin-modal .choices-grid {
+    grid-template-columns: 1fr 1fr;
+    max-height: 50vh;
+    overflow-y: auto;
+    margin-top: 20px;
+}
+
+#assassin-modal .choice-btn {
+    font-size: 1rem;
+    padding: 12px;
+}
