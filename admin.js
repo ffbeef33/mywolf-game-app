@@ -562,7 +562,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 name: (role.RoleName || 'Tên vai trò lỗi').trim(),
                 faction: (role.Faction || 'Chưa phân loại').trim(),
                 description: (role.Describe || 'Không có mô tả cho vai trò này.').trim(),
-                image: (role.ImageURL || '').trim()
+                image: (role.ImageURL || '').trim(),
+                select: (role.Select || '1').trim() // ĐỌC CỘT SELECT MỚI
             }));
             allRolesData.sort((a, b) => {
                 const aName = a.name.toLowerCase();

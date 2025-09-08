@@ -83,7 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 kind: (role.Kind || 'empty').trim(),
                 active: (role.Active || 'n').trim().toLowerCase(),
                 quantity: parseInt(role.Quantity, 10) || 1,
-                duration: (role.Duration || '1').toString().trim().toLowerCase()
+                duration: (role.Duration || '1').toString().trim().toLowerCase(),
+                select: (role.Select || '1').trim() // ĐỌC CỘT SELECT MỚI
             }));
         } catch (error) {
             console.error("Lỗi nghiêm trọng khi tải dữ liệu vai trò:", error);
@@ -766,7 +767,20 @@ document.addEventListener('DOMContentLoaded', () => {
             ? `rooms/${currentRoomId}/nightActions/${currentNight}/wolf_group`
             : `rooms/${currentRoomId}/nightActions/${currentNight}/${myPlayerId}`;
         
-        const targetLimit = actionDetails.roleInfo ? actionDetails.roleInfo.quantity : 1;
+        const roleInfo = actionDetails.roleInfo || allRolesData.find(r => r.name === myPlayerData.roleName) || {};
+        const targetLimit = roleInfo.quantity || 1;
+    
+        let lastNightTargets = [];
+        if (roleInfo.select === '0' && currentNight > 1) {
+            const prevNightActions = roomData.nightActions?.[currentNight - 1] || {};
+            const myPrevAction = actionDetails.isWolfGroupAction 
+                ? null // Logic sói cắn phức tạp hơn, tạm bỏ qua cho sói
+                : prevNightActions[myPlayerId];
+    
+            if (myPrevAction && myPrevAction.action === actionDetails.actionKind) {
+                lastNightTargets = myPrevAction.targets || [];
+            }
+        }
         
         let wolfActionData = {};
         if (currentNight && roomData.nightActions?.[currentNight]) {
@@ -807,13 +821,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 isSelected = individualTargets.includes(id);
             }
             
+            const isDisabled = lastNightTargets.includes(id);
+            const disabledAttribute = isDisabled ? 'disabled' : '';
+            const disabledTitle = isDisabled ? 'title="Bạn không thể chọn lại mục tiêu này 2 đêm liên tiếp."' : '';
+    
             const inputType = targetLimit > 1 ? 'checkbox' : 'radio';
             const voteDisplay = (actionDetails.isWolfGroupAction && voteCounts[id] > 0) ? `<span class="vote-count">(${voteCounts[id]} phiếu)</span>` : '';
 
             targetsHTML += `
-                <div class="target-item" style="display: flex; align-items: center; gap: 8px; padding: 5px; border-radius: 4px;">
-                    <input type="${inputType}" id="target-${actionDetails.actionKind}-${id}" name="target-${actionDetails.actionKind}" value="${id}" ${isSelected ? 'checked' : ''}>
-                    <label for="target-${actionDetails.actionKind}-${id}" style="width: 100%;">${playerName} ${voteDisplay}</label>
+                <div class="target-item" style="display: flex; align-items: center; gap: 8px; padding: 5px; border-radius: 4px;" ${disabledTitle}>
+                    <input type="${inputType}" id="target-${actionDetails.actionKind}-${id}" name="target-${actionDetails.actionKind}" value="${id}" ${isSelected ? 'checked' : ''} ${disabledAttribute}>
+                    <label for="target-${actionDetails.actionKind}-${id}" style="width: 100%; ${isDisabled ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${playerName} ${voteDisplay}</label>
                 </div>
             `;
         });
