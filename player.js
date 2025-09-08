@@ -254,7 +254,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // === THAY ĐỔI: HÀM MỚI ĐỂ HIỂN THỊ LOG RIÊNG TƯ BAO GỒM CẢ NGƯỜI CHẾT ===
     function updatePrivateLog(allNightResults) {
         if (!myPlayerId) return;
 
@@ -298,7 +297,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Các hàm còn lại không thay đổi ---
     function showRoleDescriptionModal(roleName) {
         const roleData = allRolesData.find(r => r.name === roleName);
         if (roleData) {
@@ -526,9 +524,6 @@ document.addEventListener('DOMContentLoaded', () => {
         publishedWillModal.classList.remove('hidden');
     };
 
-    // =================================================================
-    // === BẮT ĐẦU HÀM HELPER MỚI CHO GIAO DIỆN WIZARD ===
-    // =================================================================
     function createWizardSavePanel(actionDetails) {
         const panel = document.createElement('div');
         panel.className = 'game-card';
@@ -564,15 +559,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             panel.querySelector('button[data-action="no"]').addEventListener('click', () => {
-                // Ẩn đi để người chơi không chọn lại
                 panel.querySelector('.choices-grid').innerHTML = '<p>Bạn đã quyết định không cứu ai đêm nay.</p>';
             });
         }
         return panel;
     }
-    // =================================================================
-    // === KẾT THÚC HÀM HELPER MỚI CHO GIAO DIỆN WIZARD ===
-    // =================================================================
 
     function displayNightActions(currentRoomData, currentNight) {
         interactiveActionSection.classList.remove('hidden');
@@ -583,10 +574,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const livingPlayers = Object.entries(currentRoomData.players).filter(([id, player]) => player.isAlive);
         let hasIndividualActions = false;
 
-        // =================================================================
-        // === BẮT ĐẦU LOGIC HIỂN THỊ CHO WIZARD ===
-        // =================================================================
-        if (myPlayerData.roleName === 'Wizard') {
+        if (myPlayerData.roleName && myPlayerData.roleName.toLowerCase() === 'wizard') {
             const wizardState = myPlayerData.wizardAbilityState || 'save_available';
             
             if (wizardState === 'save_available') {
@@ -598,7 +586,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 interactiveActionSection.appendChild(createWizardSavePanel(wizardSaveAction));
             } else if (wizardState === 'kill_available') {
-                // Nếu có quyền giết, hiển thị như một Kind 'kill' bình thường
                 hasIndividualActions = true;
                 const wizardKillAction = {
                     title: `Chức năng riêng: Giết (1 lần)`,
@@ -606,14 +593,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     actionKind: 'wizard_kill', 
                     isWolfGroupAction: false,
                     confirmText: `Xác nhận Giết`,
-                    roleInfo: { ...myRoleData, quantity: 1 } // Ghi đè số lượng mục tiêu là 1
+                    roleInfo: { ...myRoleData, quantity: 1 }
                 };
                 interactiveActionSection.appendChild(createActionPanel(wizardKillAction, livingPlayers));
             }
         }
-        // =================================================================
-        // === KẾT THÚC LOGIC HIỂN THỊ CHO WIZARD ===
-        // =================================================================
     
         if (isWolfFaction) {
             const curseState = currentRoomData.interactiveState?.curseAbility?.status || 'locked';
@@ -647,7 +631,7 @@ document.addEventListener('DOMContentLoaded', () => {
         kinds.forEach(kind => {
             const actionInfo = KIND_TO_ACTION_MAP[kind];
     
-            if (!actionInfo || (isWolfFaction && kind === 'kill') || kind === 'empty' || kind === 'wizard') { // Thêm điều kiện bỏ qua kind wizard gốc
+            if (!actionInfo || (isWolfFaction && kind === 'kill') || kind === 'empty' || kind === 'wizard') {
                 return;
             }
 
