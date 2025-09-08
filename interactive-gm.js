@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - PHIÊN BẢN CẬP NHẬT LOGIC BẦU CHỌN SÓI & WIZARD ===
+// === interactive-gm.js - PHIÊN BẢN CẬP NHẬT LOGIC BẦU CHỌN SÓI & WIZARD (FIX) ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -125,7 +125,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             let actorName = "Bầy Sói";
-            // Logic mới để xử lý tên hành động của Wizard
             let actionLabel = "Hành động lạ";
             if (actionData.action === 'wizard_save') {
                 actionLabel = "Cứu Thế";
@@ -262,15 +261,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     isBoobyTrapped: false,
                 };
 
-                // =================================================================
-                // === BẮT ĐẦU CẬP NHẬT TRẠNG THÁI WIZARD KHI KHỞI TẠO ĐÊM ===
-                // =================================================================
-                if (roleName === 'Wizard') {
+                if (roleInfo.kind === 'wizard') {
                     status.wizardAbilityState = player.wizardAbilityState || 'save_available';
                 }
-                // =================================================================
-                // === KẾT THÚC CẬP NHẬT TRẠNG THÁI WIZARD KHI KHỞI TẠO ĐÊM ===
-                // =================================================================
 
                 return [id, status];
             })
@@ -393,9 +386,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // =================================================================
-        // === BẮT ĐẦU CẬP NHẬT TRẠNG THÁI WIZARD SAU KHI XỬ LÝ ĐÊM ===
+        // === BẮT ĐẦU CẬP NHẬT TRẠNG THÁI WIZARD (ĐÃ SỬA LỖI) ===
         // =================================================================
-        const wizardPlayerEntry = Object.entries(allPlayers).find(([id, p]) => p.roleName === 'Wizard');
+        const wizardPlayerEntry = Object.entries(allPlayers).find(([id, p]) => {
+            const roleInfo = allRolesData[p.roleName] || {};
+            return roleInfo.kind === 'wizard';
+        });
+
         if (wizardPlayerEntry) {
             const wizardId = wizardPlayerEntry[0];
             const wizardFinalStatus = finalStatus[wizardId];
@@ -415,7 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         // =================================================================
-        // === KẾT THÚC CẬP NHẬT TRẠNG THÁI WIZARD SAU KHI XỬ LÝ ĐÊM ===
+        // === KẾT THÚC CẬP NHẬT TRẠNG THÁI WIZARD ===
         // =================================================================
 
         updates[`/nightResults/${currentNight}/public`] = {
