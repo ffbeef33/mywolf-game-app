@@ -1,5 +1,5 @@
 // =================================================================
-// === game-logic.js - PHIÊN BẢN HỖ TRỢ NHIỀU MỤC TIÊU ===
+// === game-logic.js - PHIÊN BẢN HỢP NHẤT LOGIC SÁT THƯƠNG & WIZARD ===
 // =================================================================
 
 const KIND_TO_ACTION_MAP = {
@@ -30,10 +30,8 @@ const KIND_TO_ACTION_MAP = {
     'boom': { key: 'boom', label: 'Cài Boom', type: 'debuff' },
     'love': { key: 'love', label: 'Yêu', type: 'conditional' },
     'saveall': { key: 'saveall', label: 'Cứu Hết', type: 'defense' },
-    // === BẮT ĐẦU PHẦN CHÈN THÊM CHO WIZARD (1/3) ===
     'wizard': { key: 'wizard_save', label: 'Cứu Thế', type: 'conditional' },
     'wizard_kill': { key: 'wizard_kill', label: 'Giết', type: 'damage' },
-    // === KẾT THÚC PHẦN CHÈN THÊM CHO WIZARD (1/3) ===
 };
 
 const ALL_ACTIONS = Object.values(KIND_TO_ACTION_MAP).reduce((acc, action) => {
@@ -50,7 +48,7 @@ ALL_ACTIONS['gm_disable_perm'] = { label: 'Bị vô hiệu hoá (Vĩnh viễn)',
 
 
 function calculateNightStatus(nightState, roomPlayers) {
-    if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [], infoResults: [], loveRedirects: {} };
+    if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [], infoResults: [], loveRedirects: {}, wizardSavedPlayerNames: [] };
         
     let actions = nightState.actions || [];
     const initialStatus = nightState.playersStatus;
@@ -253,11 +251,7 @@ function calculateNightStatus(nightState, roomPlayers) {
         }
     });
 
-    const executableActions = actions.filter(action => {
-        const actionKind = ALL_ACTIONS[action.action]?.key || action.action;
-        const isSelfDisablingAction = ['love', 'disable_action', 'freeze'].includes(actionKind);
-        return true; 
-    });
+    const executableActions = actions.filter(action => { return true; });
     
     const killifActions = executableActions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
     const otherActions = executableActions.filter(({ action }) => !['killif', 'curse', 'collect', 'transform', 'love'].includes(ALL_ACTIONS[action]?.key || action));
@@ -295,28 +289,48 @@ function calculateNightStatus(nightState, roomPlayers) {
                 if (fakeVillagerTarget) {
                     target = fakeVillagerTarget;
                 } else {
-                    if (actionKind === 'audit') {
-                        infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã soi ${roomPlayers.find(p => p.id === finalTargetId).name}: KHÔNG thuộc Bầy Sói.`);
-                    }
-                    if (actionKind === 'invest') {
-                        infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã điều tra ${roomPlayers.find(p => p.id === finalTargetId).name}: KHÔNG thuộc Phe Sói.`);
-                    }
-                    if (actionKind === 'check') {
-                         infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã kiểm tra ${roomPlayers.find(p => p.id === finalTargetId).name}.`);
-                    }
+                    if (actionKind === 'audit') infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã soi ${roomPlayers.find(p => p.id === finalTargetId).name}: KHÔNG thuộc Bầy Sói.`);
+                    if (actionKind === 'invest') infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã điều tra ${roomPlayers.find(p => p.id === finalTargetId).name}: KHÔNG thuộc Phe Sói.`);
+                    if (actionKind === 'check') infoResults.push(`- ${attacker.roleName} (${attacker.name}) đã kiểm tra ${roomPlayers.find(p => p.id === finalTargetId).name}.`);
                     return;
                 }
             } else if (disabledPlayerIds.has(attacker.id)) {
                 return;
             }
+            
+            // =======================================================
+            // === BẮT ĐẦU KHỐI LOGIC SÁT THƯƠNG ĐÃ ĐƯỢC HỢP NHẤT ===
+            // =======================================================
+            const allKillActions = ['kill', 'gm_kill', 'killwolf', 'killvillager', 'wizard_kill'];
+            const attackerHasKillAbility = liveStatuses[actorId] && liveStatuses[actorId].tempStatus.hasKillAbility;
 
-
-            if (action === 'kill' || actionKind === 'gm_kill') {
+            if (allKillActions.includes(actionKind) || (attackerHasKillAbility && actionKind !== 'killdelay')) {
                 const ultimateTargetId = damageRedirects[finalTargetId] || finalTargetId;
-                const targetStatus = liveStatuses[ultimateTargetId];
-                if (targetStatus && !targetStatus.isProtected && !targetStatus.isImmuneToWolves) {
-                    targetStatus.damage++;
-                    if (targetStatus.isBoobyTrapped) {
+                const finalTarget = roomPlayers.find(p => p.id === ultimateTargetId);
+                const finalTargetStatus = liveStatuses[ultimateTargetId];
+
+                if (!finalTarget || !finalTargetStatus || finalTargetStatus.isProtected || (isWolfBite && finalTargetStatus.isImmuneToWolves)) {
+                    return; // Bỏ qua nếu mục tiêu được bảo vệ
+                }
+
+                let shouldDamage = true;
+                // Logic điều kiện giết
+                if (actionKind === 'killwolf' && !(finalTarget.faction === 'Bầy Sói' || finalTarget.faction === 'Phe Sói')) {
+                    shouldDamage = false;
+                }
+                if (actionKind === 'killvillager') {
+                    if (finalTarget.roleName === 'Dân') {
+                        shouldDamage = true;
+                    } else {
+                        shouldDamage = false;
+                        if (liveStatuses[actorId] && !liveStatuses[actorId].isProtected) liveStatuses[actorId].damage++;
+                    }
+                }
+
+                if (shouldDamage) {
+                    finalTargetStatus.damage++;
+                    // Logic boom
+                    if (finalTargetStatus.isBoobyTrapped) {
                         const originalAttacker = (actorId === 'wolf_group') ? {id: 'wolf_group', name: 'Bầy Sói'} : attacker;
                         if (originalAttacker.id === 'wolf_group') {
                             const livingWolves = roomPlayers.filter(p => (p.faction === 'Bầy Sói' || p.faction === 'Phe Sói') && finalStatus[p.id]?.isAlive);
@@ -331,44 +345,12 @@ function calculateNightStatus(nightState, roomPlayers) {
                             liveStatuses[originalAttacker.id].damage++;
                             infoResults.push(`- ${originalAttacker.name} bị nổ boom khi tấn công ${target.name}.`);
                         }
-                        targetStatus.isBoobyTrapped = false;
-                        finalStatus[ultimateTargetId].isBoobyTrapped = false;
-                    }
-                }
-                return;
-            }
-            
-            const attackerHasKill = actionKind.includes('kill') || (liveStatuses[actorId] && liveStatuses[actorId].tempStatus.hasKillAbility);
-
-            if (attackerHasKill && actionKind !== 'killdelay') {
-                const ultimateTargetId = damageRedirects[finalTargetId] || finalTargetId;
-                const finalTarget = roomPlayers.find(p => p.id === ultimateTargetId);
-                const finalTargetStatus = liveStatuses[ultimateTargetId];
-                
-                if (!finalTarget || !finalTargetStatus || finalTargetStatus.isProtected) return;
-                
-                let shouldDamage = true;
-                if(actionKind === 'killwolf' && !(finalTarget.faction === 'Bầy Sói' || finalTarget.faction === 'Phe Sói')) shouldDamage = false;
-                if(actionKind === 'killvillager'){
-                    if(finalTarget.roleName === 'Dân') shouldDamage = true;
-                    else {
-                        shouldDamage = false;
-                        if (liveStatuses[actorId] && !liveStatuses[actorId].isProtected) liveStatuses[actorId].damage++;
-                    }
-                }
-                
-                if(shouldDamage) {
-                    finalTargetStatus.damage++;
-                    if (finalTargetStatus.isBoobyTrapped) {
-                         if (liveStatuses[attacker.id] && !liveStatuses[attacker.id].isProtected) {
-                            liveStatuses[attacker.id].damage++;
-                            infoResults.push(`- ${attacker.name} bị nổ boom khi tấn công ${finalTarget.name}.`);
-                        }
                         finalTargetStatus.isBoobyTrapped = false;
                         finalStatus[ultimateTargetId].isBoobyTrapped = false;
                     }
                 }
-                
+
+                // Logic phản công
                 if (finalTarget.kind === 'counter' && !liveStatuses[attacker.id].isProtected) {
                     if (liveStatuses[attacker.id]) liveStatuses[attacker.id].damage++;
                 }
@@ -381,6 +363,9 @@ function calculateNightStatus(nightState, roomPlayers) {
                     if (ward) ward.triggered = true;
                 }
             }
+            // =======================================================
+            // === KẾT THÚC KHỐI LOGIC SÁT THƯƠNG ĐÃ ĐƯỢC HỢP NHẤT ===
+            // =======================================================
             
             if (actionKind === 'audit') {
                 const currentFaction = finalStatus[target.id]?.faction || target.faction;
@@ -488,7 +473,6 @@ function calculateNightStatus(nightState, roomPlayers) {
         infoResults.push(`- ${roomPlayers.find(p=>p.id===saveAllAction.actorId).name} đã cứu tất cả mọi người!`);
     }
 
-    // === BẮT ĐẦU PHẦN CHÈN THÊM CHO WIZARD (2/3) ===
     const wizardAction = executableActions.find(a => (ALL_ACTIONS[a.action]?.key || a.action) === 'wizard_save');
     let wizardSavedPlayerNames = [];
 
@@ -534,7 +518,6 @@ function calculateNightStatus(nightState, roomPlayers) {
             }
         }
     }
-    // === KẾT THÚC PHẦN CHÈN THÊM CHO WIZARD (2/3) ===
 
     let deadPlayerIdsThisNight = new Set();
     const finalNightResolution = {};
@@ -614,7 +597,5 @@ function calculateNightStatus(nightState, roomPlayers) {
 
     const deadPlayerNames = Array.from(deadPlayerIdsThisNight).map(id => roomPlayers.find(p => p.id === id)?.name).filter(Boolean);
     
-    // === BẮT ĐẦU PHẦN CHÈN THÊM CHO WIZARD (3/3) ===
     return { liveStatuses, finalStatus, deadPlayerNames, infoResults, loveRedirects, wizardSavedPlayerNames };
-    // === KẾT THÚC PHẦN CHÈN THÊM CHO WIZARD (3/3) ===
 }
