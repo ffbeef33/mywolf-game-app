@@ -1,5 +1,5 @@
 // =================================================================
-// === game-logic.js - PHIÊN BẢN HỖ TRỢ NHIỀU MỤC TIÊU ===
+// === game-logic.js - PHIÊN BẢN HỖ TRỢ NHIỀU MỤC TIÊU & WIZARD ===
 // =================================================================
 
 const KIND_TO_ACTION_MAP = {
@@ -30,6 +30,8 @@ const KIND_TO_ACTION_MAP = {
     'boom': { key: 'boom', label: 'Cài Boom', type: 'debuff' },
     'love': { key: 'love', label: 'Yêu', type: 'conditional' },
     'saveall': { key: 'saveall', label: 'Cứu Hết', type: 'defense' },
+    'wizard': { key: 'wizard_save', label: 'Cứu Thế', type: 'conditional' }, // Thêm wizard
+    'wizard_kill': { key: 'wizard_kill', label: 'Giết', type: 'damage' }, // Thêm kill cho wizard
 };
 
 const ALL_ACTIONS = Object.values(KIND_TO_ACTION_MAP).reduce((acc, action) => {
@@ -46,7 +48,7 @@ ALL_ACTIONS['gm_disable_perm'] = { label: 'Bị vô hiệu hoá (Vĩnh viễn)',
 
 
 function calculateNightStatus(nightState, roomPlayers) {
-    if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [], infoResults: [], loveRedirects: {} };
+    if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [], infoResults: [], loveRedirects: {}, wizardSavedPlayerNames: [] };
         
     let actions = nightState.actions || [];
     const initialStatus = nightState.playersStatus;
@@ -314,7 +316,7 @@ function calculateNightStatus(nightState, roomPlayers) {
             // =======================================================
 
 
-            if (action === 'kill' || actionKind === 'gm_kill') {
+            if (action === 'kill' || actionKind === 'gm_kill' || actionKind === 'wizard_kill') {
                 const ultimateTargetId = damageRedirects[finalTargetId] || finalTargetId;
                 const targetStatus = liveStatuses[ultimateTargetId];
                 if (targetStatus && !targetStatus.isProtected && !targetStatus.isImmuneToWolves) {
@@ -491,6 +493,57 @@ function calculateNightStatus(nightState, roomPlayers) {
         infoResults.push(`- ${roomPlayers.find(p=>p.id===saveAllAction.actorId).name} đã cứu tất cả mọi người!`);
     }
 
+    // =================================================================
+    // === BẮT ĐẦU LOGIC CHO WIZARD (PHÙ THỦY CỨU THẾ) ===
+    // =================================================================
+    const wizardAction = executableActions.find(a => (ALL_ACTIONS[a.action]?.key || a.action) === 'wizard_save');
+    let wizardSavedPlayerNames = [];
+
+    if (wizardAction) {
+        const wizardId = wizardAction.actorId;
+        let potentialDeaths = [];
+
+        // 1. Xác định những người sẽ chết nếu không có Wizard
+        Object.keys(liveStatuses).forEach(pId => {
+            const status = liveStatuses[pId];
+            // Người chơi sẽ chết nếu có sát thương, không được cứu và không có giáp đủ
+            if (status.damage > 0 && !status.isSaved && !status.isSavedByKillif && (status.damage >= status.armor)) {
+                potentialDeaths.push(pId);
+            }
+        });
+
+        if (potentialDeaths.length > 0) {
+            // 2. CÓ NGƯỜI CHẾT -> CỨU THÀNH CÔNG
+            potentialDeaths.forEach(deadPlayerId => {
+                if (liveStatuses[deadPlayerId]) {
+                    liveStatuses[deadPlayerId].isSaved = true; // Cứu họ
+                    const playerInfo = roomPlayers.find(p => p.id === deadPlayerId);
+                    if (playerInfo) {
+                        wizardSavedPlayerNames.push(playerInfo.name);
+                    }
+                }
+            });
+            // Đánh dấu để interactive-gm.js biết và trao quyền giết
+            if (finalStatus[wizardId]) {
+                finalStatus[wizardId].wizardSaveSuccessful = true;
+            }
+            infoResults.push(`- Wizard đã cứu sống: ${wizardSavedPlayerNames.join(', ')}.`);
+
+        } else {
+            // 3. KHÔNG CÓ AI CHẾT -> WIZARD CHẾT
+            if (liveStatuses[wizardId] && !liveStatuses[wizardId].isProtected) {
+                liveStatuses[wizardId].damage = 99; // Tự sát
+                if (finalStatus[wizardId]) {
+                    finalStatus[wizardId].wizardSaveFailed = true;
+                }
+                infoResults.push(`- Wizard đã cố cứu thế nhưng không có ai chết và phải trả giá bằng mạng sống.`);
+            }
+        }
+    }
+    // =================================================================
+    // === KẾT THÚC LOGIC CHO WIZARD ===
+    // =================================================================
+
     let deadPlayerIdsThisNight = new Set();
     const finalNightResolution = {};
 
@@ -569,5 +622,5 @@ function calculateNightStatus(nightState, roomPlayers) {
 
     const deadPlayerNames = Array.from(deadPlayerIdsThisNight).map(id => roomPlayers.find(p => p.id === id)?.name).filter(Boolean);
     
-    return { liveStatuses, finalStatus, deadPlayerNames, infoResults, loveRedirects };
+    return { liveStatuses, finalStatus, deadPlayerNames, infoResults, loveRedirects, wizardSavedPlayerNames };
 }

@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - PHIÊN BẢN CẬP NHẬT LOGIC BẦU CHỌN CỦA SÓI ===
+// === interactive-gm.js - PHIÊN BẢN CẬP NHẬT LOGIC BẦU CHỌN SÓI & WIZARD ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -125,11 +125,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             let actorName = "Bầy Sói";
+            // Logic mới để xử lý tên hành động của Wizard
+            let actionLabel = "Hành động lạ";
+            if (actionData.action === 'wizard_save') {
+                actionLabel = "Cứu Thế";
+                targetNames = "(Toàn bộ)";
+            } else {
+                actionLabel = ALL_ACTIONS[actionData.action]?.label || actionData.action;
+            }
+
             if (actorId !== 'wolf_group') {
                 actorName = roomData.players[actorId]?.name || 'Người chơi không xác định';
             }
             
-            const actionLabel = ALL_ACTIONS[actionData.action]?.label || actionData.action;
             const p = document.createElement('p');
             p.innerHTML = `[ĐÊM] <strong>${actorName}</strong> đã chọn <em>${actionLabel}</em> <strong>${targetNames}</strong>.`;
             gameLog.prepend(p);
@@ -238,7 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const roleName = player.roleName || "";
                 const roleInfo = allRolesData[roleName] || {};
                 const kind = roleInfo.kind || 'empty';
-                return [id, { 
+                const status = { 
                     isAlive: player.isAlive,
                     faction: roleInfo.faction || 'Chưa phân loại',
                     roleName: roleName,
@@ -252,7 +260,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     originalRoleName: null, activeRule: roleInfo.active || 'n',
                     quantity: roleInfo.quantity || 1, duration: roleInfo.duration || '1',
                     isBoobyTrapped: false,
-                }];
+                };
+
+                // =================================================================
+                // === BẮT ĐẦU CẬP NHẬT TRẠNG THÁI WIZARD KHI KHỞI TẠO ĐÊM ===
+                // =================================================================
+                if (roleName === 'Wizard') {
+                    status.wizardAbilityState = player.wizardAbilityState || 'save_available';
+                }
+                // =================================================================
+                // === KẾT THÚC CẬP NHẬT TRẠNG THÁI WIZARD KHI KHỞI TẠO ĐÊM ===
+                // =================================================================
+
+                return [id, status];
             })
         );
         
@@ -354,7 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         const results = calculateNightStatus(nightStateForCalc, roomPlayersForCalc);
-        const { finalStatus, deadPlayerNames, infoResults } = results;
+        const { finalStatus, deadPlayerNames, infoResults, wizardSavedPlayerNames } = results;
         
         Object.keys(finalStatus).forEach(playerId => {
             const originalPlayerState = initialPlayerStatus[playerId];
@@ -371,6 +391,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+
+        // =================================================================
+        // === BẮT ĐẦU CẬP NHẬT TRẠNG THÁI WIZARD SAU KHI XỬ LÝ ĐÊM ===
+        // =================================================================
+        const wizardPlayerEntry = Object.entries(allPlayers).find(([id, p]) => p.roleName === 'Wizard');
+        if (wizardPlayerEntry) {
+            const wizardId = wizardPlayerEntry[0];
+            const wizardFinalStatus = finalStatus[wizardId];
+            const wizardAction = playerActions[wizardId];
+
+            if (wizardFinalStatus) {
+                if (wizardFinalStatus.wizardSaveSuccessful) {
+                    updates[`/players/${wizardId}/wizardAbilityState`] = 'kill_available';
+                    const savedNames = wizardSavedPlayerNames.join(', ');
+                    updates[`/nightResults/${currentNight}/private/${wizardId}`] = `Bạn đã cứu thế thành công! Những người được cứu: ${savedNames}. Bạn nhận được 1 lần Giết vào đêm tiếp theo.`;
+                } else if (wizardFinalStatus.wizardSaveFailed) {
+                    updates[`/players/${wizardId}/wizardAbilityState`] = 'used';
+                    updates[`/nightResults/${currentNight}/private/${wizardId}`] = 'Bạn đã dùng Cứu Thế nhưng không có ai chết. Bạn đã phải trả giá bằng mạng sống của mình.';
+                } else if (wizardAction && wizardAction.action === 'wizard_kill') {
+                    updates[`/players/${wizardId}/wizardAbilityState`] = 'used';
+                }
+            }
+        }
+        // =================================================================
+        // === KẾT THÚC CẬP NHẬT TRẠNG THÁI WIZARD SAU KHI XỬ LÝ ĐÊM ===
+        // =================================================================
 
         updates[`/nightResults/${currentNight}/public`] = {
             deadPlayerNames: deadPlayerNames || [],
@@ -411,25 +457,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if(!confirm("Bạn có muốn reset và bắt đầu game mới không? Hành động này sẽ xóa toàn bộ lịch sử đêm và hồi sinh người chơi.")) return;
             
             const updates = {};
-            // === SỬA LỖI: RESET LẠI VAI TRÒ CỦA NGƯỜI CHƠI KHI BẮT ĐẦU GAME MỚI ===
             Object.keys(roomData.players).forEach(pId => {
                 updates[`/players/${pId}/isAlive`] = true;
-                updates[`/players/${pId}/roleName`] = null; // Đặt lại vai trò về null
+                updates[`/players/${pId}/roleName`] = null; 
             });
-            // === KẾT THÚC SỬA LỖI ===
 
             updates['/nightActions'] = null;
             updates['/nightResults'] = null;
             updates['/interactiveLog'] = null;
             updates['/interactiveState'] = {
-                phase: 'setup', // Quay về trạng thái setup để chờ chia bài lại
+                phase: 'setup',
                 currentNight: 0,
                 message: `Game đã được reset. Chờ Quản trò chia lại vai trò.`,
                 curseAbility: { status: 'locked' } 
             };
             
             database.ref(`rooms/${currentRoomId}`).update(updates);
-            // Sau khi reset, nên quay về trang admin để chia bài lại
             alert("Game đã được reset! Vui lòng quay lại trang Admin để bắt đầu chia lại vai trò cho ván mới.");
             return;
         }
