@@ -25,6 +25,10 @@
   --border-radius: 8px;
   --box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
   --transition-speed: 0.3s;
+  /* Màu phe để sử dụng nhất quán */
+  --faction-wolf-color: #f85149;
+  --faction-villager-color: #2ea043;
+  --faction-neutral-color: #d29922;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -293,3 +297,90 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .player-item.dead {
     background-color: rgba(248, 81, 73, 0.05);
 }
+
+/* ==========================================================================
+   9. GIAO DIỆN MỚI CHO INTERACTIVE-GM
+   ========================================================================== */
+#player-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.interactive-player-card {
+    background-color: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    border-left-width: 5px;
+    border-radius: var(--border-radius);
+    padding: 15px;
+    text-align: center;
+    transition: all var(--transition-speed) ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.interactive-player-card .player-status {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+}
+
+.interactive-player-card .player-status .fa-heart {
+    color: var(--faction-villager-color);
+}
+
+.interactive-player-card .player-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--light-text);
+    margin-bottom: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.interactive-player-card .player-role {
+    font-size: 0.9rem;
+    color: var(--text-color);
+    margin-bottom: 15px;
+}
+
+.interactive-player-card .gm-action-btn {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 0.9rem;
+}
+
+/* Trạng thái chết */
+.interactive-player-card.dead {
+    opacity: 0.5;
+    background: repeating-linear-gradient(
+        45deg,
+        var(--secondary-bg),
+        var(--secondary-bg) 10px,
+        #2a2f37 10px,
+        #2a2f37 20px
+    );
+}
+
+.interactive-player-card.dead .player-name {
+    text-decoration: line-through;
+}
+
+.interactive-player-card.dead .player-status .fa-heart-crack {
+    color: var(--faction-wolf-color);
+}
+
+/* Màu sắc theo phe */
+.interactive-player-card.faction-wolf { border-left-color: var(--faction-wolf-color); }
+.interactive-player-card.faction-villager { border-left-color: var(--faction-villager-color); }
+.interactive-player-card.faction-neutral { border-left-color: var(--faction-neutral-color); }
+.interactive-player-card.faction-other { border-left-color: var(--border-color); }

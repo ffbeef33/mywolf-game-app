@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - CẬP NHẬT LOG ASSASSIN ===
+// === interactive-gm.js - CẬP NHẬT LOGIC RENDER & UI ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Elements ---
     const roomIdDisplay = document.getElementById('room-id-display');
     const currentPhaseDisplay = document.getElementById('current-phase-display');
-    const playerListUI = document.getElementById('player-list');
+    const playerGridUI = document.getElementById('player-grid'); // Đổi từ player-list
     const playersTotalDisplay = document.getElementById('players-total');
     const gameLog = document.getElementById('game-log');
     const startNightBtn = document.getElementById('start-night-btn');
@@ -149,48 +149,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderPlayerList = () => {
         const players = roomData.players || {};
-        playerListUI.innerHTML = '';
+        playerGridUI.innerHTML = ''; // Đổi từ playerListUI
         playersTotalDisplay.textContent = Object.keys(players).length;
 
-        const playersByFaction = {
-            'Bầy Sói': [], 'Phe Sói': [], 'Phe Dân': [], 'Phe trung lập': [], 'Khác': []
-        };
-
-        Object.entries(players).forEach(([id, player]) => {
-            const roleName = player.roleName || '';
-            const roleData = allRolesData[roleName] || {};
-            const faction = roleData.faction || 'Khác';
-            
-            if (playersByFaction.hasOwnProperty(faction)) {
-                playersByFaction[faction].push({ id, ...player });
-            } else {
-                playersByFaction['Khác'].push({ id, ...player });
+        const getFactionClass = (faction) => {
+            switch (faction) {
+                case 'Bầy Sói':
+                case 'Phe Sói':
+                    return 'faction-wolf';
+                case 'Phe Dân':
+                    return 'faction-villager';
+                case 'Phe trung lập':
+                    return 'faction-neutral';
+                default:
+                    return 'faction-other';
             }
+        };
+        
+        // Sắp xếp người chơi theo phe để hiển thị gần nhau
+        const sortedPlayers = Object.entries(players).sort(([, a], [, b]) => {
+            const roleA = allRolesData[a.roleName] || {};
+            const roleB = allRolesData[b.roleName] || {};
+            const factionA = roleA.faction || 'Z';
+            const factionB = roleB.faction || 'Z';
+            return factionA.localeCompare(factionB) || a.name.localeCompare(b.name);
         });
 
-        const factionOrder = ['Bầy Sói', 'Phe Sói', 'Phe Dân', 'Phe trung lập', 'Khác'];
 
-        factionOrder.forEach(faction => {
-            const groupPlayers = playersByFaction[faction];
-            if (groupPlayers.length > 0) {
-                const headerLi = document.createElement('li');
-                headerLi.className = 'faction-header-li';
-                headerLi.textContent = faction;
-                playerListUI.appendChild(headerLi);
+        sortedPlayers.forEach(([id, player]) => {
+            const roleName = player.roleName || 'Chưa có vai';
+            const roleData = allRolesData[roleName] || {};
+            const faction = roleData.faction || 'Khác';
 
-                groupPlayers.sort((a, b) => a.name.localeCompare(b.name)).forEach(player => {
-                    const li = document.createElement('li');
-                    li.className = 'player-item';
-                    if (!player.isAlive) {
-                        li.classList.add('dead');
-                    }
-                    li.innerHTML = `
-                        <span class="player-name">${player.name} <strong>(${player.roleName || 'Chưa có vai'})</strong></span>
-                        <button class="btn-secondary gm-action-btn" data-player-id="${player.id}" data-player-name="${player.name}">Hành động</button>
-                    `;
-                    playerListUI.appendChild(li);
-                });
+            const card = document.createElement('div');
+            card.className = 'interactive-player-card';
+            card.classList.add(getFactionClass(faction));
+
+            if (!player.isAlive) {
+                card.classList.add('dead');
             }
+
+            const statusIcon = player.isAlive 
+                ? '<i class="fas fa-heart"></i>' 
+                : '<i class="fas fa-heart-crack"></i>';
+
+            card.innerHTML = `
+                <div class="player-status">${statusIcon}</div>
+                <p class="player-name" title="${player.name}">${player.name}</p>
+                <p class="player-role">${roleName}</p>
+                <button class="btn-secondary gm-action-btn" data-player-id="${id}" data-player-name="${player.name}">Hành động</button>
+            `;
+            playerGridUI.appendChild(card); // Đổi từ playerListUI
         });
     };
     
@@ -503,10 +512,11 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         database.ref(`rooms/${currentRoomId}/interactiveState`).update(newState);
     });
-    playerListUI.addEventListener('click', (e) => {
-        if (e.target && e.target.classList.contains('gm-action-btn')) {
-            const playerId = e.target.dataset.playerId;
-            const playerName = e.target.dataset.playerName;
+    playerGridUI.addEventListener('click', (e) => { // Đổi từ playerListUI
+        const actionButton = e.target.closest('.gm-action-btn');
+        if (actionButton) {
+            const playerId = actionButton.dataset.playerId;
+            const playerName = actionButton.dataset.playerName;
             const player = roomData.players[playerId];
             if (!player) return;
             const action = prompt(`Chọn hành động cho ${playerName}:\n1: Giết\n2: Hồi sinh\n(Nhập 1 hoặc 2)`);
