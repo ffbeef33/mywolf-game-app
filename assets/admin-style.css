@@ -522,7 +522,7 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 }
 
 /* ==========================================================================
-   12. STYLE MỚI CHO TÍNH NĂNG THU GỌN
+   12. STYLE MỚI CHO TÍNH NĂNG THU GỌN (ĐÃ TỐI ƯU)
    ========================================================================== */
 .card-header-collapsible {
     display: flex;
@@ -541,20 +541,20 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .collapse-icon {
     font-size: 1.2rem;
     color: var(--light-text);
-    transition: transform 0.3s ease-in-out;
+    transition: transform 0.3s ease; /* Hiệu ứng mượt hơn */
 }
 .card-content-collapsible {
     overflow: hidden;
     max-height: 3000px; /* Một giá trị lớn để chứa nội dung */
-    transition: max-height 0.4s ease-in-out, margin-top 0.4s ease-in-out;
+    transition: max-height 0.35s ease; /* Chỉ áp dụng hiệu ứng cho max-height */
 }
 .card-content-collapsible.collapsed {
     max-height: 0;
-    margin-top: 0 !important; /* Ghi đè margin-top khi thu gọn */
+    margin-top: -20px; /* Bù lại margin-bottom của header */
 }
 .card-header-collapsible.collapsed .collapse-icon {
     transform: rotate(-90deg);
 }
 .card-header-collapsible.collapsed {
-    margin-bottom: 0; /* Xóa margin-bottom của header khi thu gọn */
+    margin-bottom: 0;
 }
