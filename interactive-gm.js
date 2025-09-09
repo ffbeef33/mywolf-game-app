@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - TÍCH HỢP LOGIC VOTE ===
+// === interactive-gm.js - THÊM TÍNH NĂNG THU GỌN GIAO DIỆN ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -56,7 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
         await fetchAllRolesData();
         roomIdDisplay.textContent = currentRoomId;
         attachListenersToRoom();
-        attachVoteButtonListeners(); // Gán sự kiện cho các nút vote
+        attachVoteButtonListeners(); 
+        initializeCollapsibleSections(); // **MỚI: Khởi tạo tính năng thu gọn**
     };
 
     const fetchAllRolesData = async () => {
@@ -95,11 +96,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
     
+    // ... (Các hàm render, processNightResults, logic vote không thay đổi)
     const render = () => {
         renderPlayerList();
         renderGameState();
         renderFullGameLog();
-        renderVotingModule(); // **MỚI: Gọi hàm render module vote**
+        renderVotingModule();
     };
     
     const renderFullGameLog = () => {
@@ -270,7 +272,6 @@ document.addEventListener('DOMContentLoaded', () => {
         currentPhaseDisplay.textContent = phaseText;
     };
     
-    // ... (Hàm processNightResults không đổi)
     const processNightResults = async () => {
         endNightBtn.disabled = true;
         endNightBtn.textContent = "Đang xử lý...";
@@ -461,7 +462,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Xử lý sự kiện nhấn nút ---
     startNightBtn.addEventListener('click', () => {
         const state = roomData.interactiveState || {};
         
@@ -549,10 +549,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // =================================================================
-    // === CÁC HÀM MỚI CHO LOGIC VOTE ===
-    // =================================================================
-    
     function renderVotingModule() {
         if (!roomData || !roomData.players) return;
         
@@ -747,6 +743,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 display.textContent = currentValue;
                 rememberedVoteWeights[playerId] = currentValue;
             }
+        });
+    }
+
+    // =================================================================
+    // === HÀM MỚI CHO TÍNH NĂNG THU GỌN ===
+    // =================================================================
+    function initializeCollapsibleSections() {
+        const headers = document.querySelectorAll('.card-header-collapsible');
+        headers.forEach(header => {
+            // Mặc định thu gọn 2 mục cuối
+            if(header.parentElement.id === 'players-card' || header.parentElement.id === 'log-card') {
+                header.classList.add('collapsed');
+                header.nextElementSibling.classList.add('collapsed');
+            }
+
+            header.addEventListener('click', () => {
+                header.classList.toggle('collapsed');
+                const content = header.nextElementSibling;
+                content.classList.toggle('collapsed');
+            });
         });
     }
 

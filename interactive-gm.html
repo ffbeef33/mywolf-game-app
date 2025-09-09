@@ -47,41 +47,63 @@
                 </div>
 
                 <div id="controls-card" class="card">
-                    <h2><i class="fas fa-cogs"></i> Bảng Điều Khiển</h2>
-                    <div class="controls-grid">
-                        <button id="start-night-btn" class="btn-special"><i class="fas fa-moon"></i> Bắt Đầu Đêm</button>
-                        <button id="end-night-btn" disabled><i class="fas fa-sun"></i> Kết Thúc Đêm & Xử Lý</button>
-                        <button id="start-day-btn" disabled><i class="fas fa-users"></i> Bắt Đầu Thảo Luận</button>
-                        <button id="interactive-start-vote-btn" disabled><i class="fas fa-gavel"></i> Bắt Đầu Vote</button>
-                        <button id="end-game-btn" class="btn-danger"><i class="fas fa-flag-checkered"></i> Kết Thúc Game</button>
+                    <div class="card-header-collapsible">
+                        <h2><i class="fas fa-cogs"></i> Bảng Điều Khiển</h2>
+                        <i class="fas fa-chevron-down collapse-icon"></i>
+                    </div>
+                    <div class="card-content-collapsible">
+                        <div class="controls-grid">
+                            <button id="start-night-btn" class="btn-special"><i class="fas fa-moon"></i> Bắt Đầu Đêm</button>
+                            <button id="end-night-btn" disabled><i class="fas fa-sun"></i> Kết Thúc Đêm & Xử Lý</button>
+                            <button id="start-day-btn" disabled><i class="fas fa-users"></i> Bắt Đầu Thảo Luận</button>
+                            <button id="interactive-start-vote-btn" disabled><i class="fas fa-gavel"></i> Bắt Đầu Vote</button>
+                            <button id="end-game-btn" class="btn-danger"><i class="fas fa-flag-checkered"></i> Kết Thúc Game</button>
+                        </div>
                     </div>
                 </div>
 
                 <div id="voting-section" class="card hidden">
-                    <h2><i class="fas fa-gavel"></i> Dàn Xử Án</h2>
-                    <div class="voting-controls">
-                        <input type="text" id="vote-title-input" placeholder="Tiêu đề (ví dụ: Vote treo cổ ngày 1)" value="Vote treo cổ">
-                        <input type="number" id="vote-timer-input" value="60" min="10" title="Thời gian vote (giây)">
-                        <button id="start-vote-now-btn" class="btn-special">Bắt Đầu Vote Ngay</button>
-                        <button id="end-vote-now-btn" class="btn-danger" style="display: none;">Kết Thúc Vote Ngay</button>
-                        <span id="gm-vote-timer-display" class="gm-timer-display"></span>
+                    <div class="card-header-collapsible">
+                        <h2><i class="fas fa-gavel"></i> Dàn Xử Án</h2>
+                        <i class="fas fa-chevron-down collapse-icon"></i>
                     </div>
-                    <div id="vote-players-list"></div>
-                    <div id="vote-results-container" style="display: none;">
-                        <h3>Kết Quả Vote</h3>
-                        <div id="vote-results-summary"></div>
-                        <div id="vote-results-details"></div>
-                    </div>
-                </div>
-                <div id="players-card" class="card">
-                     <h2><i class="fas fa-users"></i> Danh Sách Người Chơi (<span id="players-total">0</span>)</h2>
-                     <div id="player-grid">
+                    <div class="card-content-collapsible">
+                        <div class="voting-controls">
+                            <input type="text" id="vote-title-input" placeholder="Tiêu đề (ví dụ: Vote treo cổ ngày 1)" value="Vote treo cổ">
+                            <input type="number" id="vote-timer-input" value="60" min="10" title="Thời gian vote (giây)">
+                            <button id="start-vote-now-btn" class="btn-special">Bắt Đầu Vote Ngay</button>
+                            <button id="end-vote-now-btn" class="btn-danger" style="display: none;">Kết Thúc Vote Ngay</button>
+                            <span id="gm-vote-timer-display" class="gm-timer-display"></span>
                         </div>
+                        <div id="vote-players-list"></div>
+                        <div id="vote-results-container" style="display: none;">
+                            <h3>Kết Quả Vote</h3>
+                            <div id="vote-results-summary"></div>
+                            <div id="vote-results-details"></div>
+                        </div>
+                    </div>
                 </div>
+
+                <div id="players-card" class="card">
+                    <div class="card-header-collapsible">
+                        <h2><i class="fas fa-users"></i> Danh Sách Người Chơi (<span id="players-total">0</span>)</h2>
+                        <i class="fas fa-chevron-down collapse-icon"></i>
+                    </div>
+                     <div class="card-content-collapsible">
+                        <div id="player-grid">
+                            </div>
+                     </div>
+                </div>
+
                  <div id="log-card" class="card">
-                    <h2><i class="fas fa-file-alt"></i> Nhật Ký Hoạt Động</h2>
-                    <div id="game-log">
-                        <p><em>Chưa có hoạt động nào...</em></p>
+                    <div class="card-header-collapsible">
+                        <h2><i class="fas fa-file-alt"></i> Nhật Ký Hoạt Động</h2>
+                        <i class="fas fa-chevron-down collapse-icon"></i>
+                    </div>
+                    <div class="card-content-collapsible">
+                        <div id="game-log">
+                            <p><em>Chưa có hoạt động nào...</em></p>
+                        </div>
                     </div>
                 </div>
             </section>

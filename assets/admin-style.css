@@ -69,7 +69,7 @@ body {
    ========================================================================== */
 h1, h2, h3, h4 { color: var(--text-color); font-weight: 700; margin-top: 0; }
 h1 { font-size: 2rem; margin-bottom: 5px; }
-h2 { font-size: 1.5rem; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+h2 { font-size: 1.5rem; margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
 h3 { font-size: 1.2rem; margin-bottom: 15px; color: var(--light-text); }
 h4 { font-size: 1.1rem; margin-bottom: 15px; color: var(--light-text); }
 p { margin-bottom: 10px; }
@@ -305,7 +305,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 15px;
-    margin-top: 10px;
 }
 
 .interactive-player-card {
@@ -520,4 +519,42 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     color: var(--text-color);
     margin-left: 15px;
     display: none; 
+}
+
+/* ==========================================================================
+   12. STYLE MỚI CHO TÍNH NĂNG THU GỌN
+   ========================================================================== */
+.card-header-collapsible {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 20px;
+}
+.card-header-collapsible h2 {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+.collapse-icon {
+    font-size: 1.2rem;
+    color: var(--light-text);
+    transition: transform 0.3s ease-in-out;
+}
+.card-content-collapsible {
+    overflow: hidden;
+    max-height: 3000px; /* Một giá trị lớn để chứa nội dung */
+    transition: max-height 0.4s ease-in-out, margin-top 0.4s ease-in-out;
+}
+.card-content-collapsible.collapsed {
+    max-height: 0;
+    margin-top: 0 !important; /* Ghi đè margin-top khi thu gọn */
+}
+.card-header-collapsible.collapsed .collapse-icon {
+    transform: rotate(-90deg);
+}
+.card-header-collapsible.collapsed {
+    margin-bottom: 0; /* Xóa margin-bottom của header khi thu gọn */
 }
