@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - CẬP NHẬT LOGIC RENDER & UI ===
+// === interactive-gm.js - CẬP NHẬT LOGIC HIỂN THỊ KẾT QUẢ ĐÊM ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Elements ---
     const roomIdDisplay = document.getElementById('room-id-display');
     const currentPhaseDisplay = document.getElementById('current-phase-display');
-    const playerGridUI = document.getElementById('player-grid'); // Đổi từ player-list
+    const playerGridUI = document.getElementById('player-grid');
     const playersTotalDisplay = document.getElementById('players-total');
     const gameLog = document.getElementById('game-log');
     const startNightBtn = document.getElementById('start-night-btn');
@@ -31,7 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- State ---
     let currentRoomId = null;
     let roomListener = null;
-    let actionLogListener = null;
     let roomData = {};
     let allRolesData = {};
 
@@ -80,76 +79,96 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             roomData = snapshot.val();
             render();
-            const currentNight = roomData.interactiveState?.currentNight || 0;
-            if (currentNight > 0) {
-                attachActionLogListener(currentNight);
-            }
         });
     };
     
-    const attachActionLogListener = (nightNumber) => {
-        const actionLogRef = database.ref(`rooms/${currentRoomId}/nightActions/${nightNumber}`);
-        if(actionLogListener) {
-            actionLogListener.off();
-        }
-        actionLogListener = actionLogRef;
-        actionLogListener.on('value', (snapshot) => {
-            const actions = snapshot.val() || {};
-            renderActionLog(actions);
-        });
-    }
-
     const render = () => {
         renderPlayerList();
         renderGameState();
+        renderFullGameLog(); // **MỚI: Gọi hàm render log mới**
     };
     
-    const renderActionLog = (actions) => {
+    const renderFullGameLog = () => {
         gameLog.innerHTML = '';
-        if (Object.keys(actions).length === 0) {
-            gameLog.innerHTML = '<p><em>Chưa có người chơi nào hành động...</em></p>';
+        const state = roomData.interactiveState || {};
+        const nightActions = roomData.nightActions || {};
+        const nightResults = roomData.nightResults || {};
+        const currentNight = state.currentNight || 0;
+
+        if (currentNight === 0) {
+            gameLog.innerHTML = '<p><em>Chưa có hoạt động nào...</em></p>';
             return;
         }
-        for(const actorId in actions) {
-            const actionData = actions[actorId];
-            let targetNames = '';
 
-            if (actorId === 'wolf_group') {
-                const wolfVotes = actionData.votes || {};
-                const targets = Object.values(wolfVotes);
-                const uniqueTargets = [...new Set(targets)]; 
-                targetNames = uniqueTargets.map(targetId => roomData.players[targetId]?.name || 'Mục tiêu lạ').join(', ');
-            } else {
-                 const targets = Array.isArray(actionData.targets) ? actionData.targets : [actionData.targetId];
-                 targetNames = targets.filter(Boolean).map(targetId => roomData.players[targetId]?.name || 'Mục tiêu lạ').join(', ');
-            }
-            
-            let actorName = "Bầy Sói";
-            let actionLabel = "Hành động lạ";
+        for (let i = 1; i <= currentNight; i++) {
+            const nightHeader = document.createElement('h4');
+            nightHeader.className = 'log-night-header';
+            nightHeader.textContent = `--- ĐÊM ${i} ---`;
+            gameLog.appendChild(nightHeader);
 
-            if (actionData.action === 'wizard_save') {
-                actionLabel = "Cứu Thế";
-                targetNames = "(Toàn bộ)";
-            } else if (actionData.action === 'assassinate') {
-                actionLabel = `Ám sát (Đoán: ${actionData.guess})`;
-            }
-            else {
-                actionLabel = ALL_ACTIONS[actionData.action]?.label || actionData.action;
+            const actions = nightActions[i] || {};
+            const results = nightResults[i]?.public;
+
+            // Hiển thị lựa chọn của người chơi
+            if (Object.keys(actions).length > 0) {
+                 for(const actorId in actions) {
+                    const actionData = actions[actorId];
+                    let targetNames = '';
+
+                    if (actorId === 'wolf_group') {
+                        const wolfVotes = actionData.votes || {};
+                        targetNames = Object.values(wolfVotes).map(targetId => roomData.players[targetId]?.name || 'Mục tiêu lạ').join(', ');
+                    } else {
+                         const targets = Array.isArray(actionData.targets) ? actionData.targets : [actionData.targetId];
+                         targetNames = targets.filter(Boolean).map(targetId => roomData.players[targetId]?.name || 'Mục tiêu lạ').join(', ');
+                    }
+                    
+                    let actorName = (actorId === 'wolf_group') ? "Bầy Sói" : (roomData.players[actorId]?.name || 'Người chơi lạ');
+                    let actionLabel = ALL_ACTIONS[actionData.action]?.label || actionData.action;
+                    if(actionData.action === 'assassinate') actionLabel += ` (Đoán: ${actionData.guess})`;
+
+                    const p = document.createElement('p');
+                    p.className = 'log-action';
+                    p.innerHTML = `<strong>${actorName}</strong> đã chọn <em>${actionLabel}</em> <strong>${targetNames}</strong>.`;
+                    gameLog.appendChild(p);
+                }
+            } else if (i < currentNight || (i === currentNight && state.phase !== 'night')) {
+                gameLog.innerHTML += '<p><em>Không có hành động nào được ghi nhận cho đêm này.</em></p>';
             }
 
-            if (actorId !== 'wolf_group') {
-                actorName = roomData.players[actorId]?.name || 'Người chơi không xác định';
+            // Hiển thị kết quả nếu đêm đã kết thúc
+            if (results) {
+                const resultsContainer = document.createElement('div');
+                resultsContainer.className = 'log-results';
+                let resultsHTML = '<h5>Kết Quả Đêm</h5>';
+
+                if (results.deadPlayerNames && results.deadPlayerNames.length > 0) {
+                    resultsHTML += `<p class="log-death"><i class="fas fa-skull-crossbones"></i><strong>Chết:</strong> ${results.deadPlayerNames.join(', ')}</p>`;
+                } else {
+                    resultsHTML += `<p><i class="fas fa-shield-alt"></i>Không có ai chết.</p>`;
+                }
+
+                if (results.log && results.log.length > 0) {
+                    results.log.forEach(info => {
+                         resultsHTML += `<p class="log-info"><i class="fas fa-search"></i>${info}</p>`;
+                    });
+                }
+                resultsContainer.innerHTML = resultsHTML;
+                gameLog.appendChild(resultsContainer);
+            } 
+            // Nếu là đêm hiện tại và đang diễn ra
+            else if (i === currentNight && state.phase === 'night' && Object.keys(actions).length === 0) {
+                 const waitingText = document.createElement('p');
+                 waitingText.innerHTML = '<em>Đang chờ người chơi hành động...</em>';
+                 gameLog.appendChild(waitingText);
             }
-            
-            const p = document.createElement('p');
-            p.innerHTML = `[ĐÊM] <strong>${actorName}</strong> đã chọn <em>${actionLabel}</em> <strong>${targetNames}</strong>.`;
-            gameLog.prepend(p);
         }
-    }
+    };
+
 
     const renderPlayerList = () => {
         const players = roomData.players || {};
-        playerGridUI.innerHTML = ''; // Đổi từ playerListUI
+        playerGridUI.innerHTML = '';
         playersTotalDisplay.textContent = Object.keys(players).length;
 
         const getFactionClass = (faction) => {
@@ -166,7 +185,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
         
-        // Sắp xếp người chơi theo phe để hiển thị gần nhau
         const sortedPlayers = Object.entries(players).sort(([, a], [, b]) => {
             const roleA = allRolesData[a.roleName] || {};
             const roleB = allRolesData[b.roleName] || {};
@@ -174,7 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const factionB = roleB.faction || 'Z';
             return factionA.localeCompare(factionB) || a.name.localeCompare(b.name);
         });
-
 
         sortedPlayers.forEach(([id, player]) => {
             const roleName = player.roleName || 'Chưa có vai';
@@ -199,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p class="player-role">${roleName}</p>
                 <button class="btn-secondary gm-action-btn" data-player-id="${id}" data-player-name="${player.name}">Hành động</button>
             `;
-            playerGridUI.appendChild(card); // Đổi từ playerListUI
+            playerGridUI.appendChild(card);
         });
     };
     
@@ -221,7 +238,6 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'night':
                 phaseText = `Đêm ${state.currentNight}`;
                 endNightBtn.disabled = false;
-                gameLog.innerHTML = '<p><em>Đang chờ người chơi hành động...</em></p>';
                 break;
             case 'day':
                 phaseText = `Thảo luận ngày ${state.currentNight}`;
@@ -323,24 +339,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const actualRole = target.roleName;
                 const guessedRole = actionData.guess;
 
-                // THAY ĐỔI: Tin nhắn trung lập
                 updates[`/nightResults/${currentNight}/private/${actorId}`] = `Bạn đã chọn ám sát ${target.name}. Kết quả sẽ được định đoạt vào sáng mai.`;
 
                 if (actualRole === guessedRole) {
-                    // Đoán đúng, giết mục tiêu
                     formattedActions.push({
-                        id: actionIdCounter++,
-                        actorId: actorId,
-                        targets: [actionData.targetId],
-                        action: 'kill'
+                        id: actionIdCounter++, actorId: actorId, targets: [actionData.targetId], action: 'kill'
                     });
                 } else {
-                    // Đoán sai, tự sát
                     formattedActions.push({
-                        id: actionIdCounter++,
-                        actorId: actorId,
-                        targets: [actorId],
-                        action: 'kill'
+                        id: actionIdCounter++, actorId: actorId, targets: [actorId], action: 'kill'
                     });
                 }
             }
@@ -392,10 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        const wizardPlayerEntry = Object.entries(allPlayers).find(([id, p]) => {
-            const roleInfo = allRolesData[p.roleName] || {};
-            return roleInfo.kind === 'wizard';
-        });
+        const wizardPlayerEntry = Object.entries(allPlayers).find(([, p]) => (allRolesData[p.roleName] || {}).kind === 'wizard');
 
         if (wizardPlayerEntry) {
             const wizardId = wizardPlayerEntry[0];
@@ -405,11 +409,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (wizardFinalStatus) {
                 if (wizardFinalStatus.wizardSaveSuccessful) {
                     updates[`/players/${wizardId}/wizardAbilityState`] = 'kill_available';
-                    const savedNames = wizardSavedPlayerNames.join(', ');
-                    updates[`/nightResults/${currentNight}/private/${wizardId}`] = `Bạn đã cứu thế thành công! Những người được cứu: ${savedNames}. Bạn nhận được 1 lần Giết vào đêm tiếp theo.`;
+                    updates[`/nightResults/${currentNight}/private/${wizardId}`] = `Bạn đã cứu thế thành công! Những người được cứu: ${wizardSavedPlayerNames.join(', ')}. Bạn nhận được 1 lần Giết vào đêm tiếp theo.`;
                 } else if (wizardFinalStatus.wizardSaveFailed) {
                     updates[`/players/${wizardId}/wizardAbilityState`] = 'used';
-                    updates[`/nightResults/${currentNight}/private/${wizardId}`] = 'Bạn đã dùng Cứu Thế nhưng không có ai chết. Bạn đã phải trả giá bằng mạng sống của mình.';
+                    updates[`/nightResults/${currentNight}/private/${wizardId}`] = 'Bạn đã dùng Cứu Thế nhưng không có ai chết và phải trả giá bằng mạng sống của mình.';
                 } else if (wizardAction && wizardAction.action === 'wizard_kill') {
                     updates[`/players/${wizardId}/wizardAbilityState`] = 'used';
                 }
@@ -425,10 +428,10 @@ document.addEventListener('DOMContentLoaded', () => {
         infoResults.forEach(logString => {
             const match = logString.match(/- (.+?) \((.+?)\) đã (soi|điều tra|kiểm tra) (.+?): (.+)\./);
             if (match) {
-                const [, roleName, actorName, action, targetName, result] = match;
-                const actor = Object.entries(allPlayers).find(([id, p]) => p.name === actorName);
-                if (actor) {
-                    const actorId = actor[0];
+                const [, , actorName, action, targetName, result] = match;
+                const actor = Object.values(allPlayers).find(p => p.name === actorName);
+                const actorId = Object.keys(allPlayers).find(id => allPlayers[id] === actor);
+                if (actorId) {
                     updates[`/nightResults/${currentNight}/private/${actorId}`] = `Bạn đã ${action} ${targetName} và kết quả là: ${result}`;
                 }
             }
@@ -512,7 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         database.ref(`rooms/${currentRoomId}/interactiveState`).update(newState);
     });
-    playerGridUI.addEventListener('click', (e) => { // Đổi từ playerListUI
+    playerGridUI.addEventListener('click', (e) => {
         const actionButton = e.target.closest('.gm-action-btn');
         if (actionButton) {
             const playerId = actionButton.dataset.playerId;

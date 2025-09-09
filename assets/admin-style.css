@@ -384,3 +384,47 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .interactive-player-card.faction-villager { border-left-color: var(--faction-villager-color); }
 .interactive-player-card.faction-neutral { border-left-color: var(--faction-neutral-color); }
 .interactive-player-card.faction-other { border-left-color: var(--border-color); }
+
+
+/* ==========================================================================
+   10. STYLE MỚI CHO NHẬT KÝ TƯƠNG TÁC
+   ========================================================================== */
+.log-night-header {
+    text-align: center;
+    color: var(--special-color);
+    font-style: italic;
+    margin-top: 25px;
+    margin-bottom: 10px;
+}
+.log-action {
+    margin-bottom: 2px;
+    padding-left: 10px;
+}
+.log-results {
+    background-color: var(--primary-bg);
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--success-color);
+    border-radius: var(--border-radius);
+    padding: 10px 15px;
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+.log-results h5 {
+    margin: 0 0 10px 0;
+    color: var(--light-text);
+    font-size: 1.1rem;
+}
+.log-death {
+    color: var(--danger-bg);
+    font-weight: 600;
+}
+.log-info {
+    color: var(--text-color);
+    font-style: italic;
+}
+.log-results p {
+    margin-bottom: 5px;
+}
+.log-results .fas {
+    margin-right: 8px;
+}
