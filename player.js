@@ -1,5 +1,5 @@
 // =================================================================
-// === player.js - SỬA LỖI HÀNH ĐỘNG SONG SONG CỦA SÓI ===
+// === player.js - SỬA LỖI LOGIC SELECT (CHỌN MỤC TIÊU LIÊN TIẾP) ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -593,17 +593,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const myRoleData = allRolesData.find(r => r.name === myPlayerData.roleName) || {};
         
-        // === BỎ KHÓA TOÀN BỘ GIAO DIỆN ===
-        // Đoạn code if (myNightAction || wolfVote) {... return;} đã được xóa khỏi đây
-
         const availableActions = [];
         const isWolfFaction = myRoleData.faction === 'Bầy Sói' || myRoleData.faction === 'Phe Sói';
 
         if (isWolfFaction) {
-            availableActions.push({ title: "Cắn", description: "Cùng bầy sói chọn một mục tiêu để loại bỏ.", actionKey: 'kill', isWolfGroupAction: true, roleInfo: { quantity: 1 }});
+            availableActions.push({ title: "Cắn", description: "Cùng bầy sói chọn một mục tiêu để loại bỏ.", actionKey: 'kill', isWolfGroupAction: true, roleInfo: { quantity: 1, ...myRoleData }});
             const curseState = currentRoomData.interactiveState?.curseAbility?.status || 'locked';
             if (curseState === 'available') {
-                 availableActions.push({ title: "Nguyền", description: "Biến một người chơi thành Sói. Đêm nay sẽ không có ai bị cắn.", actionKey: 'curse', isWolfGroupAction: true, roleInfo: { quantity: 1 }});
+                 availableActions.push({ title: "Nguyền", description: "Biến một người chơi thành Sói. Đêm nay sẽ không có ai bị cắn.", actionKey: 'curse', isWolfGroupAction: true, roleInfo: { quantity: 1, ...myRoleData }});
             }
         }
 
@@ -686,7 +683,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ? `${actionDetails.description} (Chọn tối đa ${targetLimit})`
             : actionDetails.description;
 
-        // === BẮT ĐẦU THAY ĐỔI: Kiểm tra hành động đã thực hiện hay chưa ===
         const currentNight = roomData.interactiveState.currentNight;
         const myNightAction = roomData.nightActions?.[currentNight]?.[myPlayerId];
         const wolfVote = roomData.nightActions?.[currentNight]?.wolf_group?.votes?.[myPlayerId];
@@ -712,7 +708,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
             return;
         }
-        // === KẾT THÚC THAY ĐỔI ===
 
         if (actionDetails.isSpecial === 'assassin') {
             contentContainer.appendChild(createAssassinTargetPanel());
@@ -733,6 +728,28 @@ document.addEventListener('DOMContentLoaded', () => {
             targetPlayers = Object.entries(roomData.players).filter(([, p]) => p.isAlive);
         }
         
+        // === BẮT ĐẦU SỬA LỖI SELECT ===
+        const previousNight = currentNight - 1;
+        let previousTargetIds = [];
+
+        if (actionDetails.roleInfo.select === '0' && previousNight > 0) {
+            const previousAction = actionDetails.isWolfGroupAction
+                ? roomData.nightActions?.[previousNight]?.wolf_group
+                : roomData.nightActions?.[previousNight]?.[myPlayerId];
+            
+            if (previousAction) {
+                if(actionDetails.isWolfGroupAction) {
+                    const previousVote = previousAction.votes?.[myPlayerId];
+                    if(previousVote) {
+                        previousTargetIds.push(previousVote);
+                    }
+                } else if (previousAction.action === actionDetails.actionKey) {
+                    previousTargetIds = previousAction.targets || [];
+                }
+            }
+        }
+        // === KẾT THÚC SỬA LỖI SELECT ===
+
         const targetGrid = document.createElement('div');
         targetGrid.className = 'target-grid';
         
@@ -759,6 +776,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if(myPlayerId === id) playerName += ' (Bạn)';
 
             card.innerHTML = `<p class="player-name">${playerName}</p>`;
+            
+            if (previousTargetIds.includes(id)) {
+                card.classList.add('disabled');
+                card.title = "Không thể chọn mục tiêu này 2 đêm liên tiếp";
+            }
             
             if (actionDetails.isWolfGroupAction && voteCounts[id] > 0) {
                 const voteCountEl = document.createElement('div');
