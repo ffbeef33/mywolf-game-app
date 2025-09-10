@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - SỬA LỖI LOGIC DETECT CHO SÓI CẮN ===
+// === interactive-gm.js - SỬA LỖI LOGIC DETECT CHO SÓI CẮN (v2) ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -329,20 +329,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const tiedTargets = Object.keys(voteCounts).filter(targetId => voteCounts[targetId] === maxVotes);
                 const finalTargetId = tiedTargets.length > 0 ? tiedTargets[Math.floor(Math.random() * tiedTargets.length)] : null;
                 
-                // === BẮT ĐẦU THAY ĐỔI TỪ ĐÂY ===
-            
-                // Xử lý hành động của Sói một cách tường minh để đảm bảo tính chính xác
                 let actionToPerform = null;
-                if (wolfAction === 'kill') { // Hành động "Cắn"
+                if (wolfAction === 'kill') {
                     actionToPerform = 'kill';
-                } else if (wolfAction === 'curse') { // Hành động "Nguyền"
+                } else if (wolfAction === 'curse') {
                     actionToPerform = 'curse';
                 } else {
-                    // Mặc định là cắn nếu không có hành động cụ thể (để tương thích ngược)
                     actionToPerform = 'kill';
                 }
             
-                // Chỉ thêm hành động vào hàng đợi nếu có mục tiêu và hành động hợp lệ
                 if (finalTargetId && actionToPerform) {
                     formattedActions.push({
                         id: actionIdCounter++,
@@ -351,7 +346,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         action: actionToPerform
                     });
                 }
-                // === KẾT THÚC THAY ĐỔI ===
             } 
             else if (actionData.action === 'assassinate') {
                 const assassin = allPlayers[actorId];
@@ -383,8 +377,31 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
+        // Manually resolve actions that depend on persisted state (like Detect)
+        const actionsToKeep = [];
+        for (const action of formattedActions) {
+            if (action.action === 'detect') {
+                const detectorId = action.actorId;
+                const detector = allPlayers[detectorId];
+                const targetId = action.targets[0]; // Assuming detect has only one target
+                const target = allPlayers[targetId];
+    
+                if (detector && target) {
+                    const targetData = roomData.players[targetId];
+                    let resultText = "Không phải chết do Sói cắn";
+                    if (targetData && targetData.causeOfDeath === 'wolf_bite') {
+                        resultText = "Chết do Sói cắn";
+                    }
+                    const logMessage = `Bạn đã điều tra xác chết ${target.name} và kết quả là: ${resultText}`;
+                    updates[`/nightResults/${currentNight}/private/${detectorId}`] = logMessage;
+                }
+            } else {
+                actionsToKeep.push(action); // Keep actions for calculateNightStatus
+            }
+        }
+    
         const nightStateForCalc = {
-            actions: formattedActions,
+            actions: actionsToKeep, // Use the filtered list of actions
             playersStatus: initialPlayerStatus,
             initialPlayersStatus: JSON.parse(JSON.stringify(initialPlayerStatus))
         };
@@ -410,6 +427,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const finalPlayerState = finalStatus[playerId];
             if (originalPlayerState?.isAlive && !finalPlayerState.isAlive) {
                 updates[`/players/${playerId}/isAlive`] = false;
+
+                if (finalPlayerState.causeOfDeath) {
+                    updates[`/players/${playerId}/causeOfDeath`] = finalPlayerState.causeOfDeath;
+                }
 
                 const deadPlayerRole = allRolesData[originalPlayerState.roleName] || {};
                 const isWolf = deadPlayerRole.faction === 'Bầy Sói' || deadPlayerRole.faction === 'Phe Sói';

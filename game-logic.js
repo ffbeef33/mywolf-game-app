@@ -87,7 +87,7 @@ function calculateNightStatus(nightState, roomPlayers) {
                 groupId: initialStatus[pId].groupId || null,
                 isBoobyTrapped: initialStatus[pId].isBoobyTrapped || false,
                 isImmuneToWolves: false,
-                killedByWolfBite: false, // <-- THÊM CỜ ĐỂ THEO DÕI NGUYÊN NHÂN CHẾT
+                killedByWolfBite: false,
             };
             if (liveStatuses[pId].isDoomed) liveStatuses[pId].damage = 99;
             if (liveStatuses[pId].markedForDelayKill) liveStatuses[pId].damage = 99;
@@ -279,7 +279,7 @@ function calculateNightStatus(nightState, roomPlayers) {
                 
                 if (isWolfBite && loverStatus && !loverStatus.isProtected) {
                     loverStatus.damage++;
-                    loverStatus.killedByWolfBite = true; // <-- ĐÁNH DẤU NGUYÊN NHÂN
+                    loverStatus.killedByWolfBite = true;
                 }
                 
                 return; 
@@ -295,7 +295,7 @@ function calculateNightStatus(nightState, roomPlayers) {
                 if (targetStatus && !targetStatus.isProtected && !targetStatus.isImmuneToWolves) {
                     targetStatus.damage++;
                     if (isWolfBite) {
-                        targetStatus.killedByWolfBite = true; // <-- ĐÁNH DẤU NGUYÊN NHÂN
+                        targetStatus.killedByWolfBite = true;
                     }
                     if (targetStatus.isBoobyTrapped) {
                         const originalAttacker = (actorId === 'wolf_group') ? {id: 'wolf_group', name: 'Bầy Sói'} : attacker;
@@ -578,6 +578,11 @@ function calculateNightStatus(nightState, roomPlayers) {
                 finalStatus[pId].delayKillAvailable = false;
             } else {
                 finalStatus[pId].isAlive = false;
+                if (liveStatuses[pId].killedByWolfBite) {
+                    finalStatus[pId].causeOfDeath = 'wolf_bite';
+                } else {
+                    finalStatus[pId].causeOfDeath = 'ability';
+                }
                 deadPlayerIdsThisNight.add(pId);
             }
         }
@@ -606,32 +611,6 @@ function calculateNightStatus(nightState, roomPlayers) {
         });
         newlyDead.forEach(id => deadPlayerIdsThisNight.add(id));
     }
-    
-    // --- XỬ LÝ HÀNH ĐỘNG 'DETECT' ---
-    const detectActions = executableActions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'detect');
-    detectActions.forEach(({ actorId, targets }) => {
-        const actor = roomPlayers.find(p => p.id === actorId);
-        if (!actor) return;
-
-        (targets || []).forEach(targetId => {
-            const target = roomPlayers.find(p => p.id === targetId);
-            if (!target) return;
-
-            let result = "Không phải chết do Sói cắn"; // Kết quả mặc định
-            const isActorDisabled = disabledPlayerIds.has(actorId);
-
-            // Chỉ trả kết quả đúng nếu người chơi không bị vô hiệu hóa và mục tiêu đã chết đêm nay
-            if (!isActorDisabled && deadPlayerIdsThisNight.has(targetId)) {
-                // Kiểm tra cờ `killedByWolfBite` đã được đặt trong lúc tính sát thương
-                if (liveStatuses[targetId] && liveStatuses[targetId].killedByWolfBite) {
-                    result = "Chết do Sói cắn";
-                }
-            }
-            
-            infoResults.push(`- ${actor.roleName} (${actor.name}) đã điều tra xác chết ${target.name}: ${result}.`);
-        });
-    });
-
 
     const deadPlayerNames = Array.from(deadPlayerIdsThisNight).map(id => roomPlayers.find(p => p.id === id)?.name).filter(Boolean);
     
