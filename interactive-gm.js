@@ -320,7 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const wolfAction = actionData.action;
                 const wolfVotes = actionData.votes || {};
                 if (Object.keys(wolfVotes).length === 0) continue;
-
+            
                 const voteCounts = Object.values(wolfVotes).reduce((acc, targetId) => {
                     acc[targetId] = (acc[targetId] || 0) + 1;
                     return acc;
@@ -328,13 +328,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 const maxVotes = Math.max(...Object.values(voteCounts));
                 const tiedTargets = Object.keys(voteCounts).filter(targetId => voteCounts[targetId] === maxVotes);
                 const finalTargetId = tiedTargets.length > 0 ? tiedTargets[Math.floor(Math.random() * tiedTargets.length)] : null;
-
-                if (finalTargetId) {
-                    // SỬA LỖI LOGIC: Đảm bảo chỉ hành động 'cắn' mới được ghi nhận là 'kill'.
-                    // Bất kỳ hành động nào không phải 'curse' sẽ được mặc định là 'kill' để xử lý
-                    // các trường hợp lỗi mạng hoặc race condition.
-                    const actionToPerform = (wolfAction === 'curse') ? 'curse' : 'kill';
-                    
+                
+                // === BẮT ĐẦU THAY ĐỔI TỪ ĐÂY ===
+            
+                // Xử lý hành động của Sói một cách tường minh để đảm bảo tính chính xác
+                let actionToPerform = null;
+                if (wolfAction === 'kill') { // Hành động "Cắn"
+                    actionToPerform = 'kill';
+                } else if (wolfAction === 'curse') { // Hành động "Nguyền"
+                    actionToPerform = 'curse';
+                } else {
+                    // Mặc định là cắn nếu không có hành động cụ thể (để tương thích ngược)
+                    actionToPerform = 'kill';
+                }
+            
+                // Chỉ thêm hành động vào hàng đợi nếu có mục tiêu và hành động hợp lệ
+                if (finalTargetId && actionToPerform) {
                     formattedActions.push({
                         id: actionIdCounter++,
                         actorId: 'wolf_group',
@@ -342,6 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         action: actionToPerform
                     });
                 }
+                // === KẾT THÚC THAY ĐỔI ===
             } 
             else if (actionData.action === 'assassinate') {
                 const assassin = allPlayers[actorId];
@@ -768,4 +778,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initialize();
 });
-
