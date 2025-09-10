@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - SỬA LỖI LOGIC DETECT CHO SÓI CẮN (v2) ===
+// === interactive-gm.js - SỬA LỖI LOGIC DETECT KHI BỊ VÔ HIỆU HÓA ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -377,31 +377,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Manually resolve actions that depend on persisted state (like Detect)
-        const actionsToKeep = [];
-        for (const action of formattedActions) {
-            if (action.action === 'detect') {
-                const detectorId = action.actorId;
-                const detector = allPlayers[detectorId];
-                const targetId = action.targets[0]; // Assuming detect has only one target
-                const target = allPlayers[targetId];
-    
-                if (detector && target) {
-                    const targetData = roomData.players[targetId];
-                    let resultText = "Không phải chết do Sói cắn";
-                    if (targetData && targetData.causeOfDeath === 'wolf_bite') {
-                        resultText = "Chết do Sói cắn";
-                    }
-                    const logMessage = `Bạn đã điều tra xác chết ${target.name} và kết quả là: ${resultText}`;
-                    updates[`/nightResults/${currentNight}/private/${detectorId}`] = logMessage;
-                }
-            } else {
-                actionsToKeep.push(action); // Keep actions for calculateNightStatus
-            }
-        }
-    
+        // === BẮT ĐẦU THAY ĐỔI LOGIC ===
+
+        // Step 1: Gọi calculateNightStatus để có được trạng thái đêm (bao gồm ai bị vô hiệu hóa)
         const nightStateForCalc = {
-            actions: actionsToKeep, // Use the filtered list of actions
+            actions: formattedActions,
             playersStatus: initialPlayerStatus,
             initialPlayersStatus: JSON.parse(JSON.stringify(initialPlayerStatus))
         };
@@ -420,8 +400,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         const results = calculateNightStatus(nightStateForCalc, roomPlayersForCalc);
-        const { finalStatus, deadPlayerNames, infoResults, wizardSavedPlayerNames } = results;
+        const { finalStatus, deadPlayerNames, infoResults, wizardSavedPlayerNames, liveStatuses } = results;
+
+        // Step 2: Xử lý các hành động phụ thuộc vào trạng thái (như Detect) sau khi đã có kết quả
+        for (const action of formattedActions) {
+            if (action.action === 'detect') {
+                const detectorId = action.actorId;
+                const detector = allPlayers[detectorId];
+                const targetId = action.targets[0];
+                const target = allPlayers[targetId];
         
+                if (detector && target) {
+                    const detectorWasDisabled = liveStatuses[detectorId] && liveStatuses[detectorId].isDisabled;
+                    
+                    let resultText = "Không phải chết do Sói cắn"; // Kết quả mặc định (và khi bị vô hiệu hóa)
+        
+                    // Chỉ trả về kết quả đúng nếu người dùng không bị vô hiệu hóa
+                    if (!detectorWasDisabled) {
+                        const targetData = roomData.players[targetId];
+                        if (targetData && targetData.causeOfDeath === 'wolf_bite') {
+                            resultText = "Chết do Sói cắn";
+                        }
+                    }
+        
+                    const logMessage = `Bạn đã điều tra xác chết ${target.name} và kết quả là: ${resultText}`;
+                    updates[`/nightResults/${currentNight}/private/${detectorId}`] = logMessage;
+                }
+            }
+        }
+        
+        // === KẾT THÚC THAY ĐỔI LOGIC ===
+
+        // Step 3: Xử lý kết quả cuối cùng và cập nhật database
         Object.keys(finalStatus).forEach(playerId => {
             const originalPlayerState = initialPlayerStatus[playerId];
             const finalPlayerState = finalStatus[playerId];
