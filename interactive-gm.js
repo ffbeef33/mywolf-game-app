@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - SỬA LỖI LOGIC DETECT KHI BỊ VÔ HIỆU HÓA ===
+// === interactive-gm.js - NÂNG CẤP LOG CHI TIẾT CHO QUẢN TRÒ ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -137,13 +137,22 @@ document.addEventListener('DOMContentLoaded', () => {
                          targetNames = targets.filter(Boolean).map(targetId => roomData.players[targetId]?.name || 'Mục tiêu lạ').join(', ');
                     }
                     
-                    let actorName = (actorId === 'wolf_group') ? "Bầy Sói" : (roomData.players[actorId]?.name || 'Người chơi lạ');
+                    // === THAY ĐỔI: Thêm vai trò vào log hành động ===
+                    let actorName, actorRole = '';
+                    if (actorId === 'wolf_group') {
+                        actorName = "Bầy Sói";
+                    } else {
+                        const actorData = roomData.players[actorId];
+                        actorName = actorData?.name || 'Người chơi lạ';
+                        actorRole = actorData?.roleName ? `(${actorData.roleName})` : '';
+                    }
+                    
                     let actionLabel = ALL_ACTIONS[actionData.action]?.label || actionData.action;
                     if(actionData.action === 'assassinate') actionLabel += ` (Đoán: ${actionData.guess})`;
 
                     const p = document.createElement('p');
                     p.className = 'log-action';
-                    p.innerHTML = `<strong>${actorName}</strong> đã chọn <em>${actionLabel}</em> <strong>${targetNames}</strong>.`;
+                    p.innerHTML = `<strong>${actorName}</strong> <span class="player-role">${actorRole}</span> đã chọn <em>${actionLabel}</em> <strong>${targetNames}</strong>.`;
                     gameLog.appendChild(p);
                 }
             } else if (i < currentNight || (i === currentNight && state.phase !== 'night')) {
@@ -160,10 +169,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     resultsHTML += `<p><i class="fas fa-shield-alt"></i>Không có ai chết.</p>`;
                 }
-
+                
+                // === THAY ĐỔI: Hiển thị log chi tiết hơn ===
                 if (results.log && results.log.length > 0) {
                     results.log.forEach(info => {
-                         resultsHTML += `<p class="log-info"><i class="fas fa-search"></i>${info}</p>`;
+                         resultsHTML += `<p class="log-info"><i class="fas fa-info-circle"></i>${info}</p>`;
                     });
                 }
                 resultsContainer.innerHTML = resultsHTML;
@@ -377,9 +387,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // === BẮT ĐẦU THAY ĐỔI LOGIC ===
-
-        // Step 1: Gọi calculateNightStatus để có được trạng thái đêm (bao gồm ai bị vô hiệu hóa)
         const nightStateForCalc = {
             actions: formattedActions,
             playersStatus: initialPlayerStatus,
@@ -402,7 +409,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const results = calculateNightStatus(nightStateForCalc, roomPlayersForCalc);
         const { finalStatus, deadPlayerNames, infoResults, wizardSavedPlayerNames, liveStatuses } = results;
 
-        // Step 2: Xử lý các hành động phụ thuộc vào trạng thái (như Detect) sau khi đã có kết quả
         for (const action of formattedActions) {
             if (action.action === 'detect') {
                 const detectorId = action.actorId;
@@ -413,9 +419,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (detector && target) {
                     const detectorWasDisabled = liveStatuses[detectorId] && liveStatuses[detectorId].isDisabled;
                     
-                    let resultText = "Không phải chết do Sói cắn"; // Kết quả mặc định (và khi bị vô hiệu hóa)
+                    let resultText = "Không phải chết do Sói cắn";
         
-                    // Chỉ trả về kết quả đúng nếu người dùng không bị vô hiệu hóa
                     if (!detectorWasDisabled) {
                         const targetData = roomData.players[targetId];
                         if (targetData && targetData.causeOfDeath === 'wolf_bite') {
@@ -429,9 +434,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // === KẾT THÚC THAY ĐỔI LOGIC ===
+        // === THAY ĐỔI: Tạo log chi tiết cho quản trò ===
+        const detailedLog = [...(infoResults || [])]; 
 
-        // Step 3: Xử lý kết quả cuối cùng và cập nhật database
+        Object.keys(liveStatuses).forEach(pId => {
+            const status = liveStatuses[pId];
+            const player = allPlayers[pId];
+            if (!player) return;
+    
+            if (status.isProtected && !detailedLog.some(log => log.includes(player.name) && log.includes("bảo vệ"))) {
+                detailedLog.push(`- ${player.name} đã được bảo vệ trong đêm.`);
+            }
+            if (status.isSaved && !detailedLog.some(log => log.includes(player.name) && log.includes("cứu"))) {
+                 detailedLog.push(`- ${player.name} đã được cứu sống.`);
+            }
+        });
+
+        updates[`/nightResults/${currentNight}/public`] = {
+            deadPlayerNames: deadPlayerNames || [],
+            log: detailedLog, // Sử dụng log chi tiết mới
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        };
+        // === KẾT THÚC THAY ĐỔI ===
+
         Object.keys(finalStatus).forEach(playerId => {
             const originalPlayerState = initialPlayerStatus[playerId];
             const finalPlayerState = finalStatus[playerId];
@@ -471,12 +496,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
-
-        updates[`/nightResults/${currentNight}/public`] = {
-            deadPlayerNames: deadPlayerNames || [],
-            log: infoResults || [],
-            timestamp: firebase.database.ServerValue.TIMESTAMP
-        };
         
         infoResults.forEach(logString => {
             const match = logString.match(/- (.+?) \((.+?)\) đã (soi|điều tra|kiểm tra|điều tra xác chết) (.+?): (.+)\./);
