@@ -331,9 +331,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const finalTargetId = tiedTargets.length > 0 ? tiedTargets[Math.floor(Math.random() * tiedTargets.length)] : null;
 
                 if (finalTargetId) {
+                    // SỬA LỖI: Xử lý rõ ràng hành động 'kill' và 'curse'
                     if (wolfAction === 'curse') {
-                       // ... curse logic ...
-                    } else { 
+                        formattedActions.push({
+                            id: actionIdCounter++,
+                            actorId: 'wolf_group',
+                            targets: [finalTargetId],
+                            action: 'curse'
+                        });
+                    } else if (wolfAction === 'kill') { 
                         formattedActions.push({
                             id: actionIdCounter++,
                             actorId: 'wolf_group',
@@ -438,7 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         
         infoResults.forEach(logString => {
-            const match = logString.match(/- (.+?) \((.+?)\) đã (soi|điều tra|kiểm tra) (.+?): (.+)\./);
+            const match = logString.match(/- (.+?) \((.+?)\) đã (soi|điều tra|kiểm tra|điều tra xác chết) (.+?): (.+)\./);
             if (match) {
                 const [, , actorName, action, targetName, result] = match;
                 const actor = Object.values(allPlayers).find(p => p.name === actorName);
