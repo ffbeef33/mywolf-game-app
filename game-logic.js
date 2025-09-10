@@ -1,5 +1,5 @@
 // =================================================================
-// === game-logic.js - PHIÊN BẢN HỖ TRỢ DETECT, NHIỀU MỤC TIÊU & WIZARD & ASSASSIN ===
+// === game-logic.js - SỬA LỖI LOVE CHÍNH XÁC THEO YÊU CẦU ===
 // =================================================================
 
 const KIND_TO_ACTION_MAP = {
@@ -11,7 +11,7 @@ const KIND_TO_ACTION_MAP = {
     'check': { key: 'check', label: 'Kiểm tra', type: 'info' },
     'audit': { key: 'audit', label: 'Soi phe Sói', type: 'info' },
     'invest': { key: 'invest', label: 'Điều tra', type: 'info' },
-    'detect': { key: 'detect', label: 'Điều tra xác chết', type: 'info' }, // <-- KIND MỚI
+    'detect': { key: 'detect', label: 'Điều tra xác chết', type: 'info' },
     'killwolf': { key: 'killwolf', label: 'Giết Sói', type: 'damage' },
     'killvillager': { key: 'killvillager', label: 'Giết Dân', type: 'damage' },
     'sacrifice': { key: 'sacrifice', label: 'Hy sinh', type: 'defense' },
@@ -292,29 +292,37 @@ function calculateNightStatus(nightState, roomPlayers) {
                 if (!target) return;
                 const ultimateTargetId = damageRedirects[finalTargetId] || finalTargetId;
                 const targetStatus = liveStatuses[ultimateTargetId];
-                if (targetStatus && !targetStatus.isProtected && !targetStatus.isImmuneToWolves) {
-                    targetStatus.damage++;
-                    if (isWolfBite) {
-                        targetStatus.killedByWolfBite = true;
-                    }
-                    if (targetStatus.isBoobyTrapped) {
-                        const originalAttacker = (actorId === 'wolf_group') ? {id: 'wolf_group', name: 'Bầy Sói'} : attacker;
-                        if (originalAttacker.id === 'wolf_group') {
-                            const livingWolves = roomPlayers.filter(p => (p.faction === 'Bầy Sói' || p.faction === 'Phe Sói') && finalStatus[p.id]?.isAlive);
-                            if (livingWolves.length > 0) {
-                                const randomWolf = livingWolves[Math.floor(Math.random() * livingWolves.length)];
-                                if (liveStatuses[randomWolf.id] && !liveStatuses[randomWolf.id].isProtected) {
-                                    liveStatuses[randomWolf.id].damage++;
-                                    infoResults.push(`- Sói ${randomWolf.name} đã chết do boom khi cắn ${target.name}.`);
-                                }
+
+                if (!targetStatus || targetStatus.isProtected) {
+                    return;
+                }
+                
+                const isWolfGroupAttack = actorId === 'wolf_group';
+                if (isWolfGroupAttack && targetStatus.isImmuneToWolves) {
+                    return;
+                }
+
+                targetStatus.damage++;
+                if (isWolfBite) {
+                    targetStatus.killedByWolfBite = true;
+                }
+                if (targetStatus.isBoobyTrapped) {
+                    const originalAttacker = (actorId === 'wolf_group') ? {id: 'wolf_group', name: 'Bầy Sói'} : attacker;
+                    if (originalAttacker.id === 'wolf_group') {
+                        const livingWolves = roomPlayers.filter(p => (p.faction === 'Bầy Sói' || p.faction === 'Phe Sói') && finalStatus[p.id]?.isAlive);
+                        if (livingWolves.length > 0) {
+                            const randomWolf = livingWolves[Math.floor(Math.random() * livingWolves.length)];
+                            if (liveStatuses[randomWolf.id] && !liveStatuses[randomWolf.id].isProtected) {
+                                liveStatuses[randomWolf.id].damage++;
+                                infoResults.push(`- Sói ${randomWolf.name} đã chết do boom khi cắn ${target.name}.`);
                             }
-                        } else if (liveStatuses[originalAttacker.id] && !liveStatuses[originalAttacker.id].isProtected) {
-                            liveStatuses[originalAttacker.id].damage++;
-                            infoResults.push(`- ${originalAttacker.name} bị nổ boom khi tấn công ${target.name}.`);
                         }
-                        targetStatus.isBoobyTrapped = false;
-                        finalStatus[ultimateTargetId].isBoobyTrapped = false;
+                    } else if (liveStatuses[originalAttacker.id] && !liveStatuses[originalAttacker.id].isProtected) {
+                        liveStatuses[originalAttacker.id].damage++;
+                        infoResults.push(`- ${originalAttacker.name} bị nổ boom khi tấn công ${target.name}.`);
                     }
+                    targetStatus.isBoobyTrapped = false;
+                    finalStatus[ultimateTargetId].isBoobyTrapped = false;
                 }
                 return;
             }

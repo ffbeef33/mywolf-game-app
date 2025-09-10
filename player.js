@@ -1,5 +1,5 @@
 // =================================================================
-// === player.js - NÂNG CẤP GIAO DIỆN HÀNH ĐỘNG ĐÊM (HỖ TRỢ DETECT) ===
+// === player.js - SỬA LỖI HÀNH ĐỘNG SONG SONG CỦA SÓI ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 active: (role.Active || 'n').trim().toLowerCase(),
                 quantity: parseInt(role.Quantity, 10) || 1,
                 duration: (role.Duration || '1').toString().trim().toLowerCase(),
-                select: (role.Select || '1').trim() // ĐỌC CỘT SELECT MỚI
+                select: (role.Select || '1').trim()
             }));
         } catch (error) {
             console.error("Lỗi nghiêm trọng khi tải dữ liệu vai trò:", error);
@@ -563,13 +563,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // === CÁC HÀM MỚI VÀ ĐƯỢC CẬP NHẬT CHO GIAO DIỆN HÀNH ĐỘNG ĐÊM ===
     // =================================================================
     
-    /**
-     * Hàm kiểm tra xem một hành động có thể sử dụng trong đêm hiện tại không.
-     * @param {object} roleData - Dữ liệu đầy đủ của vai trò.
-     * @param {string} actionKey - Key của hành động (vd: 'kill', 'protect').
-     * @param {number} currentNight - Số đêm hiện tại.
-     * @returns {boolean} - True nếu có thể sử dụng.
-     */
     function isActionAvailable(roleData, actionKey, currentNight) {
         const activeRule = roleData.active;
         const parts = activeRule.split('_');
@@ -594,52 +587,18 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
-    /**
-     * Hàm chính để hiển thị toàn bộ giao diện hành động đêm.
-     */
     function displayNightActions(currentRoomData, currentNight) {
         interactiveActionSection.innerHTML = '';
         interactiveActionSection.classList.remove('hidden');
 
         const myRoleData = allRolesData.find(r => r.name === myPlayerData.roleName) || {};
-        const myNightAction = currentRoomData.nightActions?.[currentNight]?.[myPlayerId];
-        const wolfNightAction = currentRoomData.nightActions?.[currentNight]?.wolf_group;
+        
+        // === BỎ KHÓA TOÀN BỘ GIAO DIỆN ===
+        // Đoạn code if (myNightAction || wolfVote) {... return;} đã được xóa khỏi đây
 
-        // --- Trường hợp đã hành động ---
-        if (myNightAction || (wolfNightAction?.votes?.[myPlayerId])) {
-            let actionText = "hành động";
-            let targetText = "";
-
-            const actionData = myNightAction || wolfNightAction;
-            const myVote = wolfNightAction?.votes?.[myPlayerId];
-            
-            if (actionData) {
-                 const actionKey = myNightAction?.action || wolfNightAction?.action;
-                 actionText = ALL_ACTIONS[actionKey]?.label || actionText;
-
-                 const targetIds = myNightAction?.targets || (myVote ? [myVote] : []);
-                 if (targetIds.length > 0) {
-                     const targetNames = targetIds.map(tid => currentRoomData.players[tid]?.name || '???').join(', ');
-                     targetText = `lên <strong>${targetNames}</strong>`;
-                 }
-            }
-            
-            interactiveActionSection.innerHTML = `
-                <div class="night-action-panel">
-                    <div class="action-locked-overlay">
-                        <div class="icon"><i class="fas fa-check-circle"></i></div>
-                        <h3>Đã xác nhận</h3>
-                        <p>Bạn đã ${actionText} ${targetText}</p>
-                    </div>
-                </div>`;
-            return;
-        }
-
-        // --- Thu thập tất cả các hành động có thể có ---
         const availableActions = [];
         const isWolfFaction = myRoleData.faction === 'Bầy Sói' || myRoleData.faction === 'Phe Sói';
 
-        // 1. Hành động của Sói
         if (isWolfFaction) {
             availableActions.push({ title: "Cắn", description: "Cùng bầy sói chọn một mục tiêu để loại bỏ.", actionKey: 'kill', isWolfGroupAction: true, roleInfo: { quantity: 1 }});
             const curseState = currentRoomData.interactiveState?.curseAbility?.status || 'locked';
@@ -648,7 +607,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 2. Hành động cá nhân
         const kinds = myRoleData.kind ? myRoleData.kind.split('_') : [];
         kinds.forEach(kind => {
             const actionInfo = KIND_TO_ACTION_MAP[kind];
@@ -656,7 +614,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (isActionAvailable(myRoleData, actionInfo.key, currentNight)) {
                 if(kind === 'assassin') {
-                    // Xử lý riêng cho Assassin
                     availableActions.push({ title: "Ám Sát", description: "Chọn mục tiêu để đoán vai trò.", actionKey: 'assassinate', isSpecial: 'assassin', roleInfo: myRoleData });
                 } else if(kind === 'wizard') {
                      const wizardState = myPlayerData.wizardAbilityState || 'save_available';
@@ -672,7 +629,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // --- Render giao diện ---
         if (availableActions.length === 0) {
             interactiveActionSection.innerHTML = `
                 <div class="night-action-panel">
@@ -684,7 +640,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Tạo cấu trúc giao diện chính
         const panel = document.createElement('div');
         panel.className = 'night-action-panel';
         panel.innerHTML = `
@@ -699,7 +654,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const tabsContainer = panel.querySelector('#action-tabs-container');
         
-        // Tạo các tab nếu có nhiều hơn 1 hành động
         if (availableActions.length > 1) {
             availableActions.forEach((action, index) => {
                 const tabBtn = document.createElement('button');
@@ -716,15 +670,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Render nội dung cho hành động đầu tiên
         renderActionContent(availableActions[0]);
     }
 
-    /**
-     * Render nội dung chi tiết của một hành động (danh sách mục tiêu, nút xác nhận).
-     */
     function renderActionContent(actionDetails) {
         const contentContainer = document.getElementById('action-content');
+        contentContainer.innerHTML = '';
+        
         const panelTitle = document.getElementById('panel-title');
         const panelDescription = document.getElementById('panel-description');
         
@@ -733,10 +685,35 @@ document.addEventListener('DOMContentLoaded', () => {
         panelDescription.textContent = targetLimit > 1 
             ? `${actionDetails.description} (Chọn tối đa ${targetLimit})`
             : actionDetails.description;
-            
-        contentContainer.innerHTML = ''; // Xóa nội dung cũ
 
-        // Xử lý các trường hợp đặc biệt
+        // === BẮT ĐẦU THAY ĐỔI: Kiểm tra hành động đã thực hiện hay chưa ===
+        const currentNight = roomData.interactiveState.currentNight;
+        const myNightAction = roomData.nightActions?.[currentNight]?.[myPlayerId];
+        const wolfVote = roomData.nightActions?.[currentNight]?.wolf_group?.votes?.[myPlayerId];
+
+        let isActionConfirmed = false;
+        let confirmedTargetIds = [];
+
+        if (actionDetails.isWolfGroupAction && wolfVote) {
+            isActionConfirmed = true;
+            confirmedTargetIds.push(wolfVote);
+        } else if (!actionDetails.isWolfGroupAction && myNightAction && myNightAction.action === actionDetails.actionKey) {
+            isActionConfirmed = true;
+            confirmedTargetIds = myNightAction.targets;
+        }
+
+        if (isActionConfirmed) {
+            const targetNames = confirmedTargetIds.map(tid => roomData.players[tid]?.name || '???').join(', ');
+            contentContainer.innerHTML = `
+                <div class="action-locked-overlay">
+                    <div class="icon"><i class="fas fa-check-circle"></i></div>
+                    <h3>Đã xác nhận</h3>
+                    <p>Bạn đã ${actionDetails.title} lên <strong>${targetNames}</strong></p>
+                </div>`;
+            return;
+        }
+        // === KẾT THÚC THAY ĐỔI ===
+
         if (actionDetails.isSpecial === 'assassin') {
             contentContainer.appendChild(createAssassinTargetPanel());
             return;
@@ -746,22 +723,16 @@ document.addEventListener('DOMContentLoaded', () => {
              return;
         }
 
-        // --- THAY ĐỔI: CHỌN MỤC TIÊU DỰA TRÊN HÀNH ĐỘNG ---
         let targetPlayers;
         if (actionDetails.actionKey === 'detect') {
-            // Kind 'detect' chỉ có thể chọn người đã chết
             targetPlayers = Object.entries(roomData.players).filter(([, p]) => !p.isAlive);
              if (targetPlayers.length === 0) {
                 panelDescription.textContent = "Hiện không có người chơi nào đã chết để điều tra.";
             }
         } else {
-            // Các hành động khác chọn người còn sống
             targetPlayers = Object.entries(roomData.players).filter(([, p]) => p.isAlive);
         }
         
-        const currentNight = roomData.interactiveState.currentNight;
-
-        // Tạo lưới mục tiêu và nút xác nhận
         const targetGrid = document.createElement('div');
         targetGrid.className = 'target-grid';
         
@@ -772,7 +743,6 @@ document.addEventListener('DOMContentLoaded', () => {
         confirmBtn.disabled = true;
         footer.appendChild(confirmBtn);
 
-        // Lấy thông tin vote của sói
         const wolfActionData = roomData.nightActions?.[currentNight]?.wolf_group || {};
         const wolfVotes = wolfActionData.votes || {};
         const voteCounts = Object.values(wolfVotes).reduce((acc, targetId) => {
@@ -790,7 +760,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.innerHTML = `<p class="player-name">${playerName}</p>`;
             
-            // Hiển thị số phiếu sói
             if (actionDetails.isWolfGroupAction && voteCounts[id] > 0) {
                 const voteCountEl = document.createElement('div');
                 voteCountEl.className = 'wolf-vote-count';
@@ -803,7 +772,6 @@ document.addEventListener('DOMContentLoaded', () => {
         contentContainer.appendChild(targetGrid);
         contentContainer.appendChild(footer);
 
-        // Thêm logic chọn mục tiêu
         const allCards = targetGrid.querySelectorAll('.target-card');
         targetGrid.addEventListener('click', (e) => {
             const card = e.target.closest('.target-card');
@@ -825,7 +793,6 @@ document.addEventListener('DOMContentLoaded', () => {
             confirmBtn.disabled = targetGrid.querySelectorAll('.selected').length === 0;
         });
 
-        // Thêm logic nút xác nhận
         confirmBtn.addEventListener('click', () => {
              const selectedTargets = Array.from(targetGrid.querySelectorAll('.selected')).map(c => c.dataset.playerId);
              if (selectedTargets.length === 0) return;
