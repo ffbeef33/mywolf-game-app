@@ -1,5 +1,5 @@
 // =================================================================
-// === interactive-gm.js - THÊM TÍNH NĂNG THU GỌN GIAO DIỆN ===
+// === interactive-gm.js - SỬA LỖI LOGIC DETECT CHO SÓI CẮN ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         roomIdDisplay.textContent = currentRoomId;
         attachListenersToRoom();
         attachVoteButtonListeners(); 
-        initializeCollapsibleSections(); // **MỚI: Khởi tạo tính năng thu gọn**
+        initializeCollapsibleSections(); 
     };
 
     const fetchAllRolesData = async () => {
@@ -96,7 +96,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
     
-    // ... (Các hàm render, processNightResults, logic vote không thay đổi)
     const render = () => {
         renderPlayerList();
         renderGameState();
@@ -331,22 +330,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const finalTargetId = tiedTargets.length > 0 ? tiedTargets[Math.floor(Math.random() * tiedTargets.length)] : null;
 
                 if (finalTargetId) {
-                    // SỬA LỖI: Xử lý rõ ràng hành động 'kill' và 'curse'
-                    if (wolfAction === 'curse') {
-                        formattedActions.push({
-                            id: actionIdCounter++,
-                            actorId: 'wolf_group',
-                            targets: [finalTargetId],
-                            action: 'curse'
-                        });
-                    } else if (wolfAction === 'kill') { 
-                        formattedActions.push({
-                            id: actionIdCounter++,
-                            actorId: 'wolf_group',
-                            targets: [finalTargetId],
-                            action: 'kill'
-                        });
-                    }
+                    // SỬA LỖI LOGIC: Đảm bảo chỉ hành động 'cắn' mới được ghi nhận là 'kill'.
+                    // Bất kỳ hành động nào không phải 'curse' sẽ được mặc định là 'kill' để xử lý
+                    // các trường hợp lỗi mạng hoặc race condition.
+                    const actionToPerform = (wolfAction === 'curse') ? 'curse' : 'kill';
+                    
+                    formattedActions.push({
+                        id: actionIdCounter++,
+                        actorId: 'wolf_group',
+                        targets: [finalTargetId],
+                        action: actionToPerform
+                    });
                 }
             } 
             else if (actionData.action === 'assassinate') {
@@ -774,3 +768,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initialize();
 });
+
