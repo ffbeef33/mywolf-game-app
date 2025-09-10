@@ -1,5 +1,5 @@
 // =================================================================
-// === player.js - NÂNG CẤP GIAO DIỆN HÀNH ĐỘNG ĐÊM ===
+// === player.js - NÂNG CẤP GIAO DIỆN HÀNH ĐỘNG ĐÊM (HỖ TRỢ DETECT) ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -746,7 +746,19 @@ document.addEventListener('DOMContentLoaded', () => {
              return;
         }
 
-        const livingPlayers = Object.entries(roomData.players).filter(([, p]) => p.isAlive);
+        // --- THAY ĐỔI: CHỌN MỤC TIÊU DỰA TRÊN HÀNH ĐỘNG ---
+        let targetPlayers;
+        if (actionDetails.actionKey === 'detect') {
+            // Kind 'detect' chỉ có thể chọn người đã chết
+            targetPlayers = Object.entries(roomData.players).filter(([, p]) => !p.isAlive);
+             if (targetPlayers.length === 0) {
+                panelDescription.textContent = "Hiện không có người chơi nào đã chết để điều tra.";
+            }
+        } else {
+            // Các hành động khác chọn người còn sống
+            targetPlayers = Object.entries(roomData.players).filter(([, p]) => p.isAlive);
+        }
+        
         const currentNight = roomData.interactiveState.currentNight;
 
         // Tạo lưới mục tiêu và nút xác nhận
@@ -768,7 +780,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return acc;
         }, {});
 
-        livingPlayers.forEach(([id, player]) => {
+        targetPlayers.forEach(([id, player]) => {
             const card = document.createElement('div');
             card.className = 'target-card';
             card.dataset.playerId = id;

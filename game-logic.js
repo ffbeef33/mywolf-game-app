@@ -1,5 +1,5 @@
 // =================================================================
-// === game-logic.js - PHIÊN BẢN HỖ TRỢ NHIỀU MỤC TIÊU & WIZARD & ASSASSIN ===
+// === game-logic.js - PHIÊN BẢN HỖ TRỢ DETECT, NHIỀU MỤC TIÊU & WIZARD & ASSASSIN ===
 // =================================================================
 
 const KIND_TO_ACTION_MAP = {
@@ -11,6 +11,7 @@ const KIND_TO_ACTION_MAP = {
     'check': { key: 'check', label: 'Kiểm tra', type: 'info' },
     'audit': { key: 'audit', label: 'Soi phe Sói', type: 'info' },
     'invest': { key: 'invest', label: 'Điều tra', type: 'info' },
+    'detect': { key: 'detect', label: 'Điều tra xác chết', type: 'info' }, // <-- KIND MỚI
     'killwolf': { key: 'killwolf', label: 'Giết Sói', type: 'damage' },
     'killvillager': { key: 'killvillager', label: 'Giết Dân', type: 'damage' },
     'sacrifice': { key: 'sacrifice', label: 'Hy sinh', type: 'defense' },
@@ -86,6 +87,7 @@ function calculateNightStatus(nightState, roomPlayers) {
                 groupId: initialStatus[pId].groupId || null,
                 isBoobyTrapped: initialStatus[pId].isBoobyTrapped || false,
                 isImmuneToWolves: false,
+                killedByWolfBite: false, // <-- THÊM CỜ ĐỂ THEO DÕI NGUYÊN NHÂN CHẾT
             };
             if (liveStatuses[pId].isDoomed) liveStatuses[pId].damage = 99;
             if (liveStatuses[pId].markedForDelayKill) liveStatuses[pId].damage = 99;
@@ -257,7 +259,7 @@ function calculateNightStatus(nightState, roomPlayers) {
     });
     
     const killifActions = executableActions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
-    const otherActions = executableActions.filter(({ action }) => !['killif', 'curse', 'collect', 'transform', 'love'].includes(ALL_ACTIONS[action]?.key || action));
+    const otherActions = executableActions.filter(({ action }) => !['killif', 'curse', 'collect', 'transform', 'love', 'detect'].includes(ALL_ACTIONS[action]?.key || action));
 
     otherActions.forEach(({ actorId, targets, action }) => {
         (targets || []).forEach(targetId => {
@@ -277,6 +279,7 @@ function calculateNightStatus(nightState, roomPlayers) {
                 
                 if (isWolfBite && loverStatus && !loverStatus.isProtected) {
                     loverStatus.damage++;
+                    loverStatus.killedByWolfBite = true; // <-- ĐÁNH DẤU NGUYÊN NHÂN
                 }
                 
                 return; 
@@ -291,6 +294,9 @@ function calculateNightStatus(nightState, roomPlayers) {
                 const targetStatus = liveStatuses[ultimateTargetId];
                 if (targetStatus && !targetStatus.isProtected && !targetStatus.isImmuneToWolves) {
                     targetStatus.damage++;
+                    if (isWolfBite) {
+                        targetStatus.killedByWolfBite = true; // <-- ĐÁNH DẤU NGUYÊN NHÂN
+                    }
                     if (targetStatus.isBoobyTrapped) {
                         const originalAttacker = (actorId === 'wolf_group') ? {id: 'wolf_group', name: 'Bầy Sói'} : attacker;
                         if (originalAttacker.id === 'wolf_group') {
@@ -600,6 +606,32 @@ function calculateNightStatus(nightState, roomPlayers) {
         });
         newlyDead.forEach(id => deadPlayerIdsThisNight.add(id));
     }
+    
+    // --- XỬ LÝ HÀNH ĐỘNG 'DETECT' ---
+    const detectActions = executableActions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'detect');
+    detectActions.forEach(({ actorId, targets }) => {
+        const actor = roomPlayers.find(p => p.id === actorId);
+        if (!actor) return;
+
+        (targets || []).forEach(targetId => {
+            const target = roomPlayers.find(p => p.id === targetId);
+            if (!target) return;
+
+            let result = "Không phải chết do Sói cắn"; // Kết quả mặc định
+            const isActorDisabled = disabledPlayerIds.has(actorId);
+
+            // Chỉ trả kết quả đúng nếu người chơi không bị vô hiệu hóa và mục tiêu đã chết đêm nay
+            if (!isActorDisabled && deadPlayerIdsThisNight.has(targetId)) {
+                // Kiểm tra cờ `killedByWolfBite` đã được đặt trong lúc tính sát thương
+                if (liveStatuses[targetId] && liveStatuses[targetId].killedByWolfBite) {
+                    result = "Chết do Sói cắn";
+                }
+            }
+            
+            infoResults.push(`- ${actor.roleName} (${actor.name}) đã điều tra xác chết ${target.name}: ${result}.`);
+        });
+    });
+
 
     const deadPlayerNames = Array.from(deadPlayerIdsThisNight).map(id => roomPlayers.find(p => p.id === id)?.name).filter(Boolean);
     
