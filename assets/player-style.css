@@ -1,328 +1,439 @@
-/* ==========================================================================
-   1. Biến toàn cục (Global Variables) & Thiết lập cơ bản (Base Setup)
-   ========================================================================== */
 :root {
-  /* Chủ đạo theo GitHub Copilot dark */
-  --primary-bg: #0d1117;
-  --secondary-bg: #161b22;
-  --card-bg: #161b22;
-  --text-color: #58a6ff;
-  --light-text: #c9d1d9;
-  --button-bg: #238636;
-  --button-hover-bg: #2ea043;
-  --danger-bg: #f85149;
-  --danger-hover-bg: #c73c3c;
-  --secondary-button-bg: #21262c;
-  --secondary-button-hover-bg: #30363d;
-  --border-color: #30363d;
-  --success-color: #2ea043;
-  --save-color: #238636;
-  --save-hover-color: #2ea043;
-  --error-color: var(--danger-bg);
-  --skeleton-bg: #21262c;
-  --special-color: #8257e5; /* Tím Copilot */
-  --special-hover-color: #a371f7;
-  --border-radius: 8px;
-  --box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  --transition-speed: 0.3s;
-  /* Màu phe để sử dụng nhất quán */
-  --faction-wolf-color: #f85149;
-  --faction-villager-color: #2ea043;
-  --faction-neutral-color: #d29922;
+    /* Chủ đạo GitHub Copilot dark */
+    --primary-bg: #0d1117;
+    --secondary-bg: #161b22;
+    --card-bg: #161b22;
+    --text-color: #58a6ff;
+    --light-text: #c9d1d9;
+    --button-bg: #238636;
+    --button-hover-bg: #2ea043;
+    --input-bg: #161b22;
+    --border-color: #30363d;
+    --secondary-button-bg: #21262c;
+    --secondary-button-hover-bg: #30363d;
+
+
+    /* Bộ màu mới cho các phe */
+    --wolf-color: #f85149;       /* Đỏ cảnh báo */
+    --villager-color: #238636;   /* Xanh lá nổi bật */
+    --neutral-color: #d29922;    /* Vàng trung lập */
+
+    --font-main: 'Roboto', 'Segoe UI', 'Arial', sans-serif;
+    --font-display: 'Montserrat', 'Segoe UI', 'Arial', sans-serif;
+    --border-radius: 12px;
 }
 
-*, *::before, *::after { box-sizing: border-box; }
+*, *::before, *::after {
+    box-sizing: border-box;
+}
 
 body {
-  font-family: 'Montserrat', 'Segoe UI', 'Arial', sans-serif;
-  background-color: var(--primary-bg);
-  color: var(--light-text);
-  margin: 0;
-  padding: 20px;
-  line-height: 1.6;
+    font-family: var(--font-main);
+    background-color: var(--primary-bg);
+    color: var(--light-text);
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
 }
 
-/* ==========================================================================
-   2. Bố cục & Các thành phần chính (Layout & Main Components)
-   ========================================================================== */
-.container { max-width: 900px; margin: 0 auto; padding: 0 15px; }
-
-.main-header {
-  text-align: center;
-  margin-bottom: 40px;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 20px;
-}
-
-.card {
-  background-color: var(--card-bg);
-  border-radius: var(--border-radius);
-  padding: 25px;
-  margin-bottom: 30px;
-  border: 1px solid var(--border-color);
-  box-shadow: var(--box-shadow);
-}
-.card.hidden { display: none; }
-
-/* ==========================================================================
-   3. Typography (Kiểu chữ)
-   ========================================================================== */
-h1, h2, h3, h4 { color: var(--text-color); font-weight: 700; margin-top: 0; }
-h1 { font-size: 2rem; margin-bottom: 5px; }
-h2 { font-size: 1.5rem; margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
-h3 { font-size: 1.2rem; margin-bottom: 15px; color: var(--light-text); }
-h4 { font-size: 1.1rem; margin-bottom: 15px; color: var(--light-text); }
-p { margin-bottom: 10px; }
-strong { color: var(--text-color); font-weight: 700; }
-
-/* ==========================================================================
-   4. Form & Các vùng chọn (Form & Selection Areas)
-   ========================================================================== */
-.form-group { margin-bottom: 30px; }
-
-#player-list-container, #roles-by-faction, .modal-list {
-  max-height: 250px;
-  overflow-y: auto;
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  padding: 15px;
-  background-color: var(--primary-bg);
-}
-#player-list-container::-webkit-scrollbar, #roles-by-faction::-webkit-scrollbar, .modal-list::-webkit-scrollbar { width: 8px; }
-#player-list-container::-webkit-scrollbar-track, #roles-by-faction::-webkit-scrollbar-track, .modal-list::-webkit-scrollbar-track { background: var(--secondary-bg); border-radius: 10px; }
-#player-list-container::-webkit-scrollbar-thumb, #roles-by-faction::-webkit-scrollbar-thumb, .modal-list::-webkit-scrollbar-thumb { background: var(--text-color); border-radius: 10px; }
-
-.player-checkbox-grid, .role-checkbox-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-.checkbox-item, .player-checkbox-item, .role-checkbox-item, .role-input-item { display: flex; align-items: center; background-color: var(--primary-bg); padding: 8px; border-radius: 5px; }
-input[type="checkbox"] { margin-right: 8px; }
-
-.form-control {
+.container {
     width: 100%;
-    padding: 10px;
+    max-width: 400px;
+    text-align: center;
+}
+
+/* --- SECTIONS & CARDS --- */
+section.card {
+    background-color: var(--card-bg);
+    padding: 30px;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+}
+.hidden {
+    display: none !important;
+}
+
+/* --- LOGIN FORM --- */
+.card-header h1 {
+    font-family: var(--font-display);
+    font-size: 3rem;
+    color: var(--text-color);
+    margin: 0 0 25px 0;
+}
+.form-group {
+    margin-bottom: 20px;
+    text-align: left;
+}
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+input[type="text"], input[type="password"] {
+    width: 100%;
+    padding: 12px;
+    background-color: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--light-text);
+    font-size: 1rem;
+}
+button {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--button-bg);
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    margin-top: 10px;
+}
+button:hover:not(:disabled) {
+    background-color: var(--button-hover-bg);
+    transform: translateY(-2px);
+}
+button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+.error-message {
+    color: var(--text-color);
+    margin-top: 15px;
+    min-height: 1.2em;
+    font-weight: 500;
+}
+
+/* --- IN-GAME VIEW --- */
+.player-header { margin-bottom: 30px; }
+.player-header h1 { 
+    font-family: var(--font-display); 
+    font-weight: 700;
+    font-size: 2.5rem; 
+    color: var(--text-color); 
+    margin: 0; 
+}
+.player-header p { font-size: 1.1rem; color: var(--light-text); margin: 5px 0 0; }
+.game-card { border-radius: var(--border-radius); }
+
+/* --- WAITING STATE --- */
+.waiting-card { padding: 20px; }
+.waiting-card .spinner { width: 50px; height: 50px; border: 5px solid #444; border-top-color: var(--text-color); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.waiting-card h2 { color: var(--light-text); }
+
+/* --- ROLE REVEAL CARD --- */
+.role-card { perspective: 1000px; cursor: pointer; background-color: transparent; }
+.card-inner { position: relative; width: 100%; height: 480px; transition: transform 0.8s; transform-style: preserve-3d; }
+.role-card.is-flipped .card-inner { transform: rotateY(180deg); }
+.card-front, .card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: var(--border-radius); background: linear-gradient(145deg, var(--card-bg), var(--secondary-bg)); border: 1px solid var(--border-color); }
+.card-front .card-logo { font-family: var(--font-display); font-size: 8rem; color: var(--text-color); line-height: 1; }
+.card-back { transform: rotateY(180deg); padding: 20px; }
+.role-icon { font-size: 3rem; margin-bottom: 15px; opacity: 0.8; }
+#role-name { font-family: var(--font-display); font-weight: 700; font-size: 3rem; margin: 0; color: var(--text-color); }
+.role-faction { font-size: 1rem; font-weight: 500; padding: 5px 15px; border-radius: 20px; margin: 5px 0 15px; color: white; }
+.role-faction.wolf { background-color: var(--wolf-color); }
+.role-faction.villager { background-color: var(--villager-color); }
+.role-faction.neutral { background-color: var(--neutral-color); }
+.role-description { font-size: 0.9rem; color: var(--light-text); }
+
+/* --- HIỂN THỊ DANH SÁCH VAI TRÒ --- */
+.roles-display-container { width: 100%; margin-top: 24px; display: flex; flex-direction: column; gap: 16px; }
+.role-list-instruction { font-size: 0.9rem; color: var(--light-text); opacity: 0.8; font-style: italic; margin: 0 0 8px 0; padding: 8px; background-color: #21262c; border-radius: 8px; }
+.faction-box { border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 16px; background-color: #161b22; text-align: center; transition: all 0.3s ease; }
+.faction-title { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid rgba(237, 242, 244, 0.2); letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.roles-list { display: flex; flex-direction: column; gap: 8px; }
+.in-game-role-item { margin: 0; font-size: 1rem; color: var(--light-text); cursor: pointer; transition: color 0.2s; }
+.in-game-role-item:hover { color: var(--text-color); }
+.faction-box.faction-villager { background-color: rgba(35, 134, 54, 0.12); border-color: rgba(35, 134, 54, 0.7); }
+.faction-box.faction-villager .faction-title { color: var(--villager-color); }
+.faction-box.faction-wolf { background-color: rgba(248, 81, 73, 0.12); border-color: rgba(248, 81, 73, 0.7); }
+.faction-box.faction-wolf .faction-title { color: var(--wolf-color); }
+.faction-box.faction-neutral { background-color: rgba(210, 153, 34, 0.12); border-color: rgba(210, 153, 34, 0.7); }
+.faction-box.faction-neutral .faction-title { color: var(--neutral-color); }
+
+/* --- MODAL CHUNG --- */
+.modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(13,17,23,0.92); display: flex; justify-content: center; align-items: center; animation: fadeIn 0.3s; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal-content { background-color: var(--card-bg); padding: 30px; border: 1px solid var(--border-color); width: 90%; max-width: 450px; border-radius: var(--border-radius); position: relative; box-shadow: 0 8px 30px rgba(0,0,0,0.5); text-align: left; }
+.close-modal-btn { color: var(--light-text); position: absolute; top: 10px; right: 20px; font-size: 32px; font-weight: bold; cursor: pointer; transition: color 0.2s; }
+.close-modal-btn:hover { color: var(--text-color); }
+#modal-role-name { font-family: var(--font-display); font-weight: 700; font-size: 2.5rem; margin: 0 0 5px 0; color: var(--text-color); }
+#modal-role-faction { margin: 0 0 20px 0; color: var(--light-text); font-style: italic; }
+#modal-role-description { font-size: 1rem; line-height: 1.7; }
+
+/* --- MODULE VOTE --- */
+#voting-ui-section h2 { color: var(--text-color); font-size: 1.8rem; margin-bottom: 10px; }
+#voting-ui-section .timer { font-size: 1.1rem; color: var(--light-text); margin-bottom: 20px; }
+.choices-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 15px; }
+.choices-grid .choice-btn { width: 100%; padding: 14px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--secondary-bg); color: var(--light-text); font-size: 1.1rem; font-weight: 500; cursor: pointer; transition: all 0.2s ease; }
+.choices-grid .choice-btn:hover:not(:disabled) { background-color: var(--secondary-button-hover-bg); border-color: var(--text-color); color: var(--text-color); }
+.choices-grid .choice-btn.btn-secondary { background-color: var(--secondary-button-bg); }
+.choices-grid .choice-btn.btn-secondary:hover:not(:disabled) { background-color: var(--secondary-button-hover-bg); }
+.choice-status-message { color: var(--light-text); opacity: 0.8; margin-top: 15px; font-style: italic; min-height: 1.2em; }
+.choices-grid .choice-btn.selected { border-color: var(--text-color); background-color: #1d3350; color: #fff; box-shadow: 0 0 8px var(--text-color); transform: translateY(-2px); }
+
+/* --- TÍNH NĂNG MỚI: GIAO DIỆN DI CHÚC --- */
+#player-actions-container {
+    margin-top: 20px;
+}
+.player-action-btn {
+    background-color: var(--secondary-button-bg);
+    border: 1px solid var(--border-color);
+    width: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+.player-action-btn:hover:not(:disabled) {
+    background-color: var(--secondary-button-hover-bg);
+    border-color: var(--text-color);
+}
+.player-action-btn:disabled {
+    background-color: var(--secondary-bg);
+    border-color: var(--border-color);
+}
+
+#will-writing-modal .modal-content {
+    text-align: center;
+}
+#will-writing-modal h2 {
+    color: var(--text-color);
+    margin: 0 0 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+#will-writing-modal p {
+    text-align: left;
+    margin-bottom: 15px;
+    opacity: 0.8;
+}
+#will-textarea {
+    width: 100%;
+    height: 150px;
     background-color: var(--primary-bg);
     border: 1px solid var(--border-color);
     color: var(--light-text);
-    border-radius: var(--border-radius);
+    padding: 10px;
+    border-radius: 8px;
     font-size: 1rem;
+    resize: vertical;
+    margin-bottom: 5px;
 }
-
-
-/* ==========================================================================
-   5. Các thành phần cụ thể (Specific Components)
-   ========================================================================== */
-#role-count-display {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 15px;
-  background-color: var(--primary-bg);
-  padding: 15px;
-  border-radius: var(--border-radius);
-  border: 1px solid var(--border-color);
-  text-align: center;
+.word-count {
+    text-align: right;
+    font-size: 0.9rem;
+    opacity: 0.7;
+    margin-bottom: 15px;
 }
-#role-count-display div { font-size: 0.9rem; }
-#role-count-display strong { font-size: 1.5rem; display: block; }
-
-button {
-  padding: 12px 20px;
-  border: none;
-  border-radius: var(--border-radius);
-  background-color: var(--button-bg);
-  color: white;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color var(--transition-speed) ease, transform 0.2s ease;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+#save-will-btn {
+    width: 100%;
 }
-button:hover:not(:disabled) { background-color: var(--button-hover-bg); transform: translateY(-2px); }
-button:active:not(:disabled) { transform: translateY(0); }
-button:disabled { background-color: #555; cursor: not-allowed; opacity: 0.6; }
-
-.action-buttons, .main-action-buttons { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px; }
-.action-buttons button, .main-action-buttons button { flex-grow: 1; }
-
-button.btn-secondary { background-color: var(--secondary-button-bg); }
-button.btn-secondary:hover:not(:disabled) { background-color: var(--secondary-button-hover-bg); }
-button.btn-danger { background-color: var(--danger-bg); }
-button.btn-danger:hover:not(:disabled) { background-color: var(--danger-hover-bg); }
-button.btn-save { background-color: var(--save-color); }
-button.btn-save:hover:not(:disabled) { background-color: var(--save-hover-color); }
-
-button.btn-special { background-color: var(--special-color); }
-button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-color); }
-
-
-.skeleton-loader .skeleton-line { height: 1.8em; background-color: var(--skeleton-bg); margin-bottom: 12px; border-radius: 4px; animation: pulse 1.5s infinite ease-in-out; }
-@keyframes pulse { 0% { background-color: var(--skeleton-bg); } 50% { background-color: var(--secondary-bg); } 100% { background-color: var(--skeleton-bg); } }
-
-/* ==========================================================================
-   6. STYLE CHO TÍNH NĂNG CHỈNH SỬA
-   ========================================================================== */
-.active-room-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-#edit-controls { border-top: 2px dashed var(--border-color); margin-top: 25px; padding-top: 25px; }
-#edit-controls.hidden, .main-action-buttons.hidden { display: none; }
-
-.player-item, .role-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid var(--border-color); transition: all 0.2s ease-in-out; }
-.player-item:last-child, .role-item:last-child { border-bottom: none; }
-.player-item.kicked, .role-item.removed { text-decoration: line-through; opacity: 0.5; color: var(--danger-bg) !important; background-color: rgba(248, 81, 73, 0.12); }
-
-.kick-btn, .remove-role-btn { background-color: var(--danger-bg); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 14px; font-weight: bold; cursor: pointer; flex-shrink: 0; padding: 0; line-height: 24px; text-align: center; }
-.kick-btn:hover, .remove-role-btn:hover { background-color: var(--danger-hover-bg); }
-
-.pending-container { margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 10px; }
-.pending-container.hidden { display: none; }
-.pending-container h4 { margin: 0 0 10px 0; color: var(--light-text); font-size: 1rem; }
-.pending-additions { padding-left: 0; }
-.pending-additions li { color: var(--save-color); font-weight: bold; list-style-type: none; padding: 5px 0; }
-.pending-additions li::before { content: '+ '; font-weight: bold; }
-
-.modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(13, 17, 23, 0.92); display: flex; justify-content: center; align-items: center; animation: fadeIn 0.3s; }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-.modal.hidden { display: none; }
-.modal-content { background-color: var(--card-bg); padding: 30px; border: 1px solid var(--border-color); width: 90%; max-width: 500px; border-radius: var(--border-radius); position: relative; box-shadow: var(--box-shadow); }
-.close-modal-btn { color: var(--light-text); position: absolute; top: 15px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer; }
-.close-modal-btn:hover { color: var(--text-color); }
-.modal-list { margin-bottom: 20px; }
-
-/* ==========================================================================
-   7. Responsive Design
-   ========================================================================== */
-@media (max-width: 768px) {
-  body { padding: 10px; }
-  h1 { font-size: 1.8rem; }
-  .card { padding: 15px; }
-  #role-count-display { grid-template-columns: 1fr 1fr; }
-  .action-buttons, .main-action-buttons { flex-direction: column; }
-}
-
-/* ==========================================================================
-   8. Style cho Popup Chọn Deck
-   ========================================================================== */
-.modal-content.large {
-  max-width: 800px;
-}
-
-#deck-modal-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 20px;
-  max-height: 60vh;
-  overflow-y: auto;
-  padding-top: 10px;
-}
-
-#deck-modal-grid::-webkit-scrollbar { width: 8px; }
-#deck-modal-grid::-webkit-scrollbar-track { background: var(--secondary-bg); border-radius: 10px; }
-#deck-modal-grid::-webkit-scrollbar-thumb { background: var(--text-color); border-radius: 10px; }
-
-
-.deck-card {
-  background-color: var(--secondary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  padding: 15px;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  display: flex;
-  flex-direction: column;
-}
-
-.deck-card:hover {
-  transform: translateY(-5px);
-  border-color: var(--text-color);
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
-}
-
-.deck-card-header {
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 10px;
-  margin-bottom: 10px;
-}
-
-.deck-card-header h4 {
-  margin: 0;
-  font-size: 1.1rem;
-  color: var(--text-color);
-}
-
-.deck-card-header p {
-  margin: 5px 0 0;
-  font-size: 0.9rem;
-  color: var(--light-text);
-}
-
-.deck-card-roles {
-  list-style-type: none;
-  padding: 0;
-  margin: 0;
-  flex-grow: 1;
-  max-height: 200px;
-  overflow-y: auto;
-  font-size: 0.85rem;
-}
-
-.deck-card-roles::-webkit-scrollbar { width: 5px; }
-.deck-card-roles::-webkit-scrollbar-thumb { background: var(--secondary-button-hover-bg); border-radius: 10px; }
-
-.deck-card-roles li {
-  padding: 3px 0;
-}
-
-.deck-card-roles li.faction-villager {
-  color: var(--text-color);
-}
-.deck-card-roles li.faction-wolf {
-  color: var(--danger-bg);
-  font-weight: 600;
-}
-.deck-card-roles li.faction-neutral {
-  color: #d29922;
-}
-.deck-card-roles li.faction-other {
-  color: var(--light-text);
-  opacity: 0.8;
-}
-
-/* === BỔ SUNG STYLE CHO NGƯỜI CHƠI CHẾT === */
-.player-item.dead .player-name {
-  text-decoration: line-through;
-  opacity: 0.5;
-  color: var(--danger-bg);
-}
-
-.player-item.dead {
-    background-color: rgba(248, 81, 73, 0.05);
-}
-
-/* ==========================================================================
-   9. GIAO DIỆN MỚI CHO INTERACTIVE-GM
-   ========================================================================== */
-#player-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 15px;
-}
-
-.interactive-player-card {
-    background-color: var(--secondary-bg);
-    border: 1px solid var(--border-color);
-    border-left-width: 5px;
-    border-radius: var(--border-radius);
-    padding: 15px;
+#published-will-modal h2 {
+    color: var(--text-color);
     text-align: center;
-    transition: all var(--transition-speed) ease;
-    position: relative;
-    overflow: hidden;
+    margin-bottom: 20px;
+}
+.will-content-display {
+    background-color: var(--primary-bg);
+    padding: 15px;
+    border-radius: 8px;
+    white-space: pre-wrap; /* Giữ lại các khoảng trắng và xuống dòng */
+    line-height: 1.6;
+    max-height: 60vh;
+    overflow-y: auto;
 }
 
-.interactive-player-card .player-status {
+/* === CSS MỚI CHO HIỂN THỊ PHIẾU BẦU CỦA SÓI === */
+.vote-count {
+    font-weight: bold;
+    color: var(--wolf-color);
+    margin-left: 8px;
+    font-style: italic;
+}
+
+.target-item label {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    align-items: center;
+}
+
+/* === CSS MỚI CHO NHẬT KÝ RIÊNG === */
+#private-log-section {
+    margin-top: 20px;
+    text-align: left;
+}
+
+#private-log-section h2 {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    color: var(--neutral-color); /* Màu vàng để chỉ thông tin */
+    margin: 0 0 15px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#private-log-content .log-entry {
+    background-color: var(--primary-bg);
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    border-left: 3px solid var(--neutral-color);
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+#private-log-content .log-entry:last-child {
+    margin-bottom: 0;
+}
+
+/* === CSS MỚI CHO MODAL CỦA ASSASSIN === */
+#assassin-modal .choices-grid {
+    grid-template-columns: 1fr 1fr;
+    max-height: 50vh;
+    overflow-y: auto;
+    margin-top: 20px;
+}
+
+#assassin-modal .choice-btn {
+    font-size: 1rem;
+    padding: 12px;
+}
+
+/* ===================================================================
+   === GIAO DIỆN MỚI CHO BẢNG ĐIỀU KHIỂN ĐÊM (NIGHT ACTION PANEL) ===
+   =================================================================== */
+
+.night-action-panel {
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius);
+    border-top: 4px solid var(--text-color);
+    padding: 20px;
+    animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.panel-header {
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+.panel-header h2 {
+    font-family: var(--font-display);
+    font-size: 1.8rem;
+    color: var(--text-color);
+    margin: 0 0 5px 0;
+}
+
+.panel-header p {
+    font-size: 0.95rem;
+    opacity: 0.8;
+    margin: 0;
+}
+
+.action-tabs {
+    display: flex;
+    gap: 10px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    padding: 10px 15px;
+    border: none;
+    background-color: transparent;
+    color: var(--light-text);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s ease;
+    margin: 0;
+}
+
+.tab-btn:hover {
+    background-color: var(--secondary-button-hover-bg);
+}
+
+.tab-btn.active {
+    color: var(--text-color);
+    border-bottom-color: var(--text-color);
+}
+
+.target-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.target-card {
+    background-color: var(--secondary-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    position: relative;
+}
+
+.target-card:hover {
+    border-color: var(--text-color);
+    transform: translateY(-3px);
+}
+
+.target-card.selected {
+    border-color: var(--text-color);
+    background-color: #1f2c3d;
+    box-shadow: 0 0 10px var(--text-color);
+}
+
+.target-card.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: var(--secondary-button-bg);
+}
+.target-card.disabled:hover {
+    transform: none;
+    border-color: var(--border-color);
+}
+
+.target-card .player-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.wolf-vote-count {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: -10px;
+    right: -10px;
+    background-color: var(--wolf-color);
+    color: white;
     width: 24px;
     height: 24px;
     border-radius: 50%;
@@ -330,247 +441,65 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     align-items: center;
     justify-content: center;
     font-size: 0.9rem;
-}
-
-.interactive-player-card .player-status .fa-heart {
-    color: var(--faction-villager-color);
-}
-
-.interactive-player-card .player-name {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--light-text);
-    margin-bottom: 5px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.interactive-player-card .player-role {
-    font-size: 0.9rem;
-    color: var(--text-color);
-    margin-bottom: 15px;
-}
-
-.interactive-player-card .gm-action-btn {
-    width: 100%;
-    padding: 8px 10px;
-    font-size: 0.9rem;
-}
-
-/* Trạng thái chết */
-.interactive-player-card.dead {
-    opacity: 0.5;
-    background: repeating-linear-gradient(
-        45deg,
-        var(--secondary-bg),
-        var(--secondary-bg) 10px,
-        #2a2f37 10px,
-        #2a2f37 20px
-    );
-}
-
-.interactive-player-card.dead .player-name {
-    text-decoration: line-through;
-}
-
-.interactive-player-card.dead .player-status .fa-heart-crack {
-    color: var(--faction-wolf-color);
-}
-
-/* Màu sắc theo phe */
-.interactive-player-card.faction-wolf { border-left-color: var(--faction-wolf-color); }
-.interactive-player-card.faction-villager { border-left-color: var(--faction-villager-color); }
-.interactive-player-card.faction-neutral { border-left-color: var(--faction-neutral-color); }
-.interactive-player-card.faction-other { border-left-color: var(--border-color); }
-
-
-/* ==========================================================================
-   10. STYLE MỚI CHO NHẬT KÝ TƯƠNG TÁC
-   ========================================================================== */
-.log-night-header {
-    text-align: center;
-    color: var(--special-color);
-    font-style: italic;
-    margin-top: 25px;
-    margin-bottom: 10px;
-}
-.log-action {
-    margin-bottom: 2px;
-    padding-left: 10px;
-}
-.log-results {
-    background-color: var(--primary-bg);
-    border: 1px solid var(--border-color);
-    border-left: 3px solid var(--success-color);
-    border-radius: var(--border-radius);
-    padding: 10px 15px;
-    margin-top: 15px;
-    margin-bottom: 15px;
-}
-.log-results h5 {
-    margin: 0 0 10px 0;
-    color: var(--light-text);
-    font-size: 1.1rem;
-}
-.log-death {
-    color: var(--danger-bg);
-    font-weight: 600;
-}
-.log-info {
-    color: var(--text-color);
-    font-style: italic;
-}
-.log-results p {
-    margin-bottom: 5px;
-}
-.log-results .fas {
-    margin-right: 8px;
-}
-
-/* ==========================================================================
-   11. STYLE MỚI CHO MODULE VOTE TRONG INTERACTIVE-GM
-   ========================================================================== */
-
-#voting-section {
-    border-left: 5px solid var(--special-color);
-}
-#voting-section h2 {
-    color: var(--special-color);
-    border-bottom-color: var(--special-color);
-}
-.voting-controls {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-    flex-wrap: wrap;
-    margin-bottom: 20px;
-}
-.voting-controls input[type="text"],
-.voting-controls input[type="number"] {
-    padding: 10px;
-    background-color: var(--primary-bg);
-    border: 1px solid var(--border-color);
-    color: var(--light-text);
-    border-radius: var(--border-radius);
-    font-size: 1rem;
-}
-#vote-players-list { margin-bottom: 20px; }
-#vote-players-list h4 {
-    margin-top: 0;
-    color: var(--light-text);
-    font-weight: 500;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 8px;
-}
-.vote-player-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-    border-radius: 6px;
-    transition: background-color 0.2s;
-}
-.vote-player-row:nth-child(even) { background-color: var(--primary-bg); }
-.vote-player-row .vote-player-name { font-weight: 600; }
-
-#vote-results-container {
-    margin-top: 15px;
-    padding-top: 15px;
-    border-top: 1px solid var(--border-color);
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-}
-#vote-results-container h3 { grid-column: 1 / -1; margin-top: 0; }
-#vote-results-container h4 { color: var(--light-text); margin: 0 0 10px 0; }
-#vote-results-container ul { list-style-type: none; padding: 0; margin: 0; }
-#vote-results-container li { margin-bottom: 5px; padding: 4px; border-radius: 4px; }
-#vote-results-summary .most-voted {
-    color: var(--danger-bg);
     font-weight: bold;
-    background-color: rgba(248, 81, 73, 0.15);
 }
 
-.vote-weight-controls { display: flex; align-items: center; gap: 8px; }
-.vote-weight-display {
-    font-size: 1.1rem;
-    font-weight: 700;
+.panel-footer {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.action-locked-overlay {
+    text-align: center;
+    padding: 30px;
+}
+
+.action-locked-overlay .icon {
+    font-size: 3rem;
+    color: var(--button-bg); /* Sửa lại màu cho nhất quán */
+    margin-bottom: 15px;
+}
+
+.action-locked-overlay h3 {
     color: var(--light-text);
-    min-width: 20px;
+}
+
+.action-locked-overlay p {
+    color: var(--text-color);
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+/* === CSS CHO GIAO DIỆN CHỜ CỦA NGƯỜI CHƠI BỊ ĐỘNG === */
+.resting-panel {
+    border-top-color: var(--secondary-button-hover-bg);
     text-align: center;
 }
-.weight-btn {
-    width: 28px; height: 28px; border-radius: 50%;
-    border: 1px solid var(--border-color);
-    background-color: var(--secondary-bg);
-    color: var(--light-text);
-    font-size: 1.2rem; font-weight: bold;
-    line-height: 26px; padding: 0; cursor: pointer;
-    transition: all 0.2s;
-}
-.weight-btn:hover { background-color: var(--border-color); border-color: var(--text-color); }
-.weight-btn.plus:hover { color: var(--success-color); border-color: var(--success-color); }
-.weight-btn.minus:hover { color: var(--danger-bg); border-color: var(--danger-bg); }
 
-.gm-timer-display {
+.resting-panel .panel-header h2 {
+    color: var(--light-text);
+    opacity: 0.8;
+}
+
+.atmospheric-message {
     font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--text-color);
-    margin-left: 15px;
-    display: none; 
-}
-
-/* ==========================================================================
-   12. STYLE MỚI CHO TÍNH NĂNG THU GỌN (ĐÃ TỐI ƯU)
-   ========================================================================== */
-.card-header-collapsible {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    padding-bottom: 15px;
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 20px;
-}
-.card-header-collapsible h2 {
-    margin-bottom: 0;
-    padding-bottom: 0;
-    border-bottom: none;
-}
-.collapse-icon {
-    font-size: 1.2rem;
-    color: var(--light-text);
-    transition: transform 0.3s ease; /* Hiệu ứng mượt hơn */
-}
-.card-content-collapsible {
-    overflow: hidden;
-    max-height: 3000px; /* Một giá trị lớn để chứa nội dung */
-    transition: max-height 0.35s ease; /* Chỉ áp dụng hiệu ứng cho max-height */
-}
-.card-content-collapsible.collapsed {
-    max-height: 0;
-    margin-top: -20px; /* Bù lại margin-bottom của header */
-}
-.card-header-collapsible.collapsed .collapse-icon {
-    transform: rotate(-90deg);
-}
-.card-header-collapsible.collapsed {
-    margin-bottom: 0;
-}
-
-/* ==========================================================================
-   13. STYLE CHO TAG LOG CỦA GM
-   ========================================================================== */
-.gm-log-tag {
-    color: var(--faction-neutral-color);
-    font-weight: 700;
-    margin-right: 5px;
     font-style: italic;
-    user-select: none;
+    color: var(--text-color);
+    opacity: 0.9;
+    padding: 15px;
+    background-color: var(--primary-bg);
+    border-radius: 8px;
+    margin-top: 10px;
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 3px solid var(--text-color);
 }
 
-.log-action .player-role {
-    font-size: 0.9em;
+.resting-info p {
+    font-size: 0.9rem;
     opacity: 0.7;
+    margin-top: 20px;
 }
