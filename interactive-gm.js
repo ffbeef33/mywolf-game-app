@@ -349,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (wolfAction === 'curse') {
                     actionToPerform = 'curse';
                 } else {
-                    actionToPerform = 'kill';
+                    actionToPerform = 'kill'; // Mặc định là cắn nếu không có action
                 }
             
                 if (finalTargetId && actionToPerform) {
@@ -463,7 +463,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 updates[`/players/${targetId}/currentFaction`] = 'Bầy Sói';
                 updates[`/interactiveState/curseAbility/status`] = 'used';
 
-                // Gửi thông báo cho người bị nguyền và Bầy Sói
                 updates[`/nightResults/${currentNight}/private/${targetId}`] = 'Bạn đã bị Nguyền rủa và bị biến thành Sói!';
                 Object.entries(allPlayers).forEach(([pId, pData]) => {
                     const pRole = allRolesData[pData.roleName] || {};
@@ -564,9 +563,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const updates = {};
             Object.keys(roomData.players).forEach(pId => {
                 updates[`/players/${pId}/isAlive`] = true;
-                updates[`/players/${pId}/roleName`] = null; 
+                updates[`/players/${pId}/roleName`] = null;
                 updates[`/players/${pId}/currentFaction`] = null;
                 updates[`/players/${pId}/originalRoleName`] = null;
+                updates[`/players/${pId}/causeOfDeath`] = null;
             });
 
             updates['/nightActions'] = null;
@@ -640,7 +640,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const killedPlayer = roomData.players[playerId];
                     const killedPlayerRole = allRolesData[killedPlayer.roleName] || {};
-                    const isWolf = killedPlayerRole.faction === 'Bầy Sói' || killedPlayerRole.faction === 'Phe Sói';
+                    const isWolf = killedPlayer.currentFaction === 'Bầy Sói' || killedPlayerRole.faction === 'Bầy Sói' || killedPlayerRole.faction === 'Phe Sói';
                     const curseState = roomData.interactiveState?.curseAbility?.status || 'locked';
 
                     if (isWolf && curseState === 'locked') {

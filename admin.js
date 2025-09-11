@@ -648,6 +648,7 @@ document.addEventListener('DOMContentLoaded', () => {
             playerListUI.appendChild(li);
         });
     };
+
     const clearGameLog = async () => {
         if (!currentRoomId || !confirm('Bạn có chắc muốn xóa log và reset vai trò của tất cả người chơi trong phòng này?')) return;
         try {
@@ -661,7 +662,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const players = snapshot.val();
             if (players) {
                 const updates = {};
-                for (const playerId in players) updates[`/${playerId}/roleName`] = null;
+                // === FIX: Reset toàn bộ trạng thái người chơi ===
+                for (const playerId in players) {
+                    updates[`/${playerId}/roleName`] = null;
+                    updates[`/${playerId}/isAlive`] = true;
+                    updates[`/${playerId}/currentFaction`] = null;
+                    updates[`/${playerId}/originalRoleName`] = null;
+                    updates[`/${playerId}/causeOfDeath`] = null;
+                }
                 await playersRef.update(updates);
             }
             
@@ -671,15 +679,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 '/playerPickState': null,
                 '/nightNotes': null,
                 '/playerOrder': null,
-                '/publicData/publishedWill': null
+                '/publicData/publishedWill': null,
+                '/interactiveState': null, // Reset cả interactive state
+                '/nightActions': null,
+                '/nightResults': null,
             };
             await database.ref(`rooms/${currentRoomId}`).update(roomUpdates);
-            alert('Đã xóa log trên Google Sheet và reset vai trò người chơi thành công!');
+            alert('Đã xóa log trên Google Sheet và reset toàn bộ phòng thành công!');
         } catch (error) {
             console.error('Lỗi khi xóa log và reset game:', error);
             alert('Có lỗi xảy ra: ' + error.message);
         }
     };
+    
     const deleteActiveRoom = () => {
         if (!currentRoomId || !confirm(`Bạn có chắc muốn xóa vĩnh viễn phòng '${currentRoomId}'?`)) return;
         database.ref(`rooms/${currentRoomId}`).remove()
@@ -941,7 +953,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (startNightNoteBtn) startNightNoteBtn.addEventListener('click', handleStartNightNote);
     
-    // === GÁN SỰ KIỆN CHO NÚT MỚI ===
     const startInteractiveGmBtn = document.getElementById('start-interactive-gm-btn');
     if (startInteractiveGmBtn) startInteractiveGmBtn.addEventListener('click', handleStartInteractiveGM);
     
