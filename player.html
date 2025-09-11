@@ -6,9 +6,47 @@
     <title>Ma Sói - Người Chơi</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https G://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="assets/player-style.css">
+    <style>
+        /* CSS bổ sung cho modal mới của Sói */
+        .wolf-choice-buttons {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .wolf-choice-btn {
+            flex: 1;
+            padding: 20px;
+            font-size: 1.2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            border-width: 2px;
+            border-style: solid;
+        }
+        .wolf-choice-btn.bite {
+            background-color: rgba(248, 81, 73, 0.1);
+            border-color: var(--wolf-color);
+            color: var(--wolf-color);
+        }
+        .wolf-choice-btn.curse {
+            background-color: rgba(201, 52, 231, 0.1);
+            border-color: #c934e7;
+            color: #c934e7;
+        }
+        .wolf-choice-btn i {
+            font-size: 2rem;
+        }
+        #wolf-action-choice-modal .note {
+            font-size: 0.9em;
+            opacity: 0.7;
+            text-align: center;
+            margin-top: 15px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -127,6 +165,21 @@
         </div>
     </div>
     
+    <div id="wolf-action-choice-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Hành Động Của Bầy Sói</h2>
+            <p>Một con sói đã ngã xuống, mở khóa khả năng Nguyền một lần duy nhất. Hãy chọn hành động cho cả bầy đêm nay.</p>
+            <div class="wolf-choice-buttons">
+                <button id="wolf-choice-bite-btn" class="wolf-choice-btn bite">
+                    <i class="fas fa-paw"></i> Cắn
+                </button>
+                <button id="wolf-choice-curse-btn" class="wolf-choice-btn curse">
+                    <i class="fas fa-magic"></i> Nguyền
+                </button>
+            </div>
+            <p class="note">Lưu ý: Sói đầu tiên chọn sẽ quyết định hành động cho cả bầy.</p>
+        </div>
+    </div>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="game-logic.js"></script>

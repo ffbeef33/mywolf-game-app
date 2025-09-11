@@ -137,7 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
                          targetNames = targets.filter(Boolean).map(targetId => roomData.players[targetId]?.name || 'Mục tiêu lạ').join(', ');
                     }
                     
-                    // === THAY ĐỔI: Thêm vai trò vào log hành động ===
                     let actorName, actorRole = '';
                     if (actorId === 'wolf_group') {
                         actorName = "Bầy Sói";
@@ -170,7 +169,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     resultsHTML += `<p><i class="fas fa-shield-alt"></i>Không có ai chết.</p>`;
                 }
                 
-                // === THAY ĐỔI: Hiển thị log chi tiết hơn ===
                 if (results.log && results.log.length > 0) {
                     results.log.forEach(info => {
                          resultsHTML += `<p class="log-info"><i class="fas fa-info-circle"></i>${info}</p>`;
@@ -209,8 +207,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const sortedPlayers = Object.entries(players).sort(([, a], [, b]) => {
             const roleA = allRolesData[a.roleName] || {};
             const roleB = allRolesData[b.roleName] || {};
-            const factionA = roleA.faction || 'Z';
-            const factionB = roleB.faction || 'Z';
+            const factionA = a.currentFaction || roleA.faction || 'Z';
+            const factionB = b.currentFaction || roleB.faction || 'Z';
             return factionA.localeCompare(factionB) || a.name.localeCompare(b.name);
         });
 
@@ -231,10 +229,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? '<i class="fas fa-heart"></i>' 
                 : '<i class="fas fa-heart-crack"></i>';
 
+            let displayRole = roleName;
+            if (player.originalRoleName) {
+                displayRole = `${roleName} <em style="font-size: 0.8em; opacity: 0.8;">(Gốc: ${player.originalRoleName})</em>`;
+            }
+
             card.innerHTML = `
                 <div class="player-status">${statusIcon}</div>
                 <p class="player-name" title="${player.name}">${player.name}</p>
-                <p class="player-role">${roleName}</p>
+                <p class="player-role">${displayRole}</p>
                 <button class="btn-secondary gm-action-btn" data-player-id="${id}" data-player-name="${player.name}">Hành động</button>
             `;
             playerGridUI.appendChild(card);
@@ -306,7 +309,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     delayKillAvailable: (kind === 'delaykill'),
                     isDoomed: false, deathLinkTarget: null, sacrificedBy: null,
                     transformedState: null, groupId: null, markedForDelayKill: false,
-                    originalRoleName: null, activeRule: roleInfo.active || 'n',
+                    originalRoleName: player.originalRoleName || null,
+                    activeRule: roleInfo.active || 'n',
                     quantity: roleInfo.quantity || 1, duration: roleInfo.duration || '1',
                     isBoobyTrapped: false,
                 };
@@ -452,10 +456,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const curseAction = formattedActions.find(a => a.action === 'curse' && a.actorId === 'wolf_group');
         if (curseAction) {
             const targetId = curseAction.targets[0];
-            if (targetId && allPlayers[targetId]) {
+            const targetPlayer = allPlayers[targetId];
+            if (targetPlayer && initialPlayerStatus[targetId]?.faction !== 'Bầy Sói') {
+                updates[`/players/${targetId}/originalRoleName`] = targetPlayer.roleName;
+                updates[`/players/${targetId}/roleName`] = 'Sói thường';
                 updates[`/players/${targetId}/currentFaction`] = 'Bầy Sói';
                 updates[`/interactiveState/curseAbility/status`] = 'used';
-                detailedLog.push(`- Bầy Sói đã nguyền rủa ${allPlayers[targetId].name}, biến họ thành Sói.`);
+
+                // Gửi thông báo cho người bị nguyền và Bầy Sói
+                updates[`/nightResults/${currentNight}/private/${targetId}`] = 'Bạn đã bị Nguyền rủa và bị biến thành Sói!';
+                Object.entries(allPlayers).forEach(([pId, pData]) => {
+                    const pRole = allRolesData[pData.roleName] || {};
+                    const isWolf = pData.currentFaction === 'Bầy Sói' || pRole.faction === 'Bầy Sói' || pRole.faction === 'Phe Sói';
+                    if (pId !== targetId && isWolf && initialPlayerStatus[pId]?.isAlive) {
+                         updates[`/nightResults/${currentNight}/private/${pId}`] = `Bầy Sói đã nguyền thành công ${targetPlayer.name}.`;
+                    }
+                });
+
+                detailedLog.push(`- Bầy Sói đã nguyền rủa ${targetPlayer.name}, biến họ thành Sói.`);
                 
                 deadPlayerNames = deadPlayerNames.filter(name => {
                     const deadPlayerEntry = Object.entries(allPlayers).find(([,p]) => p.name === name);
@@ -547,7 +565,8 @@ document.addEventListener('DOMContentLoaded', () => {
             Object.keys(roomData.players).forEach(pId => {
                 updates[`/players/${pId}/isAlive`] = true;
                 updates[`/players/${pId}/roleName`] = null; 
-                updates[`/players/${pId}/currentFaction`] = null; // Reset phe
+                updates[`/players/${pId}/currentFaction`] = null;
+                updates[`/players/${pId}/originalRoleName`] = null;
             });
 
             updates['/nightActions'] = null;
@@ -834,13 +853,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // =================================================================
-    // === HÀM MỚI CHO TÍNH NĂNG THU GỌN ===
-    // =================================================================
     function initializeCollapsibleSections() {
         const headers = document.querySelectorAll('.card-header-collapsible');
         headers.forEach(header => {
-            // Mặc định thu gọn 2 mục cuối
             if(header.parentElement.id === 'players-card' || header.parentElement.id === 'log-card') {
                 header.classList.add('collapsed');
                 header.nextElementSibling.classList.add('collapsed');
