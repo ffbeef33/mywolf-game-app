@@ -20,13 +20,13 @@ export default async function handler(request, response) {
     try {
       const { sheetName = 'Roles' } = request.query;
 
-      if (!['Roles', 'Players', 'Favor Deck'].includes(sheetName)) {
+      // === THAY ĐỔI: Thêm 'Quotes' vào danh sách cho phép ===
+      if (!['Roles', 'Players', 'Favor Deck', 'Quotes'].includes(sheetName)) {
         return response.status(400).json({ error: 'Invalid sheet name specified.' });
       }
 
       const res = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        // ===== SỬA LỖI: Bỏ giới hạn cột A:Z để đọc toàn bộ sheet =====
         range: sheetName,
       });
 
@@ -37,12 +37,17 @@ export default async function handler(request, response) {
       
       response.setHeader('Cache-Control', 's-maxage=10, stale-while-revalidate');
 
+      // === THAY ĐỔI: Thêm logic đọc sheet 'Quotes' ===
+      if (sheetName === 'Quotes') {
+        const quotes = rows.flat().filter(Boolean); // Chuyển [[q1], [q2]] thành [q1, q2] và loại bỏ dòng trống
+        return response.status(200).json(quotes);
+      }
+
       if (sheetName === 'Favor Deck') {
         const decks = [];
         const deckNames = rows[0] || [];
         const playerCounts = rows[2] || [];
         
-        // Bắt đầu từ cột B (index = 1)
         for (let col = 1; col < deckNames.length; col++) {
           const deckName = deckNames[col];
           if (!deckName) continue; 
@@ -53,7 +58,6 @@ export default async function handler(request, response) {
             roles: [],
           };
 
-          // Bắt đầu từ hàng 4 (index = 3) để đọc vai trò
           for (let row = 3; row < rows.length; row++) {
             if (rows[row] && rows[row][col]) {
               deck.roles.push(rows[row][col].trim());
@@ -64,7 +68,6 @@ export default async function handler(request, response) {
         return response.status(200).json(decks);
       }
       
-      // Logic cũ cho sheet 'Roles' và 'Players'
       const headers = rows.shift();
       const data = rows.map(row => {
         let obj = {};
@@ -132,6 +135,5 @@ export default async function handler(request, response) {
     }
   }
 
-  // Nếu phương thức không phải GET hoặc POST
   return response.status(405).json({ error: `Method ${request.method} Not Allowed` });
 }

@@ -1,5 +1,5 @@
 // =================================================================
-// === player.js - SỬA LỖI LOGIC SELECT (CHỌN MỤC TIÊU LIÊN TIẾP) ===
+// === player.js - LẤY QUOTES NGẪU NHIÊN TỪ GOOGLE SHEET ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -69,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let allRolesData = [];
     let myPlayerData = {};
     let roomData = {};
+    let allNightQuotes = []; // === THAY ĐỔI: Biến lưu trữ quotes ===
 
     // --- DATA FETCHING ---
     const fetchAllRolesData = async () => {
@@ -88,6 +89,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }));
         } catch (error) {
             console.error("Lỗi nghiêm trọng khi tải dữ liệu vai trò:", error);
+        }
+    };
+
+    // === THAY ĐỔI: Hàm mới để lấy quotes từ sheet ===
+    const fetchNightQuotes = async () => {
+        try {
+            const response = await fetch('/api/sheets?sheetName=Quotes');
+            if (!response.ok) {
+                console.error('Không thể tải danh sách quotes.');
+                allNightQuotes = ["Đêm đã buông xuống... Hãy cẩn thận."]; // Fallback
+                return;
+            }
+            allNightQuotes = await response.json();
+        } catch (error) {
+            console.error("Lỗi khi tải quotes:", error);
+            allNightQuotes = ["Bạn lắng nghe trong im lặng, chờ đợi trời sáng."]; // Fallback
         }
     };
 
@@ -627,11 +644,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (availableActions.length === 0) {
+            // === THAY ĐỔI: Sử dụng quotes từ biến toàn cục ===
+            let randomMessage = "Bạn không có hành động nào đêm nay. Hãy cố gắng nghỉ ngơi và chuẩn bị cho ngày mai.";
+            if (allNightQuotes && allNightQuotes.length > 0) {
+                randomMessage = allNightQuotes[Math.floor(Math.random() * allNightQuotes.length)];
+            }
+
             interactiveActionSection.innerHTML = `
-                <div class="night-action-panel">
+                <div class="night-action-panel resting-panel">
                     <div class="panel-header">
-                        <h2>Thư giãn</h2>
-                        <p>Đêm nay bạn không có chức năng. Hãy chờ trời sáng.</p>
+                        <h2>Đêm Tĩnh Lặng</h2>
+                        <p class="atmospheric-message"><em>${randomMessage}</em></p>
+                    </div>
+                    <div class="resting-info">
+                        <p>Bạn không có hành động nào đêm nay. Hãy cố gắng nghỉ ngơi và chuẩn bị cho ngày mai.</p>
                     </div>
                 </div>`;
             return;
@@ -728,7 +754,6 @@ document.addEventListener('DOMContentLoaded', () => {
             targetPlayers = Object.entries(roomData.players).filter(([, p]) => p.isAlive);
         }
         
-        // === BẮT ĐẦU SỬA LỖI SELECT ===
         const previousNight = currentNight - 1;
         let previousTargetIds = [];
 
@@ -748,7 +773,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
-        // === KẾT THÚC SỬA LỖI SELECT ===
 
         const targetGrid = document.createElement('div');
         targetGrid.className = 'target-grid';
@@ -910,8 +934,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- INITIAL LOAD ---
+    // === THAY ĐỔI: Cập nhật hàm khởi tạo ===
     const initialize = async () => {
         await fetchAllRolesData();
+        await fetchNightQuotes(); // Lấy quotes trước khi đăng nhập
         checkSessionAndAutoLogin();
     };
     initialize();
