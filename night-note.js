@@ -26,12 +26,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const gmLogContent = document.getElementById('gm-log-content');
     const playerLogContent = document.getElementById('player-log-content');
     
-    // TÍNH NĂNG MỚI: Elements cho Modal Di Chúc của GM
     const willModalGm = document.getElementById('will-modal-gm');
     const willModalGmTitle = document.getElementById('will-modal-gm-title');
     const willModalGmContent = document.getElementById('will-modal-gm-content');
     const willModalGmPublishBtn = document.getElementById('will-modal-gm-publish-btn');
-    let currentPlayerIdForWill = null; // Biến tạm để lưu ID người chơi khi xem di chúc
+    let currentPlayerIdForWill = null; 
 
     let votingSection, votePlayersList, startVoteBtn, endVoteBtn, voteResultsContainer, voteTimerInterval;
     let secretVoteWeights = {};
@@ -54,11 +53,10 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
     const SELECTABLE_FACTIONS = [ "Bầy Sói", "Phe Sói", "Phe Dân", "Phe trung lập" ];
     
-    // !!! ĐÃ XÓA KIND_TO_ACTION_MAP VÀ ALL_ACTIONS VÌ ĐÃ CHUYỂN SANG game-logic.js !!!
-
     // --- State ---
     let roomPlayers = [], allRolesData = {}, nightStates = [], activeNightIndex = 0, nextActionId = 0, roomId = null;
     let customPlayerOrder = [];
+    let roomDataState = {}; // State để lưu trữ toàn bộ dữ liệu phòng
 
     // --- Data Fetching ---
     const fetchAllRolesData = async () => {
@@ -92,9 +90,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 return acc;
             }, {});
-
-            // Hàm này vẫn cần ALL_ACTIONS để hoạt động, nó sẽ lấy từ file game-logic.js
-            // Do game-logic.js được nạp trước, biến ALL_ACTIONS sẽ tồn tại ở global scope.
 
         } catch (error) {
             console.error("Lỗi tải dữ liệu vai trò:", error);
@@ -143,8 +138,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         return true;
     }
-
-    // !!! HÀM calculateNightStatus ĐÃ BỊ XÓA VÌ ĐƯỢC CHUYỂN SANG game-logic.js !!!
     
     // --- Log Builder Functions ---
     function buildGmActionLog(nightState) {
@@ -239,7 +232,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // !!! THAY ĐỔI QUAN TRỌNG: Gọi hàm từ game-logic.js và truyền thêm `roomPlayers` !!!
         const { liveStatuses, infoResults, deadPlayerNames, finalStatus } = calculateNightStatus(nightState, roomPlayers);
         
         roomPlayers.forEach(p => {
@@ -380,7 +372,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderVotingModule();
     };
     
-    // ... (Các hàm không thay đổi khác như createPlayerRow, createWolfGroupRow, ...)
     function createPlayerRow(player, playerState, liveStatus, isFinished) {
         const row = document.createElement('div');
         row.className = 'player-row';
@@ -527,7 +518,6 @@ document.addEventListener('DOMContentLoaded', () => {
         nightTabsContainer.appendChild(addNightBtn);
     };
     
-    // ... (Toàn bộ các hàm còn lại giữ nguyên không thay đổi)
     function createVotingModuleStructure() {
         if (document.getElementById('voting-section')) return;
         const mainContainer = document.querySelector('.container');
@@ -793,6 +783,18 @@ document.addEventListener('DOMContentLoaded', () => {
                  const newStatus = !nightState.playersStatus[actorId].isAlive;
                  nightState.playersStatus[actorId].isAlive = newStatus;
                  nightState.initialPlayersStatus[actorId].isAlive = newStatus;
+
+                 // === FIX BUG 2: Kích hoạt Nguyền khi Sói bị GM giết trong night-note ===
+                 if (newStatus === false) { // Nếu người chơi bị giết
+                    const killedPlayer = roomPlayers.find(p => p.id === actorId);
+                    if (killedPlayer) {
+                        const isWolf = killedPlayer.faction === 'Bầy Sói' || killedPlayer.faction === 'Phe Sói';
+                        const curseState = roomDataState.interactiveState?.curseAbility?.status || 'locked';
+                        if (isWolf && curseState === 'locked') {
+                            database.ref(`rooms/${roomId}/interactiveState/curseAbility/status`).set('available');
+                        }
+                    }
+                 }
                  saveNightNotes();
              }
             return;
@@ -1276,6 +1278,7 @@ document.addEventListener('DOMContentLoaded', () => {
         roomRef.on('value', (snapshot) => {
             const roomData = snapshot.val();
             if(!roomData) return;
+            roomDataState = roomData; // Lưu lại toàn bộ dữ liệu phòng
             const playersData = roomData.players || {};
             nightStates = roomData.nightNotes || [];
             customPlayerOrder = roomData.playerOrder || [];

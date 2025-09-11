@@ -217,7 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sortedPlayers.forEach(([id, player]) => {
             const roleName = player.roleName || 'Chưa có vai';
             const roleData = allRolesData[roleName] || {};
-            const faction = roleData.faction || 'Khác';
+            const faction = player.currentFaction || roleData.faction || 'Khác';
 
             const card = document.createElement('div');
             card.className = 'interactive-player-card';
@@ -297,7 +297,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const kind = roleInfo.kind || 'empty';
                 const status = { 
                     isAlive: player.isAlive,
-                    // === FIX BUG 2: Ưu tiên phe bị nguyền hơn phe gốc ===
                     faction: player.currentFaction || roleInfo.faction || 'Chưa phân loại',
                     roleName: roleName,
                     kind: kind,
@@ -435,7 +434,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // === THAY ĐỔI: Tạo log chi tiết cho quản trò ===
         const detailedLog = [...(infoResults || [])]; 
 
         Object.keys(liveStatuses).forEach(pId => {
@@ -451,17 +449,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // === FIX BUG 2: Xử lý hiệu ứng Nguyền và cập nhật trạng thái ===
         const curseAction = formattedActions.find(a => a.action === 'curse' && a.actorId === 'wolf_group');
         if (curseAction) {
             const targetId = curseAction.targets[0];
             if (targetId && allPlayers[targetId]) {
-                updates[`/players/${targetId}/currentFaction`] = 'Bầy Sói'; // Lưu lại phe mới
-                updates[`/interactiveState/curseAbility/status`] = 'used'; // Đánh dấu đã dùng
+                updates[`/players/${targetId}/currentFaction`] = 'Bầy Sói';
+                updates[`/interactiveState/curseAbility/status`] = 'used';
                 detailedLog.push(`- Bầy Sói đã nguyền rủa ${allPlayers[targetId].name}, biến họ thành Sói.`);
                 
-                // Vì đêm Nguyền sẽ không Cắn, nên cần đảm bảo không có ai chết do Sói Cắn
-                // (Mặc dù UI đã chặn, đây là bước bảo vệ cuối cùng)
                 deadPlayerNames = deadPlayerNames.filter(name => {
                     const deadPlayerEntry = Object.entries(allPlayers).find(([,p]) => p.name === name);
                     if (!deadPlayerEntry) return true;
@@ -471,13 +466,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-
         updates[`/nightResults/${currentNight}/public`] = {
             deadPlayerNames: deadPlayerNames || [],
-            log: detailedLog, // Sử dụng log chi tiết mới
+            log: detailedLog,
             timestamp: firebase.database.ServerValue.TIMESTAMP
         };
-        // === KẾT THÚC THAY ĐỔI ===
 
         Object.keys(finalStatus).forEach(playerId => {
             const originalPlayerState = initialPlayerStatus[playerId];
@@ -554,6 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
             Object.keys(roomData.players).forEach(pId => {
                 updates[`/players/${pId}/isAlive`] = true;
                 updates[`/players/${pId}/roleName`] = null; 
+                updates[`/players/${pId}/currentFaction`] = null; // Reset phe
             });
 
             updates['/nightActions'] = null;
@@ -618,12 +612,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const player = roomData.players[playerId];
             if (!player) return;
             const action = prompt(`Chọn hành động cho ${playerName}:\n1: Giết\n2: Hồi sinh\n(Nhập 1 hoặc 2)`);
-            
+            const roomRef = database.ref(`rooms/${currentRoomId}`);
+
             if (action === '1') {
                 if (confirm(`Bạn có chắc muốn GIẾT ${playerName}?`)) {
-                    // === FIX BUG 2: Kích hoạt Nguyền khi Sói bị GM giết ===
                     const updates = {};
-                    updates[`/rooms/${currentRoomId}/players/${playerId}/isAlive`] = false;
+                    updates[`players/${playerId}/isAlive`] = false;
 
                     const killedPlayer = roomData.players[playerId];
                     const killedPlayerRole = allRolesData[killedPlayer.roleName] || {};
@@ -631,14 +625,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const curseState = roomData.interactiveState?.curseAbility?.status || 'locked';
 
                     if (isWolf && curseState === 'locked') {
-                        updates[`/rooms/${currentRoomId}/interactiveState/curseAbility/status`] = 'available';
+                        updates[`interactiveState/curseAbility/status`] = 'available';
                     }
-                    database.ref().update(updates);
+                    roomRef.update(updates);
                 }
             } else if (action === '2') {
                 if (confirm(`Bạn có chắc muốn HỒI SINH ${playerName}?`)) {
-                    const playerRef = database.ref(`rooms/${currentRoomId}/players/${playerId}/isAlive`);
-                    playerRef.set(true);
+                    roomRef.child(`players/${playerId}/isAlive`).set(true);
                 }
             }
         }
