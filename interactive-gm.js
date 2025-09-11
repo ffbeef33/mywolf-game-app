@@ -297,7 +297,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const kind = roleInfo.kind || 'empty';
                 const status = { 
                     isAlive: player.isAlive,
-                    faction: roleInfo.faction || 'Chưa phân loại',
+                    // === FIX BUG 2: Ưu tiên phe bị nguyền hơn phe gốc ===
+                    faction: player.currentFaction || roleInfo.faction || 'Chưa phân loại',
                     roleName: roleName,
                     kind: kind,
                     isDisabled: false, isPermanentlyDisabled: false, isPermanentlyProtected: false,
@@ -398,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return { 
                 id, ...data, 
                 baseFaction: roleInfo.faction || 'Chưa phân loại',
-                faction: roleInfo.faction || 'Chưa phân loại',
+                faction: data.currentFaction || roleInfo.faction || 'Chưa phân loại',
                 kind: roleInfo.kind || 'empty',
                 activeRule: roleInfo.active || 'n',
                 quantity: roleInfo.quantity || 1,
@@ -407,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         const results = calculateNightStatus(nightStateForCalc, roomPlayersForCalc);
-        const { finalStatus, deadPlayerNames, infoResults, wizardSavedPlayerNames, liveStatuses } = results;
+        let { finalStatus, deadPlayerNames, infoResults, wizardSavedPlayerNames, liveStatuses } = results;
 
         for (const action of formattedActions) {
             if (action.action === 'detect') {
@@ -449,6 +450,27 @@ document.addEventListener('DOMContentLoaded', () => {
                  detailedLog.push(`- ${player.name} đã được cứu sống.`);
             }
         });
+        
+        // === FIX BUG 2: Xử lý hiệu ứng Nguyền và cập nhật trạng thái ===
+        const curseAction = formattedActions.find(a => a.action === 'curse' && a.actorId === 'wolf_group');
+        if (curseAction) {
+            const targetId = curseAction.targets[0];
+            if (targetId && allPlayers[targetId]) {
+                updates[`/players/${targetId}/currentFaction`] = 'Bầy Sói'; // Lưu lại phe mới
+                updates[`/interactiveState/curseAbility/status`] = 'used'; // Đánh dấu đã dùng
+                detailedLog.push(`- Bầy Sói đã nguyền rủa ${allPlayers[targetId].name}, biến họ thành Sói.`);
+                
+                // Vì đêm Nguyền sẽ không Cắn, nên cần đảm bảo không có ai chết do Sói Cắn
+                // (Mặc dù UI đã chặn, đây là bước bảo vệ cuối cùng)
+                deadPlayerNames = deadPlayerNames.filter(name => {
+                    const deadPlayerEntry = Object.entries(allPlayers).find(([,p]) => p.name === name);
+                    if (!deadPlayerEntry) return true;
+                    const deadPlayerId = deadPlayerEntry[0];
+                    return finalStatus[deadPlayerId]?.causeOfDeath !== 'wolf_bite';
+                });
+            }
+        }
+
 
         updates[`/nightResults/${currentNight}/public`] = {
             deadPlayerNames: deadPlayerNames || [],
@@ -596,13 +618,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const player = roomData.players[playerId];
             if (!player) return;
             const action = prompt(`Chọn hành động cho ${playerName}:\n1: Giết\n2: Hồi sinh\n(Nhập 1 hoặc 2)`);
-            const playerRef = database.ref(`rooms/${currentRoomId}/players/${playerId}/isAlive`);
+            
             if (action === '1') {
                 if (confirm(`Bạn có chắc muốn GIẾT ${playerName}?`)) {
-                    playerRef.set(false);
+                    // === FIX BUG 2: Kích hoạt Nguyền khi Sói bị GM giết ===
+                    const updates = {};
+                    updates[`/rooms/${currentRoomId}/players/${playerId}/isAlive`] = false;
+
+                    const killedPlayer = roomData.players[playerId];
+                    const killedPlayerRole = allRolesData[killedPlayer.roleName] || {};
+                    const isWolf = killedPlayerRole.faction === 'Bầy Sói' || killedPlayerRole.faction === 'Phe Sói';
+                    const curseState = roomData.interactiveState?.curseAbility?.status || 'locked';
+
+                    if (isWolf && curseState === 'locked') {
+                        updates[`/rooms/${currentRoomId}/interactiveState/curseAbility/status`] = 'available';
+                    }
+                    database.ref().update(updates);
                 }
             } else if (action === '2') {
                 if (confirm(`Bạn có chắc muốn HỒI SINH ${playerName}?`)) {
+                    const playerRef = database.ref(`rooms/${currentRoomId}/players/${playerId}/isAlive`);
                     playerRef.set(true);
                 }
             }

@@ -130,11 +130,13 @@ function calculateNightStatus(nightState, roomPlayers) {
             const actor = roomPlayers.find(p => p.id === actorId);
             const isWolfAction = actorId === 'wolf_group';
 
+            // === FIX BUG 1: Sửa logic kiểm tra vô hiệu hóa ===
+            // Logic cũ cho phép người bị vô hiệu hóa vẫn dùng love/disable/freeze.
+            // Logic mới chặn tất cả hành động có hiệu ứng nếu người chơi bị vô hiệu hóa.
             if (!isWolfAction && actor && liveStatuses[actorId] && liveStatuses[actorId].isDisabled) {
-                const actionKindCheck = ALL_ACTIONS[action]?.key || action;
-                if (actionKindCheck !== 'love' && actionKindCheck !== 'disable_action' && actionKindCheck !== 'freeze') {
-                    return;
-                }
+                // Bất kỳ hành động nào từ người chơi bị vô hiệu hóa đều không có hiệu lực.
+                // Hành động này vẫn được ghi lại trong nightActions, do đó vẫn tính là đã dùng 1 lần.
+                return;
             }
             
             if (!isWolfAction && !actor) return;
