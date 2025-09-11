@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let roomListener = null;
     let publicWillListener = null;
     let nightResultListener = null;
+    let announcementListener = null; // <-- THÊM BIẾN MỚI
     let pickTimerInterval = null;
     let voteTimerInterval = null;
     let currentRoomId = null;
@@ -105,6 +106,16 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error("Lỗi khi tải quotes:", error);
             allNightQuotes = ["Bạn lắng nghe trong im lặng, chờ đợi trời sáng."]; // Fallback
+        }
+    };
+
+    // --- THÊM HÀM MỚI ---
+    const showAnnouncementModal = (data) => {
+        const modal = document.getElementById('announcement-modal');
+        const content = document.getElementById('announcement-content');
+        if (modal && content && data.message) {
+            content.textContent = data.message;
+            modal.classList.remove('hidden');
         }
     };
 
@@ -156,9 +167,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (roomListener && currentRoomId) database.ref(`rooms/${currentRoomId}`).off('value', roomListener);
         if (publicWillListener && currentRoomId) database.ref(`rooms/${currentRoomId}/publicData/publishedWill`).off('value', publicWillListener);
         if (nightResultListener && currentRoomId) database.ref(`rooms/${currentRoomId}/nightResults`).off('value', nightResultListener);
+        if (announcementListener && currentRoomId) database.ref(`rooms/${currentRoomId}/publicData/latestAnnouncement`).off('value', announcementListener);
         if (pickTimerInterval) clearInterval(pickTimerInterval);
         if (voteTimerInterval) clearInterval(voteTimerInterval);
-        roomListener = publicWillListener = nightResultListener = pickTimerInterval = voteTimerInterval = currentRoomId = myPlayerId = null;
+        roomListener = publicWillListener = nightResultListener = announcementListener = pickTimerInterval = voteTimerInterval = currentRoomId = myPlayerId = null;
     };
     function listenForRoomCreated(username) {
         cleanup();
@@ -202,6 +214,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
+        // --- CẬP NHẬT: THÊM LISTENER MỚI ---
+        const announcementRef = database.ref(`rooms/${roomId}/publicData/latestAnnouncement`);
+        if(announcementListener) announcementRef.off('value', announcementListener);
+        announcementListener = announcementRef.on('value', (snapshot) => {
+            const announcement = snapshot.val();
+            if (announcement && (Date.now() - announcement.timestamp < 60000)) {
+                showAnnouncementModal(announcement);
+            }
+        });
+
         const nightResultRef = database.ref(`rooms/${roomId}/nightResults`);
         if (nightResultListener) nightResultRef.off('value', nightResultListener);
         nightResultListener = nightResultRef.on('value', (snapshot) => {
@@ -613,14 +635,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const availableActions = [];
 
-        // Bước 1: Thêm hành động chung của Bầy Sói (nếu có)
         if (isWolfFaction) {
             const curseState = currentRoomData.interactiveState?.curseAbility?.status || 'locked';
             const wolfAction = currentRoomData.nightActions?.[currentNight]?.wolf_group?.action;
 
             if (curseState === 'available' && !wolfAction) {
                 wolfActionChoiceModal.classList.remove('hidden');
-                // Chờ người chơi chọn hành động trong modal, hàm sẽ được gọi lại sau khi có lựa chọn
                 return;
             }
             wolfActionChoiceModal.classList.add('hidden');
@@ -638,11 +658,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Bước 2: Thêm các hành động cá nhân dựa trên Kind
         const kinds = myRoleData.kind ? myRoleData.kind.split('_') : [];
         kinds.forEach(kind => {
             const actionInfo = KIND_TO_ACTION_MAP[kind];
-            // Bỏ qua nếu action không hợp lệ, là 'empty', hoặc là 'kill' của Sói (vì đã có hành động chung)
             if (!actionInfo || (isWolfFaction && kind === 'kill') || kind === 'empty') {
                 return;
             }
@@ -664,7 +682,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Bước 3: Hiển thị giao diện dựa trên danh sách hành động đã thu thập
         if (availableActions.length === 0) {
             renderRestingPanel();
             return;
@@ -959,7 +976,9 @@ document.addEventListener('DOMContentLoaded', () => {
     eventListeners.forEach(({ el, event, handler }) => {
         if (el) el.addEventListener(event, handler);
     });
-    [willWritingModal, publishedWillModal, assassinModal, wolfActionChoiceModal].forEach(modal => { 
+
+    // --- CẬP NHẬT: THÊM MODAL MỚI VÀO DANH SÁCH ---
+    [willWritingModal, publishedWillModal, assassinModal, wolfActionChoiceModal, document.getElementById('announcement-modal')].forEach(modal => { 
         if (modal) {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal || e.target.classList.contains('close-modal-btn')) {

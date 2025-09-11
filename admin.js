@@ -662,17 +662,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const players = snapshot.val();
             if (players) {
                 const updates = {};
-                // === FIX: Reset toàn bộ trạng thái người chơi ===
                 for (const playerId in players) {
                     updates[`/${playerId}/roleName`] = null;
                     updates[`/${playerId}/isAlive`] = true;
                     updates[`/${playerId}/currentFaction`] = null;
                     updates[`/${playerId}/originalRoleName`] = null;
                     updates[`/${playerId}/causeOfDeath`] = null;
-                    // === FIX START: Bổ sung reset trạng thái đặc biệt ===
                     updates[`/${playerId}/will`] = null;
                     updates[`/${playerId}/wizardAbilityState`] = null;
-                    // === FIX END ===
                 }
                 await playersRef.update(updates);
             }
@@ -684,7 +681,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 '/nightNotes': null,
                 '/playerOrder': null,
                 '/publicData/publishedWill': null,
-                '/interactiveState': null, // Reset cả interactive state
+                '/publicData/latestAnnouncement': null, // <-- DÒNG ĐÃ THÊM
+                '/interactiveState': null,
                 '/nightActions': null,
                 '/nightResults': null,
             };

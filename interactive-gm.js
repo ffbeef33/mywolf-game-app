@@ -103,7 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderVotingModule();
     };
     
-    // --- CẬP NHẬT TOÀN BỘ HÀM NÀY ---
     const renderFullGameLog = () => {
         gameLog.innerHTML = '';
         const state = roomData.interactiveState || {};
@@ -129,7 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (Object.keys(actions).length > 0) {
                 for(const actorId in actions) {
                     const actionData = actions[actorId];
-                    let logPrefix = actionData.by === 'gm' ? '<span class="gm-log-tag">[GM]</span> ' : '';
+                    const logPrefix = actionData.by === 'gm' ? '<span class="gm-log-tag">[GM]</span> ' : '';
 
                     if (actorId === 'wolf_group') {
                         const wolfVotes = actionData.votes || {};
@@ -158,7 +157,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         let actorData;
                         let actorRole = '';
                         
-                        // Xử lý các hành động GM áp đặt (ID không phải của người chơi)
                         if (actorId.startsWith('GM_ACTION_')) {
                             logPrefix = '<span class="gm-log-tag">[GM]</span> ';
                             actorName = 'Quản Trò';
@@ -483,12 +481,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (curseAction) {
             let targetId = curseAction.targets[0];
             
-            // === FIX START: Kiểm tra chuyển hướng của Love cho Nguyền ===
             const loverId = loveRedirects[targetId];
             if (loverId) {
-                targetId = loverId; // Đổi mục tiêu Nguyền sang người yêu
+                targetId = loverId;
             }
-            // === FIX END ===
 
             const targetPlayer = allPlayers[targetId];
             if (targetPlayer && initialPlayerStatus[targetId]?.faction !== 'Bầy Sói') {
@@ -601,10 +597,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 updates[`/players/${pId}/currentFaction`] = null;
                 updates[`/players/${pId}/originalRoleName`] = null;
                 updates[`/players/${pId}/causeOfDeath`] = null;
-                // === FIX START: Reset toàn bộ trạng thái người chơi ===
                 updates[`/players/${pId}/will`] = null;
                 updates[`/players/${pId}/wizardAbilityState`] = null;
-                // === FIX END ===
             });
 
             updates['/nightActions'] = null;
@@ -782,17 +776,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- CẬP NHẬT TOÀN BỘ HÀM NÀY ---
     function handleEndVote() {
         if (!currentRoomId) return;
-        database.ref(`rooms/${currentRoomId}/votingState/status`).once('value', (snapshot) => {
-            if (snapshot.val() === 'active') {
-                database.ref(`rooms/${currentRoomId}/votingState/status`).set('finished');
-            }
-        });
 
-        const choicesRef = database.ref(`rooms/${currentRoomId}/votingState/choices`);
         if (voteChoicesListener) {
-            choicesRef.off('value', voteChoicesListener);
+            database.ref(`rooms/${currentRoomId}/votingState/choices`).off('value', voteChoicesListener);
             voteChoicesListener = null;
         }
         if (voteTimerInterval) {
@@ -805,6 +794,67 @@ document.addEventListener('DOMContentLoaded', () => {
         
         startVoteNowBtn.style.display = 'inline-block';
         endVoteNowBtn.style.display = 'none';
+
+        const voteRef = database.ref(`rooms/${currentRoomId}`);
+        voteRef.once('value').then(snapshot => {
+            const roomData = snapshot.val();
+            if (!roomData || !roomData.votingState || roomData.votingState.status === 'finished') {
+                return;
+            }
+
+            const choices = roomData.votingState.choices || {};
+            const livingPlayers = Object.entries(roomData.players).filter(([,p]) => p.isAlive);
+            const weights = secretVoteWeights;
+
+            const tally = {};
+
+            livingPlayers.forEach(([voterId, voter]) => {
+                const choice = choices[voter.name];
+                const weight = weights[voterId] || 1;
+                
+                if (choice && choice !== 'skip_vote') {
+                    tally[choice] = (tally[choice] || 0) + weight;
+                } else {
+                    tally['skip_vote'] = (tally['skip_vote'] || 0) + weight;
+                }
+            });
+
+            let maxVotes = 0;
+            let mostVotedPlayerIds = [];
+
+            for (const playerId in tally) {
+                if (playerId !== 'skip_vote') {
+                    if (tally[playerId] > maxVotes) {
+                        maxVotes = tally[playerId];
+                        mostVotedPlayerIds = [playerId];
+                    } else if (tally[playerId] === maxVotes) {
+                        mostVotedPlayerIds.push(playerId);
+                    }
+                }
+            }
+            
+            const skipVoteCount = tally['skip_vote'] || 0;
+            const updates = {};
+            let announcementText = "";
+
+            if (maxVotes > 0 && maxVotes > skipVoteCount) {
+                const executedPlayerNames = mostVotedPlayerIds.map(id => roomData.players[id]?.name).join(', ');
+                announcementText = `Kết quả biểu quyết: ${executedPlayerNames} đã bị treo cổ.`;
+                mostVotedPlayerIds.forEach(id => {
+                    updates[`/players/${id}/isAlive`] = false;
+                });
+            } else {
+                announcementText = "Kết quả biểu quyết: Không có ai bị treo cổ do số phiếu không hợp lệ hoặc số phiếu Bỏ Qua cao hơn.";
+            }
+
+            updates['/votingState/status'] = 'finished';
+            updates['/publicData/latestAnnouncement'] = {
+                message: announcementText,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+
+            voteRef.update(updates);
+        });
     }
 
     function renderVoteResults(choices, weights) {
