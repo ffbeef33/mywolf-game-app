@@ -349,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (wolfAction === 'curse') {
                     actionToPerform = 'curse';
                 } else {
-                    actionToPerform = 'kill'; // Mặc định là cắn nếu không có action
+                    actionToPerform = 'kill';
                 }
             
                 if (finalTargetId && actionToPerform) {
@@ -411,9 +411,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         const results = calculateNightStatus(nightStateForCalc, roomPlayersForCalc);
-        let { finalStatus, deadPlayerNames, infoResults, wizardSavedPlayerNames, liveStatuses } = results;
+        let { finalStatus, deadPlayerNames, infoResults, wizardSavedPlayerNames, liveStatuses, finalActions } = results;
 
-        for (const action of formattedActions) {
+        for (const action of finalActions) {
             if (action.action === 'detect') {
                 const detectorId = action.actorId;
                 const detector = allPlayers[detectorId];
@@ -453,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        const curseAction = formattedActions.find(a => a.action === 'curse' && a.actorId === 'wolf_group');
+        const curseAction = finalActions.find(a => a.action === 'curse' && a.actorId === 'wolf_group');
         if (curseAction) {
             const targetId = curseAction.targets[0];
             const targetPlayer = allPlayers[targetId];
@@ -472,7 +472,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                detailedLog.push(`- Bầy Sói đã nguyền rủa ${targetPlayer.name}, biến họ thành Sói.`);
+                if (!detailedLog.some(log => log.includes(targetPlayer.name))) {
+                    detailedLog.push(`- Bầy Sói đã nguyền rủa ${targetPlayer.name}, biến họ thành Sói.`);
+                }
                 
                 deadPlayerNames = deadPlayerNames.filter(name => {
                     const deadPlayerEntry = Object.entries(allPlayers).find(([,p]) => p.name === name);
@@ -535,7 +537,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const [, , actorName, action, targetName, result] = match;
                 const actor = Object.values(allPlayers).find(p => p.name === actorName);
                 const actorId = Object.keys(allPlayers).find(id => allPlayers[id] === actor);
-                if (actorId) {
+                if (actorId && !updates[`/nightResults/${currentNight}/private/${actorId}`]) {
                     updates[`/nightResults/${currentNight}/private/${actorId}`] = `Bạn đã ${action} ${targetName} và kết quả là: ${result}`;
                 }
             }

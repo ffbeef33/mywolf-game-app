@@ -26,11 +26,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const gmLogContent = document.getElementById('gm-log-content');
     const playerLogContent = document.getElementById('player-log-content');
     
+    // TÍNH NĂNG MỚI: Elements cho Modal Di Chúc của GM
     const willModalGm = document.getElementById('will-modal-gm');
     const willModalGmTitle = document.getElementById('will-modal-gm-title');
     const willModalGmContent = document.getElementById('will-modal-gm-content');
     const willModalGmPublishBtn = document.getElementById('will-modal-gm-publish-btn');
-    let currentPlayerIdForWill = null; 
+    let currentPlayerIdForWill = null; // Biến tạm để lưu ID người chơi khi xem di chúc
 
     let votingSection, votePlayersList, startVoteBtn, endVoteBtn, voteResultsContainer, voteTimerInterval;
     let secretVoteWeights = {};
@@ -43,7 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let groupModal, groupModalTitle, groupNameInput, groupModalPlayers, groupModalConfirmBtn, currentGroupEditingPlayerId;
 
     // --- Config ---
-    const FACTIONS = [ "Bầy Sói", "Phe Sói", "Phe Dân", "Phe trung lập", "Chức năng khác", "Chưa phân loại" ];
     const FACTION_GROUPS = [
         { display: 'Bầy Sói', factions: ['Bầy Sói'], className: 'faction-wolf' },
         { display: 'Phe Sói', factions: ['Phe Sói'], className: 'faction-wolf' },
@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- State ---
     let roomPlayers = [], allRolesData = {}, nightStates = [], activeNightIndex = 0, nextActionId = 0, roomId = null;
     let customPlayerOrder = [];
-    let roomDataState = {}; // State để lưu trữ toàn bộ dữ liệu phòng
+    let roomDataState = {};
 
     // --- Data Fetching ---
     const fetchAllRolesData = async () => {
@@ -331,7 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         transformedState: null,
                         groupId: null,
                         markedForDelayKill: false,
-                        faction: p.baseFaction, // Reset về phe gốc
+                        faction: p.baseFaction,
                         originalRoleName: null,
                         roleName: p.roleName,
                         kind: p.kind,
@@ -784,8 +784,7 @@ document.addEventListener('DOMContentLoaded', () => {
                  nightState.playersStatus[actorId].isAlive = newStatus;
                  nightState.initialPlayersStatus[actorId].isAlive = newStatus;
 
-                 // === FIX BUG 2: Kích hoạt Nguyền khi Sói bị GM giết trong night-note ===
-                 if (newStatus === false) { // Nếu người chơi bị giết
+                 if (newStatus === false) { 
                     const killedPlayer = roomPlayers.find(p => p.id === actorId);
                     if (killedPlayer) {
                         const isWolf = killedPlayer.faction === 'Bầy Sói' || killedPlayer.faction === 'Phe Sói';
@@ -802,7 +801,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target.closest('#add-night-btn')) {
             const lastNight = nightStates[nightStates.length - 1];
             if (lastNight && !lastNight.isFinished) {
-                console.warn(`Vui lòng kết thúc Đêm ${nightStates.length} trước khi thêm đêm mới.`);
+                alert(`Vui lòng kết thúc Đêm ${nightStates.length} trước khi thêm đêm mới.`);
                 return;
             }
             let prevStatus = lastNight ? calculateNightStatus(lastNight, roomPlayers).finalStatus : Object.fromEntries(roomPlayers.map(p => {
@@ -893,24 +892,16 @@ document.addEventListener('DOMContentLoaded', () => {
             saveNightNotes();
         } else if (target.closest('#end-night-btn')) {
             if (!nightState.isFinished) {
-                const { loveRedirects, liveStatuses } = calculateNightStatus(nightState, roomPlayers);
-                const curseActions = nightState.actions.filter(a => a.action === 'curse');
-                const collectActions = nightState.actions.filter(a => a.action === 'collect');
+                const { finalActions } = calculateNightStatus(nightState, roomPlayers);
+                const curseActions = finalActions.filter(a => a.action === 'curse');
+                const collectActions = finalActions.filter(a => a.action === 'collect');
+
                 if (curseActions.length > 0 || collectActions.length > 0) {
                     if (!Array.isArray(nightState.factionChanges)) {
                         nightState.factionChanges = [];
                     }
                     curseActions.forEach(action => {
-                        const originalTargetId = action.targetId;
-                        const isWolfCurse = action.actorId === 'wolf_group';
-                        if (isWolfCurse && liveStatuses[originalTargetId] && liveStatuses[originalTargetId].isImmuneToWolves) {
-                            return; 
-                        }
-                        let finalTargetId = originalTargetId;
-                        const loverId = loveRedirects[originalTargetId];
-                        if(loverId && isWolfCurse) {
-                            finalTargetId = loverId;
-                        }
+                        const finalTargetId = action.targets[0];
                         const targetPlayer = roomPlayers.find(p => p.id === finalTargetId);
                         if (targetPlayer && targetPlayer.faction !== 'Bầy Sói' && !nightState.factionChanges.some(fc => fc.playerId === finalTargetId)) {
                             nightState.factionChanges.push({
@@ -1278,7 +1269,7 @@ document.addEventListener('DOMContentLoaded', () => {
         roomRef.on('value', (snapshot) => {
             const roomData = snapshot.val();
             if(!roomData) return;
-            roomDataState = roomData; // Lưu lại toàn bộ dữ liệu phòng
+            roomDataState = roomData;
             const playersData = roomData.players || {};
             nightStates = roomData.nightNotes || [];
             customPlayerOrder = roomData.playerOrder || [];

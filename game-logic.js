@@ -50,7 +50,7 @@ ALL_ACTIONS['gm_disable_perm'] = { label: 'Bị vô hiệu hoá (Vĩnh viễn)',
 
 
 function calculateNightStatus(nightState, roomPlayers) {
-    if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [], infoResults: [], loveRedirects: {}, wizardSavedPlayerNames: [] };
+    if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [], infoResults: [], loveRedirects: {}, wizardSavedPlayerNames: [], finalActions: [] };
         
     let actions = nightState.actions || [];
     const initialStatus = nightState.playersStatus;
@@ -245,28 +245,22 @@ function calculateNightStatus(nightState, roomPlayers) {
     });
 
     // === FIX: Chuyển hướng tấn công của Sói (Cắn/Nguyền) do Love ===
-    // Bước này được thực hiện trước khi xử lý hiệu ứng chính để đảm bảo mục tiêu cuối cùng là chính xác.
     let processedActions = JSON.parse(JSON.stringify(actions));
     processedActions.forEach(action => {
         if ((action.action === 'kill' || action.action === 'curse') && action.actorId === 'wolf_group' && action.targets && action.targets.length > 0) {
             const originalTargetId = action.targets[0];
             const loverId = loveRedirects[originalTargetId];
-
             if (loverId) {
                 const originalTarget = roomPlayers.find(p => p.id === originalTargetId);
                 const newTarget = roomPlayers.find(p => p.id === loverId);
                 const actionName = action.action === 'kill' ? 'Sói cắn' : 'Nguyền';
-                
                 if (originalTarget && newTarget) {
                     infoResults.push(`- ${newTarget.name} đã nhận thay ${actionName} cho ${originalTarget.name}.`);
                 }
-                
-                // Thay đổi mục tiêu của hành động thành người chơi Love
                 action.targets = [loverId];
             }
         }
     });
-    // Sử dụng mảng hành động đã được xử lý chuyển hướng cho các bước tiếp theo
     actions = processedActions;
     
     const disabledPlayerIds = new Set();
@@ -281,15 +275,12 @@ function calculateNightStatus(nightState, roomPlayers) {
     });
     
     const killifActions = executableActions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
-    const otherActions = executableActions.filter(({ action }) => !['killif', 'collect', 'transform', 'love', 'detect'].includes(ALL_ACTIONS[action]?.key || action));
+    const otherActions = executableActions.filter(({ action }) => !['killif', 'collect', 'transform', 'love', 'detect', 'curse'].includes(ALL_ACTIONS[action]?.key || action));
 
     otherActions.forEach(({ actorId, targets, action }) => {
         (targets || []).forEach(targetId => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             let finalTargetId = targetId;
-
-            // Logic chuyển hướng cũ đã được chuyển lên trên, nên khối này không còn cần thiết
-            // if (loveRedirects[targetId] && (isWolfBite || isWolfCurse)) { ... }
             
             let target = roomPlayers.find(p => p.id === finalTargetId);
             const actionKind = ALL_ACTIONS[action]?.key || action;
@@ -628,5 +619,5 @@ function calculateNightStatus(nightState, roomPlayers) {
 
     const deadPlayerNames = Array.from(deadPlayerIdsThisNight).map(id => roomPlayers.find(p => p.id === id)?.name).filter(Boolean);
     
-    return { liveStatuses, finalStatus, deadPlayerNames, infoResults, loveRedirects, wizardSavedPlayerNames };
+    return { liveStatuses, finalStatus, deadPlayerNames, infoResults, loveRedirects, wizardSavedPlayerNames, finalActions: actions };
 }
