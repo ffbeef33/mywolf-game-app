@@ -610,40 +610,45 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const myRoleData = allRolesData.find(r => r.name === myPlayerData.roleName) || {};
         const isWolfFaction = myPlayerData.currentFaction === 'Bầy Sói' || myRoleData.faction === 'Bầy Sói' || myRoleData.faction === 'Phe Sói';
+        
+        const availableActions = [];
 
+        // Bước 1: Thêm hành động chung của Bầy Sói (nếu có)
         if (isWolfFaction) {
             const curseState = currentRoomData.interactiveState?.curseAbility?.status || 'locked';
             const wolfAction = currentRoomData.nightActions?.[currentNight]?.wolf_group?.action;
 
             if (curseState === 'available' && !wolfAction) {
                 wolfActionChoiceModal.classList.remove('hidden');
-            } else {
-                wolfActionChoiceModal.classList.add('hidden');
-                const actionToDisplay = wolfAction === 'curse' ? 'curse' : 'kill';
-                const title = actionToDisplay === 'curse' ? 'Nguyền' : 'Cắn';
-                const desc = actionToDisplay === 'curse' ? 'Biến một người chơi thành Sói.' : 'Cùng bầy sói chọn một mục tiêu để loại bỏ.';
-                
-                const wolfActionDetails = {
-                    title: title,
-                    description: desc,
-                    actionKey: actionToDisplay,
-                    isWolfGroupAction: true,
-                    roleInfo: { quantity: 1, ...myRoleData }
-                };
-                renderActionPanel(wolfActionDetails);
+                // Chờ người chơi chọn hành động trong modal, hàm sẽ được gọi lại sau khi có lựa chọn
+                return;
             }
-            return; 
+            wolfActionChoiceModal.classList.add('hidden');
+
+            const actionToDisplay = wolfAction === 'curse' ? 'curse' : 'kill';
+            const title = actionToDisplay === 'curse' ? 'Nguyền' : 'Cắn';
+            const desc = actionToDisplay === 'curse' ? 'Biến một người chơi thành Sói.' : 'Cùng bầy sói chọn một mục tiêu để loại bỏ.';
+            
+            availableActions.push({
+                title: title,
+                description: desc,
+                actionKey: actionToDisplay,
+                isWolfGroupAction: true,
+                roleInfo: { quantity: 1, ...myRoleData }
+            });
         }
 
-        // Logic cho các vai trò khác
-        const availableActions = [];
+        // Bước 2: Thêm các hành động cá nhân dựa trên Kind
         const kinds = myRoleData.kind ? myRoleData.kind.split('_') : [];
         kinds.forEach(kind => {
             const actionInfo = KIND_TO_ACTION_MAP[kind];
-            if (!actionInfo || kind === 'empty') return;
+            // Bỏ qua nếu action không hợp lệ, là 'empty', hoặc là 'kill' của Sói (vì đã có hành động chung)
+            if (!actionInfo || (isWolfFaction && kind === 'kill') || kind === 'empty') {
+                return;
+            }
             
             if (isActionAvailable(myRoleData, actionInfo.key, currentNight)) {
-                 if(kind === 'assassin') {
+                if(kind === 'assassin') {
                     availableActions.push({ title: "Ám Sát", description: "Chọn mục tiêu để đoán vai trò.", actionKey: 'assassinate', isSpecial: 'assassin', roleInfo: myRoleData });
                 } else if(kind === 'wizard') {
                      const wizardState = myPlayerData.wizardAbilityState || 'save_available';
@@ -659,13 +664,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // Bước 3: Hiển thị giao diện dựa trên danh sách hành động đã thu thập
         if (availableActions.length === 0) {
             renderRestingPanel();
             return;
         }
+        
         renderActionPanel(availableActions);
     }
-    
+
     function renderActionPanel(actions) {
         const actionDetailsArray = Array.isArray(actions) ? actions : [actions];
 
@@ -721,6 +728,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderActionContent(actionDetails) {
         const contentContainer = document.getElementById('action-content');
+        if (!contentContainer) return;
         contentContainer.innerHTML = '';
         
         const panelTitle = document.getElementById('panel-title');
@@ -872,7 +880,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
              if (actionDetails.isWolfGroupAction) {
                 const updates = {};
-                updates[`${actionPath}/action`] = actionDetails.actionKey;
                 updates[`${actionPath}/votes/${myPlayerId}`] = selectedTargets[0];
                 database.ref().update(updates);
              } else {
