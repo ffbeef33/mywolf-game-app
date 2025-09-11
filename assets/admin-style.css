@@ -558,3 +558,19 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .card-header-collapsible.collapsed {
     margin-bottom: 0;
 }
+
+/* ==========================================================================
+   13. STYLE CHO TAG LOG CỦA GM
+   ========================================================================== */
+.gm-log-tag {
+    color: var(--faction-neutral-color);
+    font-weight: 700;
+    margin-right: 5px;
+    font-style: italic;
+    user-select: none;
+}
+
+.log-action .player-role {
+    font-size: 0.9em;
+    opacity: 0.7;
+}

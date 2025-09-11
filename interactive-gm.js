@@ -123,41 +123,68 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const actions = nightActions[i] || {};
             const results = nightResults[i]?.public;
+            const actionLogsContainer = document.createElement('div');
 
+            // Xử lý hành động của từng người chơi và Sói
             if (Object.keys(actions).length > 0) {
-                 for(const actorId in actions) {
+                for(const actorId in actions) {
                     const actionData = actions[actorId];
-                    let targetNames = '';
+                    let logPrefix = '';
+
+                    // Kiểm tra hành động có phải do GM thực hiện không
+                    if (actionData.by === 'gm') {
+                        logPrefix = '<span class="gm-log-tag">[GM]</span> ';
+                    }
 
                     if (actorId === 'wolf_group') {
+                        // Log chi tiết vote của Sói
                         const wolfVotes = actionData.votes || {};
-                        targetNames = Object.values(wolfVotes).map(targetId => roomData.players[targetId]?.name || 'Mục tiêu lạ').join(', ');
-                    } else {
-                         const targets = Array.isArray(actionData.targets) ? actionData.targets : [actionData.targetId];
-                         targetNames = targets.filter(Boolean).map(targetId => roomData.players[targetId]?.name || 'Mục tiêu lạ').join(', ');
-                    }
-                    
-                    let actorName, actorRole = '';
-                    if (actorId === 'wolf_group') {
-                        actorName = "Bầy Sói";
-                    } else {
-                        const actorData = roomData.players[actorId];
-                        actorName = actorData?.name || 'Người chơi lạ';
-                        actorRole = actorData?.roleName ? `(${actorData.roleName})` : '';
-                    }
-                    
-                    let actionLabel = ALL_ACTIONS[actionData.action]?.label || actionData.action;
-                    if(actionData.action === 'assassinate') actionLabel += ` (Đoán: ${actionData.guess})`;
+                        const wolfActionLabel = ALL_ACTIONS[actionData.action]?.label || actionData.action || 'Cắn';
 
-                    const p = document.createElement('p');
-                    p.className = 'log-action';
-                    p.innerHTML = `<strong>${actorName}</strong> <span class="player-role">${actorRole}</span> đã chọn <em>${actionLabel}</em> <strong>${targetNames}</strong>.`;
-                    gameLog.appendChild(p);
+                        for (const voterId in wolfVotes) {
+                            const targetId = wolfVotes[voterId];
+                            let voterName;
+                            let wolfLogPrefix = '';
+
+                            if (voterId.startsWith('GM_')) {
+                                // Đây là vote do GM thêm vào
+                                wolfLogPrefix = '<span class="gm-log-tag">[GM]</span> ';
+                                voterName = roomData.players[Object.keys(roomData.players).find(pId => roomData.players[pId].faction === 'Bầy Sói' || roomData.players[pId].faction === 'Phe Sói')]?.name || 'Bầy Sói';
+                            } else {
+                                voterName = roomData.players[voterId]?.name || 'Sói lạ';
+                            }
+                            
+                            const targetName = roomData.players[targetId]?.name || 'Mục tiêu lạ';
+                            const p = document.createElement('p');
+                            p.className = 'log-action';
+                            p.innerHTML = `${wolfLogPrefix}<strong>${voterName}</strong> đã vote <em>${wolfActionLabel}</em> <strong>${targetName}</strong>.`;
+                            actionLogsContainer.appendChild(p);
+                        }
+                    } else {
+                        // Log hành động của người chơi khác
+                        const targetNames = (actionData.targets || []).filter(Boolean).map(targetId => roomData.players[targetId]?.name || 'Mục tiêu lạ').join(', ');
+                        if (!targetNames) continue;
+
+                        const actorData = roomData.players[actorId];
+                        const actorName = actorData?.name || 'Người chơi lạ';
+                        const actorRole = actorData?.roleName ? `(${actorData.roleName})` : '';
+                        
+                        let actionLabel = ALL_ACTIONS[actionData.action]?.label || actionData.action;
+                        if(actionData.action === 'assassinate') actionLabel += ` (Đoán: ${actionData.guess})`;
+
+                        const p = document.createElement('p');
+                        p.className = 'log-action';
+                        p.innerHTML = `${logPrefix}<strong>${actorName}</strong> <span class="player-role">${actorRole}</span> đã chọn <em>${actionLabel}</em> <strong>${targetNames}</strong>.`;
+                        actionLogsContainer.appendChild(p);
+                    }
                 }
             } else if (i < currentNight || (i === currentNight && state.phase !== 'night')) {
-                gameLog.innerHTML += '<p><em>Không có hành động nào được ghi nhận cho đêm này.</em></p>';
+                actionLogsContainer.innerHTML = '<p><em>Không có hành động nào được ghi nhận cho đêm này.</em></p>';
             }
+            
+            gameLog.appendChild(actionLogsContainer);
 
+            // Hiển thị kết quả đêm (nếu có)
             if (results) {
                 const resultsContainer = document.createElement('div');
                 resultsContainer.className = 'log-results';
