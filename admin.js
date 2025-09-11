@@ -669,6 +669,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     updates[`/${playerId}/currentFaction`] = null;
                     updates[`/${playerId}/originalRoleName`] = null;
                     updates[`/${playerId}/causeOfDeath`] = null;
+                    // === FIX START: Bổ sung reset trạng thái đặc biệt ===
+                    updates[`/${playerId}/will`] = null;
+                    updates[`/${playerId}/wizardAbilityState`] = null;
+                    // === FIX END ===
                 }
                 await playersRef.update(updates);
             }

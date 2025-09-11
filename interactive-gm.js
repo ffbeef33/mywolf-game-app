@@ -349,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (wolfAction === 'curse') {
                     actionToPerform = 'curse';
                 } else {
-                    actionToPerform = 'kill';
+                    actionToPerform = 'kill'; // Mặc định là cắn nếu không có action
                 }
             
                 if (finalTargetId && actionToPerform) {
@@ -411,9 +411,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         const results = calculateNightStatus(nightStateForCalc, roomPlayersForCalc);
-        let { finalStatus, deadPlayerNames, infoResults, wizardSavedPlayerNames, liveStatuses, finalActions } = results;
+        let { finalStatus, deadPlayerNames, infoResults, wizardSavedPlayerNames, loveRedirects, liveStatuses } = results;
 
-        for (const action of finalActions) {
+        for (const action of formattedActions) {
             if (action.action === 'detect') {
                 const detectorId = action.actorId;
                 const detector = allPlayers[detectorId];
@@ -453,9 +453,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        const curseAction = finalActions.find(a => a.action === 'curse' && a.actorId === 'wolf_group');
+        const curseAction = formattedActions.find(a => a.action === 'curse' && a.actorId === 'wolf_group');
         if (curseAction) {
-            const targetId = curseAction.targets[0];
+            let targetId = curseAction.targets[0];
+            
+            // === FIX START: Kiểm tra chuyển hướng của Love cho Nguyền ===
+            const loverId = loveRedirects[targetId];
+            if (loverId) {
+                targetId = loverId; // Đổi mục tiêu Nguyền sang người yêu
+            }
+            // === FIX END ===
+
             const targetPlayer = allPlayers[targetId];
             if (targetPlayer && initialPlayerStatus[targetId]?.faction !== 'Bầy Sói') {
                 updates[`/players/${targetId}/originalRoleName`] = targetPlayer.roleName;
@@ -472,9 +480,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                if (!detailedLog.some(log => log.includes(targetPlayer.name))) {
-                    detailedLog.push(`- Bầy Sói đã nguyền rủa ${targetPlayer.name}, biến họ thành Sói.`);
-                }
+                detailedLog.push(`- Bầy Sói đã nguyền rủa ${targetPlayer.name}, biến họ thành Sói.`);
                 
                 deadPlayerNames = deadPlayerNames.filter(name => {
                     const deadPlayerEntry = Object.entries(allPlayers).find(([,p]) => p.name === name);
@@ -537,7 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const [, , actorName, action, targetName, result] = match;
                 const actor = Object.values(allPlayers).find(p => p.name === actorName);
                 const actorId = Object.keys(allPlayers).find(id => allPlayers[id] === actor);
-                if (actorId && !updates[`/nightResults/${currentNight}/private/${actorId}`]) {
+                if (actorId) {
                     updates[`/nightResults/${currentNight}/private/${actorId}`] = `Bạn đã ${action} ${targetName} và kết quả là: ${result}`;
                 }
             }
@@ -569,6 +575,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 updates[`/players/${pId}/currentFaction`] = null;
                 updates[`/players/${pId}/originalRoleName`] = null;
                 updates[`/players/${pId}/causeOfDeath`] = null;
+                // === FIX START: Reset toàn bộ trạng thái người chơi ===
+                updates[`/players/${pId}/will`] = null;
+                updates[`/players/${pId}/wizardAbilityState`] = null;
+                // === FIX END ===
             });
 
             updates['/nightActions'] = null;
