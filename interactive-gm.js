@@ -129,8 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (Object.keys(actions).length > 0) {
                 for(const actorId in actions) {
                     const actionData = actions[actorId];
-                    // *** LOGIC MỚI: Thêm tiền tố [GM] nếu có chữ ký ***
-                    const logPrefix = actionData.by === 'gm' ? '<span class="gm-log-tag">[GM]</span> ' : '';
+                    let logPrefix = actionData.by === 'gm' ? '<span class="gm-log-tag">[GM]</span> ' : '';
 
                     if (actorId === 'wolf_group') {
                         const wolfVotes = actionData.votes || {};
@@ -139,11 +138,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         for (const voterId in wolfVotes) {
                             const targetId = wolfVotes[voterId];
                             let voterName;
-                            // *** LOGIC MỚI: Xử lý riêng cho vote của GM ***
                             let wolfLogPrefix = '';
                             if (voterId.startsWith('GM_')) {
                                 wolfLogPrefix = '<span class="gm-log-tag">[GM]</span> ';
-                                // Tìm một con Sói còn sống để hiển thị tên cho đẹp
                                 const aLivingWolf = Object.values(roomData.players).find(p => p.isAlive && (p.currentFaction === 'Bầy Sói' || p.currentFaction === 'Phe Sói'));
                                 voterName = aLivingWolf?.name || 'Bầy Sói';
                             } else {
@@ -153,24 +150,32 @@ document.addEventListener('DOMContentLoaded', () => {
                             const targetName = roomData.players[targetId]?.name || 'Mục tiêu lạ';
                             const p = document.createElement('p');
                             p.className = 'log-action';
-                            // Thêm tiền tố vào log
                             p.innerHTML = `${wolfLogPrefix}<strong>${voterName}</strong> đã vote <em>${wolfActionLabel}</em> <strong>${targetName}</strong>.`;
                             actionLogsContainer.appendChild(p);
                         }
-                    } else { // Hành động của người chơi khác
+                    } else {
+                        let actorName;
+                        let actorData;
+                        let actorRole = '';
+                        
+                        // Xử lý các hành động GM áp đặt (ID không phải của người chơi)
+                        if (actorId.startsWith('GM_ACTION_')) {
+                            logPrefix = '<span class="gm-log-tag">[GM]</span> ';
+                            actorName = 'Quản Trò';
+                        } else {
+                            actorData = roomData.players[actorId];
+                            actorName = actorData?.name || 'Người chơi lạ';
+                            actorRole = actorData?.roleName ? `<span class="player-role">(${actorData.roleName})</span>` : '';
+                        }
+
                         const targetNames = (actionData.targets || []).filter(Boolean).map(targetId => roomData.players[targetId]?.name || 'Mục tiêu lạ').join(', ');
                         if (!targetNames) continue;
-
-                        const actorData = roomData.players[actorId];
-                        const actorName = actorData?.name || 'Người chơi lạ';
-                        const actorRole = actorData?.roleName ? `<span class="player-role">(${actorData.roleName})</span>` : '';
                         
                         let actionLabel = ALL_ACTIONS[actionData.action]?.label || actionData.action;
                         if(actionData.action === 'assassinate') actionLabel += ` (Đoán: ${actionData.guess})`;
 
                         const p = document.createElement('p');
                         p.className = 'log-action';
-                        // Thêm tiền tố vào log
                         p.innerHTML = `${logPrefix}<strong>${actorName}</strong> ${actorRole} đã chọn <em>${actionLabel}</em> <strong>${targetNames}</strong>.`;
                         actionLogsContainer.appendChild(p);
                     }
@@ -181,18 +186,15 @@ document.addEventListener('DOMContentLoaded', () => {
             
             gameLog.appendChild(actionLogsContainer);
 
-            // Hiển thị kết quả đêm (nếu có)
             if (results) {
                 const resultsContainer = document.createElement('div');
                 resultsContainer.className = 'log-results';
                 let resultsHTML = '<h5>Kết Quả Đêm</h5>';
-
                 if (results.deadPlayerNames && results.deadPlayerNames.length > 0) {
                     resultsHTML += `<p class="log-death"><i class="fas fa-skull-crossbones"></i><strong>Chết:</strong> ${results.deadPlayerNames.join(', ')}</p>`;
                 } else {
                     resultsHTML += `<p><i class="fas fa-shield-alt"></i>Không có ai chết.</p>`;
                 }
-                
                 if (results.log && results.log.length > 0) {
                     results.log.forEach(info => {
                          resultsHTML += `<p class="log-info"><i class="fas fa-info-circle"></i>${info}</p>`;
