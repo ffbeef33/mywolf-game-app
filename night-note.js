@@ -31,8 +31,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const willModalGmPublishBtn = document.getElementById('will-modal-gm-publish-btn');
     let currentPlayerIdForWill = null; 
 
+    let votingSection, votePlayersList, startVoteBtn, endVoteBtn, voteResultsContainer, voteTimerInterval;
+    let secretVoteWeights = {};
+    let voteChoicesListener = null;
+    let rememberedVoteWeights = {};
+
     let actionModal, currentActorInModal = null;
     let factionChangeModal = null;
+
     let groupModal, groupModalTitle, groupNameInput, groupModalPlayers, groupModalConfirmBtn, currentGroupEditingPlayerId;
 
     // --- Config ---
@@ -62,7 +68,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const roleName = (role.RoleName || '').trim();
                 if (roleName) {
                     const quantityRaw = (role.Quantity || '1').toString().trim().toLowerCase();
-                    let quantityValue = quantityRaw === 'n' ? Infinity : parseInt(quantityRaw, 10) || 1;
+                    let quantityValue;
+                    if (quantityRaw === 'n') {
+                        quantityValue = Infinity;
+                    } else {
+                        quantityValue = parseInt(quantityRaw, 10);
+                        if (isNaN(quantityValue)) {
+                            quantityValue = 1;
+                        }
+                    }
+
                     acc[roleName] = {
                         name: roleName,
                         faction: (role.Faction || 'Chưa phân loại').trim(),
@@ -74,6 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 return acc;
             }, {});
+
         } catch (error) {
             console.error("Lỗi tải dữ liệu vai trò:", error);
             interactionTable.innerHTML = `<p style="color:red;">Lỗi: Không thể tải dữ liệu vai trò từ Google Sheet.</p>`;
@@ -90,20 +106,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function isActionCurrentlyAvailable(player, actionKey, currentNightIndex) {
-        // This function is for manual mode only
-        if (isInteractiveMode) return true;
-
         const rule = player.activeRule;
         const nightNumber = currentNightIndex + 1;
-        if (!rule || rule === '0' || player.kind === 'empty') return false;
+
+        if (!rule || rule === '0' || player.kind === 'empty') {
+            return false;
+        }
 
         const parts = rule.split('_');
         const usesRule = parts[0];
         const nightRule = parts.length > 1 ? parseInt(parts[1], 10) : null;
 
         if (nightRule !== null) {
-            if (usesRule === '1' && nightNumber !== nightRule) return false;
-            if (usesRule === 'n' && nightNumber < nightRule) return false;
+            if (usesRule === '1') {
+                if (nightNumber !== nightRule) return false;
+            }
+            else if (usesRule === 'n') {
+                if (nightNumber < nightRule) return false;
+            }
         }
 
         if (usesRule === '1') {
@@ -115,64 +135,90 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return timesUsed === 0;
         }
+
         return true;
     }
     
     // --- Log Builder Functions ---
     function buildGmActionLog(nightState) {
         const gmActions = [];
-        (nightState.factionChanges || []).forEach(change => {
-            const player = roomPlayers.find(p => p.id === change.playerId);
-            const name = player ? `<strong class="player-name">${player.name}</strong>` : "???";
-            const effectTime = change.isImmediate ? " (hiệu lực ngay)" : "";
-            gmActions.push(`Đã đổi phe của ${name} thành <strong class="faction-name">${change.newFaction}</strong>${effectTime}.`);
-        });
+        if (Array.isArray(nightState.factionChanges)) {
+            nightState.factionChanges.forEach(change => {
+                const player = roomPlayers.find(p => p.id === change.playerId);
+                const name = player ? `<strong class="player-name">${player.name}</strong>` : "???";
+                const effectTime = change.isImmediate ? " (hiệu lực ngay)" : "";
+                gmActions.push(`Đã đổi phe của ${name} thành <strong class="faction-name">${change.newFaction}</strong>${effectTime}.`);
+            });
+        }
 
-        (nightState.actions || []).filter(a => a.action.startsWith('gm_')).forEach(({ action, targetId }) => {
+        const gmManualActions = (nightState.actions || []).filter(a => a.action.startsWith('gm_'));
+        gmManualActions.forEach(({ action, targetId }) => {
             const target = roomPlayers.find(p => p.id === targetId);
             const targetName = target ? `<strong class="player-name">${target.name}</strong>` : '???';
             const actionLabel = ALL_ACTIONS[action]?.label || action;
             gmActions.push(`Áp dụng hiệu ứng "${actionLabel}" lên ${targetName}.`);
         });
 
-        if (gmActions.length === 0) return '<p class="log-placeholder">Chưa có hoạt động nào từ quản trò.</p>';
+        if (gmActions.length === 0) {
+            return '<p class="log-placeholder">Chưa có hoạt động nào từ quản trò.</p>';
+        }
         return gmActions.map(log => `<div class="log-item gm-action">- ${log}</div>`).join('');
     }
 
     function buildPlayerActionLog(nightState, infoResults) {
         const playerActions = [];
-        (nightState.actions || []).filter(a => !a.action.startsWith('gm_')).forEach(({ action, targetId, actorId }) => {
+        const actions = nightState.actions || [];
+
+        const regularActions = actions.filter(a => !a.action.startsWith('gm_'));
+
+        regularActions.forEach(({ action, targetId, actorId }) => {
             const actor = roomPlayers.find(p => p.id === actorId);
             const target = roomPlayers.find(p => p.id === targetId);
             const actorName = actor ? `<strong class="player-name">${actor.name}</strong> <span class="role-name">(${actor.roleName || '???'})</span>` : '<strong>Bầy Sói</strong>';
             const targetName = target ? `<strong class="target-name">${target.name}</strong>` : "???";
             const actionLabel = ALL_ACTIONS[action]?.label || action;
+
             playerActions.push(`${actorName} đã chọn <strong>${actionLabel}</strong> ${targetName}.`);
         });
 
-        if (playerActions.length === 0 && (infoResults || []).length === 0) return '<p class="log-placeholder">Chưa có hoạt động nào từ người chơi.</p>';
-        
+        if (playerActions.length === 0 && infoResults.length === 0) {
+            return '<p class="log-placeholder">Chưa có hoạt động nào từ người chơi.</p>';
+        }
+
         let html = playerActions.map(log => `<div class="log-item player-action">${log}</div>`).join('');
-        html += (infoResults || []).map(log => `<div class="log-item info-result">${log}</div>`).join('');
+        html += infoResults.map(log => `<div class="log-item info-result">${log}</div>`).join('');
         return html;
     }
 
     function initializeSortable() {
-        document.querySelectorAll('.faction-player-list').forEach(groupEl => {
+        const factionGroups = document.querySelectorAll('.faction-player-list');
+        factionGroups.forEach(groupEl => {
             new Sortable(groupEl, {
                 animation: 150,
                 ghostClass: 'sortable-ghost',
                 delay: 150,
                 delayOnTouchOnly: true,
-                onEnd: () => {
-                    customPlayerOrder = Array.from(interactionTable.querySelectorAll('.player-row')).map(row => row.dataset.playerId).filter(id => id);
+                onEnd: function (evt) {
+                    const allPlayerIdsInOrder = Array.from(interactionTable.querySelectorAll('.player-row')).map(row => row.dataset.playerId).filter(id => id);
+                    
+                    customPlayerOrder = allPlayerIdsInOrder;
                     savePlayerOrder();
                 }
             });
         });
     }
 
-    // --- Rendering ---
+    // === THAY ĐỔI 1: Sửa hàm render chính ===
+    // Hàm render sẽ nhận dữ liệu và luôn gọi hàm render giao diện đầy đủ.
+    const render = (nightStateToRender) => {
+        if (!nightStateToRender) {
+             interactionTable.innerHTML = '<div class="loading-spinner"></div><p style="text-align: center;">Đang chờ dữ liệu hoặc đêm chưa bắt đầu...</p>';
+             return;
+        }
+        renderForManualMode(nightStateToRender);
+    };
+    
+    // === THAY ĐỔI 2: Thêm hàm helper để xây dựng dữ liệu live cho chế độ tương tác ===
     function buildLiveNightStateFromInteractiveData(liveRoomData) {
         const currentNight = liveRoomData.interactiveState?.currentNight;
         if (!currentNight) return null;
@@ -186,30 +232,31 @@ document.addEventListener('DOMContentLoaded', () => {
             if (actorId === 'wolf_group') {
                 const wolfVotes = actionData.votes || {};
                 Object.entries(wolfVotes).forEach(([voterId, targetId]) => {
-                    formattedActions.push({ id: actionIdCounter++, actorId: voterId, targetId: targetId, action: actionData.action || 'kill' });
+                    formattedActions.push({
+                        id: actionIdCounter++,
+                        actorId: voterId,
+                        targetId: targetId,
+                        action: actionData.action || 'kill'
+                    });
                 });
             } else {
                  (actionData.targets || []).forEach(targetId => {
-                    formattedActions.push({ id: actionIdCounter++, actorId: actorId, targetId: targetId, action: actionData.action });
+                    formattedActions.push({
+                        id: actionIdCounter++,
+                        actorId: actorId,
+                        targetId: targetId,
+                        action: actionData.action
+                    });
                  });
             }
         }
 
         const currentPlayersStatus = Object.fromEntries(
-            roomPlayers.map(p => {
-                const livePlayer = liveRoomData.players[p.id] || {};
-                const roleInfo = allRolesData[livePlayer.roleName] || {};
-                return [p.id, { 
-                    ...p, // Base data
-                    isAlive: livePlayer.isAlive || false,
-                    faction: livePlayer.currentFaction || p.baseFaction,
-                    roleName: livePlayer.roleName || null,
-                    originalRoleName: livePlayer.originalRoleName || null,
-                    kind: roleInfo.kind || 'empty',
-                    activeRule: roleInfo.active || '0',
-                    quantity: roleInfo.quantity === Infinity ? Infinity : (roleInfo.quantity || 1)
-                }];
-            })
+            roomPlayers.map(p => [p.id, { 
+                ...p,
+                isAlive: liveRoomData.players[p.id]?.isAlive || false,
+                faction: liveRoomData.players[p.id]?.currentFaction || p.baseFaction
+            }])
         );
 
         return {
@@ -223,10 +270,31 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
     
+    // === THAY ĐỔI 3: Sửa hàm renderForManualMode để nhận tham số ===
     function renderForManualMode(nightState) {
         interactionTable.innerHTML = '';
 
-        const { liveStatuses, infoResults, deadPlayerNames } = calculateNightStatus(nightState, roomPlayers);
+        roomPlayers.forEach(p => {
+            const playerStatus = nightState.playersStatus[p.id];
+            if (playerStatus) {
+                p.faction = playerStatus.faction || p.baseFaction;
+                if (playerStatus.originalRoleName || playerStatus.transformedState) {
+                    p.roleName = playerStatus.roleName;
+                    p.kind = playerStatus.kind;
+                    p.activeRule = playerStatus.activeRule;
+                    p.quantity = playerStatus.quantity;
+                    p.duration = playerStatus.duration;
+                }
+            }
+        });
+
+        const { liveStatuses, infoResults, deadPlayerNames, finalStatus } = calculateNightStatus(nightState, roomPlayers);
+        
+        roomPlayers.forEach(p => {
+            if(finalStatus[p.id]) {
+                p.faction = finalStatus[p.id].faction;
+            }
+        });
         
         if (nightState.isFinished) {
             nightResultsDiv.innerHTML = deadPlayerNames.length > 0
@@ -247,7 +315,9 @@ document.addEventListener('DOMContentLoaded', () => {
              sortedPlayers.sort((a, b) => {
                 const indexA = customPlayerOrder.indexOf(a.id);
                 const indexB = customPlayerOrder.indexOf(b.id);
-                return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+                if (indexA === -1) return 1;
+                if (indexB === -1) return -1;
+                return indexA - indexB;
             });
         }
 
@@ -257,6 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const wrapper = document.createElement('div');
             wrapper.className = `faction-group-wrapper ${group.className || ''}`;
+
             const header = document.createElement('div');
             header.className = `faction-header ${group.className || ''}`;
             header.textContent = group.display;
@@ -268,52 +339,47 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const playerListContainer = document.createElement('div');
             playerListContainer.className = 'faction-player-list';
+
             groupPlayers.forEach(player => {
                 const playerState = nightState.playersStatus[player.id];
                 const lStatus = liveStatuses ? liveStatuses[player.id] : null;
+                const finalPlayerState = finalStatus[player.id] || playerState;
                 if (playerState) {
-                    playerListContainer.appendChild(createPlayerRow(player, playerState, lStatus, nightState.isFinished));
+                    playerListContainer.appendChild(createPlayerRow(player, finalPlayerState, lStatus, nightState.isFinished));
                 }
             });
+
             wrapper.appendChild(playerListContainer);
             interactionTable.appendChild(wrapper);
         });
         
         initializeSortable();
         renderNightTabs();
-    }
-
-    const render = () => {
-        let nightStateToRender = null;
-        if (isInteractiveMode) {
-            nightStateToRender = buildLiveNightStateFromInteractiveData(roomDataState);
-        } else {
-            nightStateToRender = nightStates[activeNightIndex];
-        }
-
-        if (!nightStateToRender) {
-            interactionTable.innerHTML = '<div class="loading-spinner"></div><p style="text-align: center;">Đang chờ dữ liệu hoặc đêm chưa bắt đầu...</p>';
-            return;
-        }
         
-        renderForManualMode(nightStateToRender); 
-    };
+        resultsCard.style.display = 'grid';
+        if(votingSection) votingSection.style.display = 'block';
+        renderVotingModule();
+    }
     
     function createPlayerRow(player, playerState, liveStatus, isFinished) {
         const row = document.createElement('div');
         row.className = 'player-row';
         row.dataset.playerId = player.id;
         
-        if (!playerState.isAlive) {
+        const wasAliveAtStart = roomDataState.players[player.id]?.isAlive;
+    
+        if (!wasAliveAtStart) {
             row.classList.add('status-dead');
-        } else if (liveStatus) {
-            if (liveStatus.isProtected) row.classList.add('status-protected');
-            if (liveStatus.isSaved) row.classList.add('status-saved');
-            if (liveStatus.isDead) row.classList.add('status-danger');
-            if (liveStatus.isDisabled) row.classList.add('status-disabled-by-ability');
+        } else {
+            if (liveStatus) {
+                if (liveStatus.isProtected) row.classList.add('status-protected');
+                if (liveStatus.isSaved) row.classList.add('status-saved');
+                if (liveStatus.isDead) row.classList.add('status-danger');
+                if (liveStatus.isDisabled) row.classList.add('status-disabled-by-ability');
+            }
         }
     
-        if (playerState.originalRoleName) row.classList.add('status-cursed');
+        if (player.originalRoleName) row.classList.add('status-cursed');
     
         let actionDisplayHTML = buildActionList(player.id);
         
@@ -325,16 +391,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isDisabled) statusIconsHTML += '<i class="fas fa-exclamation-triangle icon-disabled-by-ability" title="Bị vô hiệu hóa"></i>';
         }
     
-        let roleDisplayName = playerState.roleName || 'Chưa có vai';
-        if (playerState.originalRoleName) {
-             roleDisplayName = `${playerState.originalRoleName} <span class="cursed-note">(thành Sói)</span>`;
+        let roleDisplayName = player.roleName || 'Chưa có vai';
+        if (player.originalRoleName) {
+             roleDisplayName = `${player.originalRoleName} <span class="cursed-note">(thành Sói)</span>`;
         }
     
-        const willButtonHTML = !playerState.isAlive ? `
+        const willButtonHTML = !player.isAlive ? `
             <button class="will-modal-btn" data-player-id="${player.id}">Di Chúc</button>
         ` : '';
     
-        const isActionDisabled = isFinished || !playerState.isAlive;
+        const isActionDisabled = isFinished || !wasAliveAtStart;
 
         row.innerHTML = `
             <div class="player-header">
@@ -360,7 +426,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function createWolfGroupRow(nightState, isFinished) {
         const row = document.createElement('div');
         row.className = 'player-row';
+        
         let actionDisplayHTML = buildActionList('wolf_group');
+
         row.innerHTML = `
             <div class="player-header">
                 <div class="player-info">
@@ -382,15 +450,22 @@ document.addEventListener('DOMContentLoaded', () => {
     function buildActionList(playerId) {
         let html = '';
         let playerActions = [];
-        let currentNightState = isInteractiveMode ? buildLiveNightStateFromInteractiveData(roomDataState) : nightStates[activeNightIndex];
+
+        let currentNightState;
+        if (isInteractiveMode) {
+             currentNightState = buildLiveNightStateFromInteractiveData(roomDataState);
+        } else {
+            currentNightState = nightStates[activeNightIndex];
+        }
 
         if (currentNightState && Array.isArray(currentNightState.actions)) {
+            // Special handling for wolf group display
             if (playerId === 'wolf_group') {
-                const wolfFactions = ['Bầy Sói', 'Phe Sói'];
-                playerActions = currentNightState.actions.filter(action => {
+                const wolfActions = currentNightState.actions.filter(action => {
                     const actor = roomPlayers.find(p => p.id === action.actorId);
-                    return actor && wolfFactions.includes(actor.faction);
+                    return actor && (actor.faction === 'Bầy Sói' || actor.faction === 'Phe Sói');
                 });
+                playerActions = wolfActions;
             } else {
                 playerActions = currentNightState.actions.filter(action => action.actorId === playerId);
             }
@@ -461,7 +536,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     actor = { id: 'wolf_group', name: 'Bầy Sói', roleName: 'Hành động chung', kind: 'curse', quantity: 1, activeRule: 'n', duration: '1' };
                 }
             } else {
-                actor = roomPlayers.find(p => p.id === playerId) || (roomDataState.players[playerId] ? {id: playerId, ...roomDataState.players[playerId]} : null);
+                actor = roomPlayers.find(p => p.id === playerId);
             }
             if (actor) {
                 openActionModal(actor);
@@ -507,17 +582,26 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        if (isInteractiveMode) return;
+        // --- CẬP NHẬT: XÓA LỆNH CHẶN isInteractiveMode ---
         
         const nightState = nightStates[activeNightIndex];
-        if (!nightState) return;
-
         if (target.closest('.player-status-icon.life')) {
             const actorId = target.closest('.player-row').dataset.playerId;
-             if (!nightState.isFinished) {
+             if (nightState && !nightState.isFinished) {
                  const newStatus = !nightState.playersStatus[actorId].isAlive;
                  nightState.playersStatus[actorId].isAlive = newStatus;
                  nightState.initialPlayersStatus[actorId].isAlive = newStatus;
+
+                 if (newStatus === false) { 
+                    const killedPlayer = roomPlayers.find(p => p.id === actorId);
+                    if (killedPlayer) {
+                        const isWolf = killedPlayer.faction === 'Bầy Sói' || killedPlayer.faction === 'Phe Sói';
+                        const curseState = roomDataState.interactiveState?.curseAbility?.status || 'locked';
+                        if (isWolf && curseState === 'locked') {
+                            database.ref(`rooms/${roomId}/interactiveState/curseAbility/status`).set('available');
+                        }
+                    }
+                 }
                  saveNightNotes();
              }
             return;
@@ -529,19 +613,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             let prevStatus = lastNight ? calculateNightStatus(lastNight, roomPlayers).finalStatus : Object.fromEntries(roomPlayers.map(p => {
-                const roleInfo = allRolesData[p.roleName] || {};
                 return [p.id, { 
                     isAlive: p.isAlive, isDisabled: false, isPermanentlyDisabled: false, isPermanentlyProtected: false,
                     isPermanentlyNotified: false, hasPermanentKillAbility: false, hasPermanentCounterWard: false,
                     armor: (p.kind === 'armor1' ? 2 : 1), delayKillAvailable: (p.kind === 'delaykill'),
                     isDoomed: false, deathLinkTarget: null, sacrificedBy: null, transformedState: null,
-                    markedForDelayKill: false, groupId: null, faction: p.faction, originalRoleName: p.originalRoleName || null,
-                    roleName: p.roleName || null, kind: p.kind || roleInfo.kind || 'empty', activeRule: p.activeRule || roleInfo.active || '0', 
-                    quantity: p.quantity || roleInfo.quantity || 1, duration: p.duration || roleInfo.duration || '1', 
-                    isBoobyTrapped: false,
+                    markedForDelayKill: false, groupId: null, faction: p.faction, originalRoleName: null,
+                    roleName: p.roleName, kind: p.kind, activeRule: p.activeRule, quantity: p.quantity,
+                    duration: p.duration, isBoobyTrapped: false,
                 }];
             }));
-            
             if (lastNight && Array.isArray(lastNight.factionChanges)) {
                 lastNight.factionChanges.forEach(change => {
                     if (prevStatus[change.playerId]) {
@@ -552,16 +633,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             }
-            
-            Object.values(prevStatus).forEach(playerStatus => {
+            Object.keys(prevStatus).forEach(pId => {
+                const playerStatus = prevStatus[pId];
                 if (playerStatus && playerStatus.transformedState) {
-                    if(!playerStatus.originalRoleName) playerStatus.originalRoleName = playerStatus.roleName; 
+                    if(!playerStatus.originalRoleName) {
+                        playerStatus.originalRoleName = playerStatus.roleName; 
+                    }
                     const newRoleData = allRolesData[playerStatus.transformedState.roleName];
-                    if(newRoleData) Object.assign(playerStatus, { roleName: newRoleData.name, kind: newRoleData.kind, activeRule: newRoleData.active, quantity: newRoleData.quantity, duration: newRoleData.duration });
+                    if(newRoleData) {
+                        playerStatus.roleName = newRoleData.name;
+                        playerStatus.kind = newRoleData.kind;
+                        playerStatus.activeRule = newRoleData.active;
+                        playerStatus.quantity = newRoleData.quantity;
+                        playerStatus.duration = newRoleData.duration;
+                    }
                 }
-                playerStatus.isDisabled = false;
             });
-
+            Object.keys(prevStatus).forEach(pId => {
+                if(prevStatus[pId]) prevStatus[pId].isDisabled = false;
+            });
             const initialStatusForNewNight = JSON.parse(JSON.stringify(prevStatus));
             nightStates.push({
                 actions: [], playersStatus: initialStatusForNewNight,
@@ -573,42 +663,66 @@ document.addEventListener('DOMContentLoaded', () => {
             saveNightNotes();
             return;
         }
-
+        if (!nightState) return;
+        if (!Array.isArray(nightState.actions)) {
+            nightState.actions = [];
+        }
         if (target.closest('.night-tab')) {
-            activeNightIndex = parseInt(target.dataset.index, 10);
-            render();
+            activeNightIndex = parseInt(target.closest('.night-tab').dataset.index, 10);
+            render(nightStates[activeNightIndex]);
         } 
         else if (target.closest('#reset-night-btn')) {
-            Object.assign(nightState, { actions: [], isFinished: false, factionChanges: [], playersStatus: JSON.parse(JSON.stringify(nightState.initialPlayersStatus)), damageGroups: {} });
+            nightState.actions = [];
+            nightState.isFinished = false;
+            nightState.factionChanges = [];
+            nightState.playersStatus = JSON.parse(JSON.stringify(nightState.initialPlayersStatus));
             recalculateAllPlayerFactions();
+            nightState.damageGroups = {};
             saveNightNotes();
-        } else if (target.closest('#end-night-btn') && !nightState.isFinished) {
-            const { loveRedirects, liveStatuses } = calculateNightStatus(nightState, roomPlayers);
-            const curseActions = nightState.actions.filter(a => a.action === 'curse');
-            const collectActions = nightState.actions.filter(a => a.action === 'collect');
-            if (curseActions.length > 0 || collectActions.length > 0) {
-                nightState.factionChanges = nightState.factionChanges || [];
-                curseActions.forEach(action => {
-                    const originalTargetId = action.targetId;
-                    const isWolfCurse = action.actorId === 'wolf_group';
-                    if (isWolfCurse && liveStatuses[originalTargetId]?.isImmuneToWolves) return;
-                    
-                    let finalTargetId = (isWolfCurse && loveRedirects[originalTargetId]) ? loveRedirects[originalTargetId] : originalTargetId;
-                    const targetPlayer = roomPlayers.find(p => p.id === finalTargetId);
-                    if (targetPlayer && targetPlayer.faction !== 'Bầy Sói' && !nightState.factionChanges.some(fc => fc.playerId === finalTargetId)) {
-                        nightState.factionChanges.push({ playerId: finalTargetId, newFaction: 'Bầy Sói', originalRoleName: targetPlayer.roleName });
+        } else if (target.closest('#end-night-btn')) {
+            if (!nightState.isFinished) {
+                const { loveRedirects, liveStatuses } = calculateNightStatus(nightState, roomPlayers);
+                const curseActions = nightState.actions.filter(a => a.action === 'curse');
+                const collectActions = nightState.actions.filter(a => a.action === 'collect');
+                if (curseActions.length > 0 || collectActions.length > 0) {
+                    if (!Array.isArray(nightState.factionChanges)) {
+                        nightState.factionChanges = [];
                     }
-                });
-                collectActions.forEach(action => {
-                    const actor = roomPlayers.find(p => p.id === action.actorId);
-                    const targetPlayer = roomPlayers.find(p => p.id === action.targetId);
-                    if(actor && targetPlayer && !nightState.factionChanges.some(fc => fc.playerId === action.targetId)) {
-                         nightState.factionChanges.push({ playerId: action.targetId, newFaction: actor.faction, originalRoleName: targetPlayer.roleName });
-                    }
-                });
+                    curseActions.forEach(action => {
+                        const originalTargetId = action.targetId;
+                        const isWolfCurse = action.actorId === 'wolf_group';
+                        if (isWolfCurse && liveStatuses[originalTargetId] && liveStatuses[originalTargetId].isImmuneToWolves) {
+                            return; 
+                        }
+                        let finalTargetId = originalTargetId;
+                        const loverId = loveRedirects[originalTargetId];
+                        if(loverId && isWolfCurse) {
+                            finalTargetId = loverId;
+                        }
+                        const targetPlayer = roomPlayers.find(p => p.id === finalTargetId);
+                        if (targetPlayer && targetPlayer.faction !== 'Bầy Sói' && !nightState.factionChanges.some(fc => fc.playerId === finalTargetId)) {
+                            nightState.factionChanges.push({
+                                playerId: finalTargetId,
+                                newFaction: 'Bầy Sói',
+                                originalRoleName: targetPlayer.roleName
+                            });
+                        }
+                    });
+                    collectActions.forEach(action => {
+                        const actor = roomPlayers.find(p => p.id === action.actorId);
+                        const targetPlayer = roomPlayers.find(p => p.id === action.targetId);
+                        if(actor && targetPlayer && !nightState.factionChanges.some(fc => fc.playerId === action.targetId)) {
+                             nightState.factionChanges.push({
+                                playerId: action.targetId,
+                                newFaction: actor.faction,
+                                originalRoleName: targetPlayer.roleName
+                            });
+                        }
+                    });
+                }
+                nightState.isFinished = true;
+                saveNightNotes();
             }
-            nightState.isFinished = true;
-            saveNightNotes();
         }
     };
     
@@ -648,105 +762,164 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         document.body.appendChild(actionModal);
         actionModal.querySelector('.close-modal-btn').addEventListener('click', () => actionModal.classList.add('hidden'));
-        actionModal.addEventListener('click', e => { if (e.target === actionModal) actionModal.classList.add('hidden'); });
-        
-        actionModal.querySelector('#action-modal-choices').addEventListener('click', e => {
+        actionModal.addEventListener('click', e => {
+            if (e.target === actionModal) actionModal.classList.add('hidden');
+        });
+        const actionChoicesContainer = actionModal.querySelector('#action-modal-choices');
+        actionChoicesContainer.addEventListener('click', e => {
             if (e.target.tagName === 'BUTTON' && currentActorInModal && !e.target.disabled) {
-                actionModal.querySelectorAll('#action-modal-choices button').forEach(child => child.classList.remove('selected'));
+                Array.from(actionChoicesContainer.children).forEach(child => child.classList.remove('selected'));
                 e.target.classList.add('selected');
                 renderTargetsForSelectedAction(); 
             }
         });
-        
-        actionModal.querySelector('#action-modal-targets').addEventListener('change', (e) => {
+        const targetsContainer = actionModal.querySelector('#action-modal-targets');
+        targetsContainer.addEventListener('change', (e) => {
             if (e.target.type !== 'checkbox' || !currentActorInModal) return;
             const limit = currentActorInModal.quantity;
             if (limit === Infinity) return;
-            const allCheckboxes = actionModal.querySelectorAll('#action-modal-targets input[type="checkbox"]');
-            const checkedCount = actionModal.querySelectorAll('#action-modal-targets input:checked').length;
-            allCheckboxes.forEach(cb => { cb.disabled = !cb.checked && checkedCount >= limit; });
+            const allCheckboxes = targetsContainer.querySelectorAll('input[type="checkbox"]');
+            const checkedCheckboxes = targetsContainer.querySelectorAll('input[type="checkbox"]:checked');
+            if (checkedCheckboxes.length >= limit) {
+                allCheckboxes.forEach(cb => {
+                    if (!cb.checked) cb.disabled = true;
+                });
+            } else {
+                allCheckboxes.forEach(cb => {
+                    cb.disabled = false;
+                });
+            }
         });
         
+        // --- CẬP NHẬT: THAY THẾ TOÀN BỘ EVENT LISTENER NÀY ---
         actionModal.querySelector('#action-modal-confirm').addEventListener('click', () => {
             if (!currentActorInModal) return;
-            
-            const isWolfActor = currentActorInModal.id === 'wolf_group';
+
             const selectedActionButton = actionModal.querySelector('#action-modal-choices button.selected');
-            const actionKey = selectedActionButton 
+            const actionKey = selectedActionButton
                 ? selectedActionButton.dataset.actionKey
                 : currentActorInModal.kind.split('_').map(k => KIND_TO_ACTION_MAP[k]?.key).filter(Boolean)[0];
 
             if (!actionKey) return;
-            
-            const checkedTargets = Array.from(actionModal.querySelectorAll('#action-modal-targets input:checked')).map(cb => cb.value);
 
+            const checkedTargets = Array.from(actionModal.querySelectorAll('#action-modal-targets input:checked')).map(cb => cb.value);
+            const actorId = currentActorInModal.id;
+
+            // *** LOGIC MỚI: Ghi đè vào interactive mode ***
             if (isInteractiveMode) {
                 const currentNight = roomDataState.interactiveState.currentNight;
                 const basePath = `rooms/${roomId}/nightActions/${currentNight}`;
 
-                if (isWolfActor) {
+                // Xử lý riêng cho hành động của Sói
+                if (actorId === 'wolf_group') {
                     const anyLivingWolf = roomPlayers.find(p => p.isAlive && (p.faction === 'Bầy Sói' || p.faction === 'Phe Sói'));
-                    const editorId = currentActorInModal.gmEditorId || anyLivingWolf?.id;
-                    if (editorId) {
-                        if (checkedTargets.length > 0) {
-                             const updates = {};
-                             updates[`${basePath}/wolf_group/action`] = actionKey;
-                             updates[`${basePath}/wolf_group/votes/${editorId}`] = checkedTargets[0];
-                             database.ref().update(updates);
-                        } else {
-                             database.ref(`${basePath}/wolf_group/votes/${editorId}`).set(null);
-                        }
-                    }
-                } else {
-                    const actionRef = database.ref(`${basePath}/${currentActorInModal.id}`);
+                    const gmVoteId = currentActorInModal.gmEditorId || `GM_${anyLivingWolf?.id || 'wolf'}`;
+                    const updates = {};
+                    
                     if (checkedTargets.length > 0) {
-                        actionRef.set({ action: actionKey, targets: checkedTargets, by: 'gm' });
+                        updates[`${basePath}/wolf_group/action`] = actionKey;
+                        updates[`${basePath}/wolf_group/votes/${gmVoteId}`] = checkedTargets[0];
                     } else {
+                        // Nếu không chọn ai, xóa vote của GM
+                        updates[`${basePath}/wolf_group/votes/${gmVoteId}`] = null;
+                    }
+                    database.ref().update(updates);
+                } else {
+                    // Xử lý cho các vai trò khác
+                    const actionRef = database.ref(`${basePath}/${actorId}`);
+                    if (checkedTargets.length > 0) {
+                        actionRef.set({
+                            action: actionKey,
+                            targets: checkedTargets,
+                            by: 'gm' // <-- Chữ ký quan trọng của GM
+                        });
+                    } else {
+                        // Nếu không chọn ai, xóa hành động
                         actionRef.set(null);
                     }
                 }
-            } else { // Manual mode
-                 const nightState = nightStates[activeNightIndex];
-                 const actionsToRemove = isWolfActor ? ['kill', 'curse'] : currentActorInModal.kind.split('_').map(k => KIND_TO_ACTION_MAP[k]?.key).filter(Boolean);
-                 nightState.actions = nightState.actions.filter(a => !(a.actorId === currentActorInModal.id && actionsToRemove.includes(a.action)));
-                 
-                 if (checkedTargets.length > 0) {
-                    nightState.actions.push({ id: nextActionId++, actorId: currentActorInModal.id, targetId: checkedTargets[0], action: actionKey });
-                 }
+            } else { // *** LOGIC CŨ: Giữ nguyên cho Manual Mode ***
+                const nightState = nightStates[activeNightIndex];
+                const actionsToRemove = (actorId === 'wolf_group')
+                    ? ['kill', 'curse']
+                    : currentActorInModal.kind.split('_').map(k => KIND_TO_ACTION_MAP[k]?.key).filter(Boolean);
+
+                nightState.actions = nightState.actions.filter(a =>
+                    !(a.actorId === actorId && actionsToRemove.includes(a.action))
+                );
+
+                checkedTargets.forEach(targetId => {
+                     nightState.actions.push({
+                        id: nextActionId++,
+                        actorId: actorId,
+                        targetId: targetId,
+                        action: actionKey
+                    });
+                });
                 saveNightNotes();
             }
             actionModal.classList.add('hidden');
         });
 
+        // --- CẬP NHẬT: THAY THẾ EVENT LISTENER NÀY ---
         actionModal.querySelector('#action-modal-gm-overrides').addEventListener('click', e => {
-             if (e.target.tagName !== 'BUTTON' || !currentActorInModal) return;
-             if(isInteractiveMode) {
-                alert("Không thể dùng GM Override ở chế độ tương tác. Vui lòng dùng nút Action thông thường.");
-                return;
-             }
+            if (e.target.tagName !== 'BUTTON' || !currentActorInModal) return;
+            
+            // --- CẬP NHẬT: XÓA LỆNH CHẶN isInteractiveMode ---
             const overrideAction = e.target.dataset.override;
-            const nightState = nightStates[activeNightIndex];
             const targetId = currentActorInModal.id;
-            if (overrideAction === 'change_faction') {
-                openFactionChangeModal(currentActorInModal);
-                return;
-            }
-            if (['gm_kill', 'gm_save', 'gm_protect', 'gm_add_armor'].includes(overrideAction)) {
-                const existingActionIndex = nightState.actions.findIndex(a => a.action === overrideAction && a.actorId === targetId && a.targetId === targetId);
-                if (existingActionIndex > -1) {
-                    nightState.actions.splice(existingActionIndex, 1);
-                } else {
-                     nightState.actions.push({ id: nextActionId++, actorId: targetId, targetId: targetId, action: overrideAction });
+
+            if (isInteractiveMode) {
+                const currentNight = roomDataState.interactiveState.currentNight;
+                const uniqueActionId = `GM_OVERRIDE_${targetId}_${Date.now()}`;
+                const actionRef = database.ref(`rooms/${roomId}/nightActions/${currentNight}/${uniqueActionId}`);
+
+                if (overrideAction === 'change_faction') {
+                    // Chuyển phe vẫn cần xử lý riêng và phức tạp hơn, tạm thời giữ nguyên modal
+                    openFactionChangeModal(currentActorInModal);
+                    return;
                 }
-            } 
-            else if (overrideAction === 'gm_disable_night' || overrideAction === 'gm_disable_perm') {
-                const playerStatus = nightState.playersStatus[targetId];
-                if(playerStatus) {
-                    const prop = overrideAction === 'gm_disable_perm' ? 'isPermanentlyDisabled' : 'isDisabled';
-                    playerStatus[prop] = !playerStatus[prop];
+                
+                // Các hành động còn lại sẽ được ghi vào log tương tác
+                const payload = {
+                    action: overrideAction,
+                    targets: [targetId],
+                    by: 'gm'
+                };
+                actionRef.set(payload);
+                alert(`Đã áp dụng hiệu ứng "${overrideAction}" lên người chơi trong chế độ Tương Tác.`);
+                actionModal.classList.add('hidden');
+
+            } else { // Logic cũ cho manual mode
+                const nightState = nightStates[activeNightIndex];
+                if (overrideAction === 'change_faction') {
+                    openFactionChangeModal(currentActorInModal);
+                    return;
                 }
+                if (['gm_kill', 'gm_save', 'gm_protect', 'gm_add_armor'].includes(overrideAction)) {
+                    const existingActionIndex = nightState.actions.findIndex(a => a.action === overrideAction && a.actorId === targetId && a.targetId === targetId);
+                    if (existingActionIndex > -1) {
+                        nightState.actions.splice(existingActionIndex, 1);
+                    } else {
+                         nightState.actions.push({
+                            id: nextActionId++, actorId: targetId, targetId: targetId, action: overrideAction
+                        });
+                    }
+                } 
+                else if (overrideAction === 'gm_disable_night') {
+                    const playerStatus = nightState.playersStatus[targetId];
+                    if (playerStatus) {
+                        playerStatus.isDisabled = !playerStatus.isDisabled;
+                    }
+                }
+                else if (overrideAction === 'gm_disable_perm') {
+                    const playerStatus = nightState.playersStatus[targetId];
+                    if (playerStatus) {
+                        playerStatus.isPermanentlyDisabled = !playerStatus.isPermanentlyDisabled;
+                    }
+                }
+                saveNightNotes();
             }
-            saveNightNotes();
         });
     }
 
@@ -766,17 +939,20 @@ document.addEventListener('DOMContentLoaded', () => {
             roomDataState = roomData;
             isInteractiveMode = !!roomData.interactiveState && roomData.interactiveState.phase !== 'setup';
             
+            // Disable/Enable buttons based on mode
             endNightBtn.disabled = isInteractiveMode;
             resetNightBtn.disabled = isInteractiveMode;
             gmNoteBtn.disabled = isInteractiveMode;
             const addNightBtn = document.getElementById('add-night-btn');
-            if (addNightBtn) addNightBtn.style.display = isInteractiveMode ? 'none' : 'inline-flex';
+            if (addNightBtn) {
+                addNightBtn.style.display = isInteractiveMode ? 'none' : 'inline-flex';
+            }
             
             const playersData = roomData.players || {};
             const basePlayers = Object.keys(playersData).map(key => {
                 const originalData = playersData[key];
                 const roleName = (originalData.roleName || '').trim();
-                const roleInfo = allRolesData[roleName] || {};
+                const roleInfo = allRolesData[roleName] || { faction: 'Chưa phân loại', active: '0', kind: 'empty', quantity: 1, duration: '1' };
                 return { 
                     id: key, ...originalData, baseFaction: roleInfo.faction, faction: originalData.currentFaction || roleInfo.faction, 
                     activeRule: roleInfo.active, kind: roleInfo.kind, quantity: roleInfo.quantity,
@@ -785,21 +961,28 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (isInteractiveMode) {
-                roomPlayers = basePlayers;
-                render();
+                roomPlayers = basePlayers.map(p => ({
+                    ...p,
+                    faction: roomData.players[p.id]?.currentFaction || p.baseFaction
+                }));
+                const liveNightState = buildLiveNightStateFromInteractiveData(roomData);
+                render(liveNightState);
             } else {
                  nightStates = roomData.nightNotes || [];
                  customPlayerOrder = roomData.playerOrder || [];
                  const finalFactions = {};
                  basePlayers.forEach(p => finalFactions[p.id] = p.baseFaction);
                  nightStates.forEach(night => {
-                    (night.factionChanges || []).forEach(change => finalFactions[change.playerId] = change.newFaction);
-                 });
+                    if (Array.isArray(night.factionChanges)) {
+                        night.factionChanges.forEach(change => {
+                            finalFactions[change.playerId] = change.newFaction;
+                        });
+                    }
+                });
                 roomPlayers = basePlayers.map(p => ({ ...p, faction: finalFactions[p.id] || p.baseFaction }));
 
                 if (roomPlayers.length > 0 && nightStates.length === 0) {
                      const initialStatus = Object.fromEntries(roomPlayers.map(p => {
-                        const roleInfo = allRolesData[p.roleName] || {};
                         return [p.id, { 
                             isAlive: p.isAlive, isDisabled: false, isPermanentlyDisabled: false,
                             isPermanentlyProtected: false, isPermanentlyNotified: false,
@@ -807,12 +990,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             armor: (p.kind === 'armor1' ? 2 : 1), delayKillAvailable: (p.kind === 'delaykill'),
                             isDoomed: false, deathLinkTarget: null, sacrificedBy: null,
                             transformedState: null, groupId: null, markedForDelayKill: false,
-                            faction: p.faction, originalRoleName: p.originalRoleName || null, 
-                            roleName: p.roleName || null, kind: p.kind || roleInfo.kind || 'empty', 
-                            activeRule: p.activeRule || roleInfo.active || '0', 
-                            quantity: p.quantity || roleInfo.quantity || 1, 
-                            duration: p.duration || roleInfo.duration || '1', 
-                            isBoobyTrapped: false,
+                            faction: p.faction, originalRoleName: null, roleName: p.roleName,
+                            kind: p.kind, activeRule: p.activeRule, quantity: p.quantity,
+                            duration: p.duration, isBoobyTrapped: false,
                         }];
                      }));
                      nightStates.push({
@@ -825,7 +1005,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (nightStates.length > 0) {
                     activeNightIndex = nightStates.length - 1;
                     nextActionId = Math.max(0, ...nightStates.flatMap(n => (n.actions || []).map(a => a.id || 0))) + 1;
-                    render();
+                    render(nightStates[activeNightIndex]);
                 }
             }
         });
@@ -862,7 +1042,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!player) return;
         currentPlayerIdForWill = playerId;
         willModalGmTitle.textContent = `Di Chúc của ${player.name}`;
-        database.ref(`rooms/${roomId}/players/${playerId}/will/content`).once('value', snapshot => {
+        const willRef = database.ref(`rooms/${roomId}/players/${playerId}/will/content`);
+        willRef.once('value', snapshot => {
             const willContent = snapshot.val();
             willModalGmContent.textContent = (willContent && willContent.trim() !== "") ? willContent : "Người chơi này chưa viết di chúc.";
             willModalGm.classList.remove('hidden');
@@ -872,9 +1053,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentPlayerIdForWill) return;
         willModalGmPublishBtn.disabled = true;
         const player = roomPlayers.find(p => p.id === currentPlayerIdForWill);
-        database.ref(`rooms/${roomId}/players/${currentPlayerIdForWill}/will/content`).once('value', snapshot => {
+        const willRef = database.ref(`rooms/${roomId}/players/${currentPlayerIdForWill}/will/content`);
+        willRef.once('value', snapshot => {
             const content = snapshot.val() || "(Người này không để lại di chúc)";
-            const publishedWillData = { playerName: player.name, content: content, timestamp: firebase.database.ServerValue.TIMESTAMP };
+            const publishedWillData = {
+                playerName: player.name,
+                content: content,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
             database.ref(`rooms/${roomId}/publicData/publishedWill`).set(publishedWillData)
                 .then(() => {
                     alert(`Đã công khai di chúc của ${player.name}`);
@@ -912,7 +1098,9 @@ document.addEventListener('DOMContentLoaded', () => {
         groupModalConfirmBtn = document.getElementById('group-modal-confirm');
         const closeModal = () => groupModal.classList.add('hidden');
         groupModal.querySelector('.close-modal-btn').addEventListener('click', closeModal);
-        groupModal.addEventListener('click', (e) => { if (e.target === groupModal) closeModal(); });
+        groupModal.addEventListener('click', (e) => {
+            if (e.target === groupModal) closeModal();
+        });
         groupModalConfirmBtn.addEventListener('click', handleConfirmGroup);
     }
     function openGroupModal(playerId){
@@ -927,12 +1115,18 @@ document.addEventListener('DOMContentLoaded', () => {
         groupModalPlayers.innerHTML = '';
         const livingPlayers = roomPlayers.filter(p => nightState.playersStatus[p.id]?.isAlive);
         livingPlayers.forEach(p => {
-            let isChecked = (currentGroup && currentGroup.members.includes(p.id)) || (!currentGroup && p.id === playerId);
+            let isChecked = false;
+            if (currentGroup && currentGroup.members.includes(p.id)) {
+                isChecked = true;
+            } else if (!currentGroup && p.id === playerId) {
+                isChecked = true;
+            }
             groupModalPlayers.innerHTML += `
                 <div class="target-item">
                     <input type="checkbox" id="modal-group-target-${p.id}" value="${p.id}" ${isChecked ? 'checked' : ''}>
                     <label for="modal-group-target-${p.id}">${p.name}</label>
-                </div>`;
+                </div>
+            `;
         });
         groupModal.classList.remove('hidden');
     }
@@ -940,25 +1134,46 @@ document.addEventListener('DOMContentLoaded', () => {
         const nightState = nightStates[activeNightIndex];
         if (!nightState) return;
         const newGroupId = groupNameInput.value.trim().toUpperCase();
-        const selectedPlayerIds = new Set(Array.from(groupModalPlayers.querySelectorAll('input:checked')).map(cb => cb.value));
-        const originalGroupId = nightState.playersStatus[currentGroupEditingPlayerId]?.groupId;
-
+        const selectedPlayerIds = new Set(
+            Array.from(groupModalPlayers.querySelectorAll('input:checked')).map(cb => cb.value)
+        );
+        const playerBeingEdited = roomPlayers.find(p => p.id === currentGroupEditingPlayerId);
+        const originalGroupId = nightState.playersStatus[playerBeingEdited.id]?.groupId;
+        if (!nightState.damageGroups) {
+            nightState.damageGroups = {};
+        }
         if (originalGroupId && nightState.damageGroups[originalGroupId]) {
             const originalMembers = new Set(nightState.damageGroups[originalGroupId].members);
             originalMembers.forEach(memberId => {
-                if (!selectedPlayerIds.has(memberId) && nightState.playersStatus[memberId]) {
-                    nightState.playersStatus[memberId].groupId = null;
+                if (!selectedPlayerIds.has(memberId)) {
+                    if (nightState.playersStatus[memberId]) {
+                        nightState.playersStatus[memberId].groupId = null;
+                    }
                 }
             });
-            if (originalGroupId !== newGroupId) delete nightState.damageGroups[originalGroupId];
+            if (originalGroupId !== newGroupId) {
+                 delete nightState.damageGroups[originalGroupId];
+            }
         }
-
         if (!newGroupId || selectedPlayerIds.size <= 1) {
-            selectedPlayerIds.forEach(pId => { if (nightState.playersStatus[pId]) nightState.playersStatus[pId].groupId = null; });
-            if (newGroupId && nightState.damageGroups[newGroupId]) delete nightState.damageGroups[newGroupId];
+            selectedPlayerIds.forEach(pId => {
+                if (nightState.playersStatus[pId]) {
+                    nightState.playersStatus[pId].groupId = null;
+                }
+            });
+            if (newGroupId && nightState.damageGroups[newGroupId]) {
+                delete nightState.damageGroups[newGroupId];
+            }
         } else {
-            nightState.damageGroups[newGroupId] = { name: newGroupId, members: Array.from(selectedPlayerIds) };
-            selectedPlayerIds.forEach(pId => { if (nightState.playersStatus[pId]) nightState.playersStatus[pId].groupId = newGroupId; });
+            nightState.damageGroups[newGroupId] = {
+                name: newGroupId,
+                members: Array.from(selectedPlayerIds)
+            };
+            selectedPlayerIds.forEach(pId => {
+                if (nightState.playersStatus[pId]) {
+                    nightState.playersStatus[pId].groupId = newGroupId;
+                }
+            });
         }
         saveNightNotes();
         groupModal.classList.add('hidden');
@@ -967,21 +1182,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentActorInModal) return;
         
         let livingPlayers;
-        let currentTargetIds = new Set();
         if (isInteractiveMode) {
             livingPlayers = roomPlayers.filter(p => roomDataState.players[p.id]?.isAlive);
-            const liveActions = roomDataState.nightActions?.[roomDataState.interactiveState.currentNight] || {};
-            if (currentActorInModal.id === 'wolf_group') {
-                const gmVote = liveActions.wolf_group?.votes?.[currentActorInModal.gmEditorId];
-                if(gmVote) currentTargetIds.add(gmVote);
-            } else {
-                (liveActions[currentActorInModal.id]?.targets || []).forEach(t => currentTargetIds.add(t));
-            }
         } else {
             const nightState = nightStates[activeNightIndex];
             livingPlayers = roomPlayers.filter(p => nightState.playersStatus[p.id]?.isAlive);
-            const action = (nightState.actions || []).find(a => a.actorId === currentActorInModal.id);
-            if (action && action.targetId) currentTargetIds.add(action.targetId);
         }
 
         const playerActionTitle = actionModal.querySelector('#player-action-section-title');
@@ -991,18 +1196,47 @@ document.addEventListener('DOMContentLoaded', () => {
             ? selectedActionButton.dataset.actionKey
             : currentActorInModal.kind.split('_').map(k => KIND_TO_ACTION_MAP[k]?.key).filter(Boolean)[0];
         
-        if (!actionKey) { targetsContainer.innerHTML = '<p>Hành động không hợp lệ.</p>'; return; }
+        if (!actionKey) {
+            targetsContainer.innerHTML = '<p>Hành động không hợp lệ.</p>';
+            return;
+        }
 
         const actionConfig = ALL_ACTIONS[actionKey];
         playerActionTitle.textContent = `Chọn mục tiêu cho "${actionConfig.label}"`;
-        targetsContainer.innerHTML = livingPlayers.map(p => {
+        targetsContainer.innerHTML = '';
+
+        let currentTargetIds = new Set();
+        if (isInteractiveMode) {
+            const currentNight = roomDataState.interactiveState.currentNight;
+            const liveActions = roomDataState.nightActions?.[currentNight] || {};
+            
+            if (currentActorInModal.id === 'wolf_group') {
+                const gmVote = liveActions.wolf_group?.votes?.[currentActorInModal.gmEditorId];
+                if(gmVote) currentTargetIds.add(gmVote);
+            } else {
+                const actionData = liveActions[currentActorInModal.id];
+                 if (actionData && actionData.targets) {
+                    actionData.targets.forEach(t => currentTargetIds.add(t));
+                }
+            }
+        } else {
+            const currentActions = (nightStates[activeNightIndex].actions || []).filter(a => a.actorId === currentActorInModal.id && a.action === actionKey);
+            currentActions.forEach(action => {
+                (action.targets || []).forEach(targetId => {
+                    currentTargetIds.add(targetId);
+                });
+            });
+        }
+
+        livingPlayers.forEach(p => {
             const isChecked = currentTargetIds.has(p.id);
-            return `<div class="target-item">
-                        <input type="checkbox" id="modal-target-${p.id}" value="${p.id}" ${isChecked ? 'checked' : ''}>
-                        <label for="modal-target-${p.id}">${p.name}</label>
-                    </div>`;
-        }).join('');
-        
+            targetsContainer.innerHTML += `
+                <div class="target-item">
+                    <input type="checkbox" id="modal-target-${p.id}" value="${p.id}" ${isChecked ? 'checked' : ''}>
+                    <label for="modal-target-${p.id}">${p.name}</label>
+                </div>
+            `;
+        });
         const limit = currentActorInModal.quantity;
         if (limit !== Infinity) {
             const allCheckboxes = targetsContainer.querySelectorAll('input[type="checkbox"]');
@@ -1031,8 +1265,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const allPossibleActions = possibleKinds.map(k => KIND_TO_ACTION_MAP[k]).filter(Boolean);
         actionChoicesContainer.innerHTML = '';
         
-        const currentNightForAvailability = isInteractiveMode ? roomDataState.interactiveState.currentNight -1 : activeNightIndex;
-        const availableActions = allPossibleActions.filter(action => isActionCurrentlyAvailable(actor, action.key, currentNightForAvailability));
+        let availableActions = allPossibleActions;
+        if (!isInteractiveMode) {
+             availableActions = allPossibleActions.filter(action => isActionCurrentlyAvailable(actor, action.key, activeNightIndex));
+        }
 
         if (allPossibleActions.length > 1) {
             actionSelectionSection.style.display = 'block';
@@ -1041,7 +1277,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.textContent = action.label;
                 btn.dataset.actionKey = action.key;
                 if (action.type) btn.classList.add(`action-type-${action.type}`);
-                if (!availableActions.includes(action)) {
+                if (!availableActions.some(a => a.key === action.key)) {
                     btn.disabled = true;
                     btn.title = "Không có sẵn hoặc đã sử dụng";
                 }
@@ -1049,12 +1285,17 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const firstAvailableBtn = Array.from(actionChoicesContainer.children).find(btn => !btn.disabled);
             if(firstAvailableBtn) firstAvailableBtn.classList.add('selected');
+
         } else {
             actionSelectionSection.style.display = 'none';
         }
         
-        playerActionSection.style.display = availableActions.length > 0 ? 'block' : 'none';
-        if (availableActions.length > 0) renderTargetsForSelectedAction();
+        if (availableActions.length > 0) {
+            playerActionSection.style.display = 'block';
+            renderTargetsForSelectedAction();
+        } else {
+            playerActionSection.style.display = 'none';
+        }
         
         actionModal.classList.remove('hidden');
     }
@@ -1063,11 +1304,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const modal = document.createElement('div');
         modal.id = 'faction-change-modal-overlay';
         modal.className = 'modal-overlay hidden';
+        let buttonsHTML = SELECTABLE_FACTIONS.map(faction => 
+            `<button class="faction-change-btn" data-faction="${faction}">${faction}</button>`
+        ).join('');
         modal.innerHTML = `
             <div class="modal-content faction-change-modal">
                 <span class="close-modal-btn">&times;</span>
                 <h4 id="faction-change-title">Chọn phe mới</h4>
-                <div class="faction-change-options">${SELECTABLE_FACTIONS.map(f => `<button class="faction-change-btn" data-faction="${f}">${f}</button>`).join('')}</div>
+                <div class="faction-change-options">${buttonsHTML}</div>
             </div>
         `;
         document.body.appendChild(modal);
@@ -1075,12 +1319,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const closeModal = () => factionChangeModal.classList.add('hidden');
         factionChangeModal.querySelector('.close-modal-btn').addEventListener('click', closeModal);
         factionChangeModal.addEventListener('click', e => {
-            if (e.target === factionChangeModal) closeModal();
+            if (e.target === factionChangeModal) {
+                closeModal();
+            }
             if (e.target.matches('.faction-change-btn')) {
                 const newFaction = e.target.dataset.faction;
                 const nightState = nightStates[activeNightIndex];
                 const targetId = currentActorInModal.id;
-                nightState.factionChanges = (nightState.factionChanges || []).filter(c => c.playerId !== targetId);
+                if (!Array.isArray(nightState.factionChanges)) {
+                    nightState.factionChanges = [];
+                }
+                nightState.factionChanges = nightState.factionChanges.filter(c => c.playerId !== targetId);
                 nightState.factionChanges.push({ playerId: targetId, newFaction: newFaction, isImmediate: true });
                 saveNightNotes();
                 closeModal();
@@ -1094,11 +1343,170 @@ document.addEventListener('DOMContentLoaded', () => {
         factionChangeModal.classList.remove('hidden');
     }
     function recalculateAllPlayerFactions() {
+        const basePlayers = roomPlayers.map(p => ({...p, faction: p.baseFaction}));
         const finalFactions = {};
-        roomPlayers.forEach(p => finalFactions[p.id] = p.baseFaction);
+        basePlayers.forEach(p => finalFactions[p.id] = p.baseFaction);
         for(let i = 0; i < activeNightIndex; i++) {
-            (nightStates[i].factionChanges || []).forEach(change => finalFactions[change.playerId] = change.newFaction);
+            const night = nightStates[i];
+            if (Array.isArray(night.factionChanges)) {
+                night.factionChanges.forEach(change => {
+                    finalFactions[change.playerId] = change.newFaction;
+                });
+            }
         }
-        roomPlayers.forEach(p => p.faction = finalFactions[p.id] || p.baseFaction);
+        roomPlayers.forEach(p => {
+            p.faction = finalFactions[p.id] || p.baseFaction;
+        });
+    }
+    function createVotingModuleStructure() {
+        if (document.getElementById('voting-section')) {
+            votingSection = document.getElementById('voting-section');
+            votePlayersList = votingSection.querySelector('#vote-players-list');
+            voteResultsContainer = votingSection.querySelector('#vote-results-container');
+            startVoteBtn = votingSection.querySelector('#start-vote-btn');
+            endVoteBtn = votingSection.querySelector('#end-vote-btn');
+            startVoteBtn.addEventListener('click', handleStartVote);
+            endVoteBtn.addEventListener('click', handleEndVote);
+            return;
+        };
+        const mainContainer = document.querySelector('.container');
+        const logSection = document.getElementById('night-logs-section');
+        const votingModuleEl = document.createElement('div');
+        votingModuleEl.id = 'voting-section';
+        votingModuleEl.className = 'card';
+        votingModuleEl.innerHTML = `...`; // Giữ nguyên
+        if (logSection) {
+            logSection.parentNode.insertBefore(votingModuleEl, logSection.nextSibling);
+        } else {
+             mainContainer.appendChild(votingModuleEl);
+        }
+    }
+    function renderVotingModule() {
+        if(!votingSection) createVotingModuleStructure();
+        if (isInteractiveMode || nightStates.length === 0) {
+            if (votingSection) votingSection.style.display = 'none';
+            return;
+        };
+        const lastNight = nightStates[nightStates.length - 1];
+        if (!lastNight || !votePlayersList) return;
+        const { finalStatus } = calculateNightStatus(lastNight, roomPlayers);
+        const livingPlayers = roomPlayers.filter(p => finalStatus[p.id]?.isAlive);
+        votePlayersList.innerHTML = '<h4>Thiết lập phiếu vote:</h4>';
+        if (livingPlayers.length > 0) {
+            livingPlayers.sort((a,b) => a.name.localeCompare(b.name)).forEach(player => {
+                const playerRow = document.createElement('div');
+                playerRow.className = 'vote-player-row';
+                const currentWeight = rememberedVoteWeights[player.id] ?? 1;
+                playerRow.innerHTML = `...`; // Giữ nguyên
+                votePlayersList.appendChild(playerRow);
+            });
+        } else {
+            votePlayersList.innerHTML += '<p>Không có người chơi nào còn sống để vote.</p>';
+        }
+    }
+    function handleStartVote() {
+        if (!roomId) return;
+        secretVoteWeights = {};
+        document.querySelectorAll('.vote-weight-display').forEach(display => {
+            const playerId = display.id.replace('weight-display-', '');
+            const weight = parseInt(display.textContent, 10);
+            if (playerId && !isNaN(weight)) secretVoteWeights[playerId] = weight;
+        });
+        const { finalStatus } = calculateNightStatus(nightStates[nightStates.length - 1], roomPlayers);
+        const livingPlayers = roomPlayers.filter(p => finalStatus[p.id]?.isAlive);
+        const candidates = livingPlayers.reduce((acc, p) => { acc[p.id] = p.name; return acc; }, {});
+        const title = document.getElementById('vote-title-input').value || 'Vote';
+        const timerSeconds = parseInt(document.getElementById('vote-timer-input').value, 10) || 60;
+        const endTime = Date.now() + (timerSeconds * 1000);
+        const votingState = { status: 'active', title, endTime, candidates, choices: null };
+        database.ref(`rooms/${roomId}/votingState`).set(votingState).then(() => {
+            startVoteBtn.style.display = 'none';
+            endVoteBtn.style.display = 'inline-block';
+            voteResultsContainer.style.display = 'grid';
+            voteResultsContainer.querySelector('#vote-results-summary').innerHTML = 'Đang chờ người chơi vote...';
+            voteResultsContainer.querySelector('#vote-results-details').innerHTML = '';
+            const gmTimerDisplay = document.getElementById('gm-vote-timer-display');
+            gmTimerDisplay.style.display = 'inline';
+            if (voteTimerInterval) clearInterval(voteTimerInterval);
+            voteTimerInterval = setInterval(() => {
+                const remaining = Math.round((endTime - Date.now()) / 1000);
+                if (remaining > 0) {
+                    gmTimerDisplay.textContent = `Thời gian: ${remaining}s`;
+                } else {
+                    gmTimerDisplay.textContent = "Hết giờ!";
+                    handleEndVote(); 
+                }
+            }, 1000);
+            const choicesRef = database.ref(`rooms/${roomId}/votingState/choices`);
+            if(voteChoicesListener) choicesRef.off('value', voteChoicesListener);
+            voteChoicesListener = choicesRef.on('value', (snapshot) => {
+                renderVoteResults(snapshot.val() || {}, secretVoteWeights);
+            });
+        });
+    }
+    function handleEndVote() {
+        if (!roomId) return;
+        database.ref(`rooms/${roomId}/votingState/status`).once('value', (snapshot) => {
+            if (snapshot.val() === 'active') {
+                database.ref(`rooms/${roomId}/votingState/status`).set('finished');
+            }
+        });
+        if (voteChoicesListener) {
+            database.ref(`rooms/${roomId}/votingState/choices`).off('value', voteChoicesListener);
+            voteChoicesListener = null;
+        }
+        if (voteTimerInterval) clearInterval(voteTimerInterval);
+        const gmTimerDisplay = document.getElementById('gm-vote-timer-display');
+        if (gmTimerDisplay) gmTimerDisplay.style.display = 'none';
+        startVoteBtn.style.display = 'inline-block';
+        endVoteBtn.style.display = 'none';
+    }
+    function renderVoteResults(choices, weights) {
+        if (!voteResultsContainer) return;
+        const { finalStatus } = calculateNightStatus(nightStates[nightStates.length - 1], roomPlayers);
+        const livingPlayers = roomPlayers.filter(p => finalStatus[p.id]?.isAlive);
+        let detailsHtml = '<h4>Chi tiết:</h4><ul>';
+        livingPlayers.sort((a,b) => a.name.localeCompare(b.name)).forEach(voter => {
+            const choice = choices ? choices[voter.name] : null;
+            let targetName = '<em style="opacity: 0.7">Chưa bỏ phiếu</em>';
+            if (choice === 'skip_vote') targetName = 'Bỏ qua';
+            else if (choice) targetName = roomPlayers.find(p => p.id === choice)?.name || 'Không rõ';
+            const weight = weights[voter.id] || 0;
+            detailsHtml += `<li><strong>${voter.name}</strong> (x${weight}) → <strong>${targetName}</strong></li>`;
+        });
+        detailsHtml += '</ul>';
+        voteResultsContainer.querySelector('#vote-results-details').innerHTML = detailsHtml;
+        const tally = {};
+        livingPlayers.forEach(p => tally[p.id] = 0);
+        tally['skip_vote'] = 0;
+        livingPlayers.forEach(voter => {
+            const choice = choices ? choices[voter.name] : null;
+            const weight = weights[voter.id] || 0;
+            if (!choice || choice === 'skip_vote') {
+                tally['skip_vote'] += weight;
+            } else if (tally.hasOwnProperty(choice)) {
+                tally[choice] += weight;
+            }
+        });
+        let maxVotes = -1;
+        let mostVotedPlayers = [];
+        for(const targetId in tally) {
+            if (targetId !== 'skip_vote') {
+                if (tally[targetId] > maxVotes) {
+                    maxVotes = tally[targetId];
+                    mostVotedPlayers = [targetId];
+                } else if (tally[targetId] === maxVotes && maxVotes > 0) {
+                     mostVotedPlayers.push(targetId);
+                }
+            }
+        }
+        let summaryHtml = '<h4>Thống kê phiếu:</h4><ul>';
+        Object.entries(tally).sort(([,a],[,b]) => b-a).forEach(([targetId, count]) => {
+            const isMostVoted = mostVotedPlayers.includes(targetId) && count > 0;
+            const targetName = targetId === 'skip_vote' ? 'Bỏ qua' : (roomPlayers.find(p => p.id === targetId)?.name || 'Không rõ');
+            summaryHtml += `<li ${isMostVoted ? 'class="most-voted"' : ''}>${targetName}: <strong>${count}</strong> phiếu</li>`;
+        });
+        summaryHtml += '</ul>';
+        voteResultsContainer.querySelector('#vote-results-summary').innerHTML = summaryHtml;
     }
 });
