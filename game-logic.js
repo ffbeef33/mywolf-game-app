@@ -244,8 +244,6 @@ function calculateNightStatus(nightState, roomPlayers) {
         });
     });
 
-    // === FIX: Chuyển hướng tấn công của Sói (Cắn/Nguyền) do Love ===
-    // Bước này được thực hiện trước khi xử lý hiệu ứng chính để đảm bảo mục tiêu cuối cùng là chính xác.
     let processedActions = JSON.parse(JSON.stringify(actions));
     processedActions.forEach(action => {
         if ((action.action === 'kill' || action.action === 'curse') && action.actorId === 'wolf_group' && action.targets && action.targets.length > 0) {
@@ -261,12 +259,10 @@ function calculateNightStatus(nightState, roomPlayers) {
                     infoResults.push(`- ${newTarget.name} đã nhận thay ${actionName} cho ${originalTarget.name}.`);
                 }
                 
-                // Thay đổi mục tiêu của hành động thành người chơi Love
                 action.targets = [loverId];
             }
         }
     });
-    // Sử dụng mảng hành động đã được xử lý chuyển hướng cho các bước tiếp theo
     actions = processedActions;
     
     const disabledPlayerIds = new Set();
@@ -287,9 +283,6 @@ function calculateNightStatus(nightState, roomPlayers) {
         (targets || []).forEach(targetId => {
             const attacker = roomPlayers.find(p => p.id === actorId);
             let finalTargetId = targetId;
-
-            // Logic chuyển hướng cũ đã được chuyển lên trên, nên khối này không còn cần thiết
-            // if (loveRedirects[targetId] && (isWolfBite || isWolfCurse)) { ... }
             
             let target = roomPlayers.find(p => p.id === finalTargetId);
             const actionKind = ALL_ACTIONS[action]?.key || action;
@@ -502,22 +495,24 @@ function calculateNightStatus(nightState, roomPlayers) {
     const wizardAction = executableActions.find(a => (ALL_ACTIONS[a.action]?.key || a.action) === 'wizard_save');
     let wizardSavedPlayerNames = [];
 
+    // === START: CẬP NHẬT LOGIC WIZARD ===
     if (wizardAction) {
         const wizardId = wizardAction.actorId;
         
-        let potentialDeathsOthers = [];
+        let potentialDeathsAll = [];
+        // Lấy danh sách TẤT CẢ người chơi sắp chết, bao gồm cả Wizard
         Object.keys(liveStatuses).forEach(pId => {
-            if (pId === wizardId) return;
             const status = liveStatuses[pId];
             if (status.damage > 0 && !status.isSaved && !status.isSavedByKillif && (status.damage >= status.armor)) {
-                potentialDeathsOthers.push(pId);
+                potentialDeathsAll.push(pId);
             }
         });
 
-        if (potentialDeathsOthers.length > 0) {
-            potentialDeathsOthers.forEach(deadPlayerId => {
+        // Nếu có ít nhất một người sắp chết (kể cả Wizard), thì Cứu Thế thành công
+        if (potentialDeathsAll.length > 0) {
+            potentialDeathsAll.forEach(deadPlayerId => {
                 if (liveStatuses[deadPlayerId]) {
-                    liveStatuses[deadPlayerId].isSaved = true;
+                    liveStatuses[deadPlayerId].isSaved = true; // Cứu người đó
                     const playerInfo = roomPlayers.find(p => p.id === deadPlayerId);
                     if (playerInfo) {
                         wizardSavedPlayerNames.push(playerInfo.name);
@@ -525,16 +520,13 @@ function calculateNightStatus(nightState, roomPlayers) {
                 }
             });
             
-            if(liveStatuses[wizardId]) {
-                liveStatuses[wizardId].isSaved = true;
-            }
-
             if (finalStatus[wizardId]) {
                 finalStatus[wizardId].wizardSaveSuccessful = true;
             }
             infoResults.push(`- Wizard đã cứu sống: ${wizardSavedPlayerNames.join(', ')}.`);
 
         } else {
+            // Chỉ khi THỰC SỰ không có ai chết, Wizard mới phải trả giá
             if (liveStatuses[wizardId] && !liveStatuses[wizardId].isProtected) {
                 liveStatuses[wizardId].damage = 99;
                 if (finalStatus[wizardId]) {
@@ -544,6 +536,7 @@ function calculateNightStatus(nightState, roomPlayers) {
             }
         }
     }
+    // === END: CẬP NHẬT LOGIC WIZARD ===
 
     let deadPlayerIdsThisNight = new Set();
     const finalNightResolution = {};
