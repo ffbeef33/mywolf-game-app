@@ -637,9 +637,9 @@ document.addEventListener('DOMContentLoaded', () => {
         updates[`/interactiveState/phase`] = 'night';
         updates[`/interactiveState/currentNight`] = currentNightNumber;
         updates[`/interactiveState/message`] = `Đêm ${currentNightNumber} bắt đầu.`;
-        updates[`/interactiveState/nightlyQuestions`] = null; // Xóa câu hỏi của đêm trước
 
-        // <-- THAY ĐỔI LOGIC: Xác định người chơi không có chức năng khả dụng -->
+        // <-- THAY ĐỔI LOGIC: Xây dựng object câu hỏi mới thay vì xóa/ghi -->
+        const newNightlyQuestions = {};
         if (allNightQuestions.length > 0) {
             const players = roomData.players || {};
             const allNightActions = roomData.nightActions || {};
@@ -650,40 +650,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 const roleData = allRolesData[player.roleName] || {};
                 let hasAvailableAction = false;
 
-                // Sói luôn có hành động
                 const isWolf = player.currentFaction === 'Bầy Sói' || roleData.faction === 'Bầy Sói';
                 if (isWolf) {
                     hasAvailableAction = true;
                 }
 
-                // Kiểm tra các chức năng khác
                 if (!hasAvailableAction) {
                     const kinds = (roleData.kind || '').split('_');
                     for (const kind of kinds) {
                         const actionInfo = KIND_TO_ACTION_MAP[kind];
                         if (actionInfo && kind !== 'empty') {
-                            // Kiểm tra xem chức năng có dùng được trong đêm này không
                             const activeRule = roleData.active;
                             const parts = activeRule.split('_');
                             const usesRule = parts[0];
                             const startNightRule = parts.length > 1 ? parseInt(parts[1], 10) : 1;
 
                             let isCurrentlyUsable = true;
-
                             if (currentNightNumber < startNightRule) {
                                 isCurrentlyUsable = false;
                             }
 
                             if (isCurrentlyUsable && usesRule !== 'n') {
                                 const useLimit = parseInt(usesRule, 10);
-                                let timesUsed = 0;
-                                for (const night in allNightActions) {
-                                    if (allNightActions[night][playerId]?.action === actionInfo.key) {
-                                        timesUsed++;
+                                if (!isNaN(useLimit)) {
+                                    let timesUsed = 0;
+                                    for (const night in allNightActions) {
+                                        if (allNightActions[night][playerId]?.action === actionInfo.key) {
+                                            timesUsed++;
+                                        }
                                     }
-                                }
-                                if (timesUsed >= useLimit) {
-                                    isCurrentlyUsable = false;
+                                    if (timesUsed >= useLimit) {
+                                        isCurrentlyUsable = false;
+                                    }
                                 }
                             }
 
@@ -695,15 +693,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 
-                // Nếu không có chức năng nào khả dụng, gán câu hỏi
                 if (!hasAvailableAction) {
                      const randomQuestion = allNightQuestions[Math.floor(Math.random() * allNightQuestions.length)];
-                     updates[`/interactiveState/nightlyQuestions/${playerId}`] = {
+                     newNightlyQuestions[playerId] = {
                         questionText: randomQuestion
                     };
                 }
             });
         }
+        updates['/interactiveState/nightlyQuestions'] = newNightlyQuestions;
+        // <-- KẾT THÚC THAY ĐỔI -->
         
         if (!state.curseAbility) {
             updates['/interactiveState/curseAbility'] = { status: 'locked' };
