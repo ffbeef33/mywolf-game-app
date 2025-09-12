@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let roomListener = null;
     let publicWillListener = null;
     let nightResultListener = null;
-    let announcementListener = null; // <-- THÊM BIẾN MỚI
+    let announcementListener = null; 
     let pickTimerInterval = null;
     let voteTimerInterval = null;
     let currentRoomId = null;
@@ -109,7 +109,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- THÊM HÀM MỚI ---
     const showAnnouncementModal = (data) => {
         const modal = document.getElementById('announcement-modal');
         const content = document.getElementById('announcement-content');
@@ -214,7 +213,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // --- CẬP NHẬT: THÊM LISTENER MỚI ---
         const announcementRef = database.ref(`rooms/${roomId}/publicData/latestAnnouncement`);
         if(announcementListener) announcementRef.off('value', announcementListener);
         announcementListener = announcementRef.on('value', (snapshot) => {
@@ -265,8 +263,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const votingState = currentRoomData.votingState;
         if (votingState && votingState.status === 'active') {
             if (myPlayerData.isAlive) {
-                showSection(votingUiSection);
-                handleVotingState(username, roomId, votingState);
+                 // <-- THAY ĐỔI: Kiểm tra xem người chơi có trong danh sách được vote không -->
+                if (votingState.voters && votingState.voters[myPlayerId]) {
+                    showSection(votingUiSection);
+                    handleVotingState(username, roomId, votingState);
+                } else {
+                    showSection(waitingSection);
+                    waitingSection.querySelector('h2').textContent = "Đang diễn ra vote...";
+                    waitingSection.querySelector('.waiting-message').textContent = "Bạn không đủ điều kiện tham gia bỏ phiếu lần này (do không tương tác trong đêm).";
+                }
             } else {
                 showSection(waitingSection);
                 waitingSection.querySelector('h2').textContent = "Đang diễn ra vote...";
@@ -626,6 +631,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
+    // <-- THAY ĐỔI: Cập nhật hàm này để hiển thị câu hỏi -->
     function displayNightActions(currentRoomData, currentNight) {
         interactiveActionSection.innerHTML = '';
         interactiveActionSection.classList.remove('hidden');
@@ -683,11 +689,61 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (availableActions.length === 0) {
-            renderRestingPanel();
+            const myNightlyQuestion = currentRoomData.interactiveState?.nightlyQuestions?.[myPlayerId];
+            if (myNightlyQuestion && myNightlyQuestion.questionText) {
+                renderNightlyQuestionPanel(myNightlyQuestion);
+            } else {
+                renderRestingPanel();
+            }
             return;
         }
         
         renderActionPanel(availableActions);
+    }
+
+    // <-- HÀM MỚI: Hiển thị câu hỏi cho người chơi bị động -->
+    function renderNightlyQuestionPanel(questionData) {
+        interactiveActionSection.innerHTML = '';
+
+        if (questionData.answer) {
+            interactiveActionSection.innerHTML = `
+                <div class="night-action-panel resting-panel">
+                    <div class="panel-header" style="text-align: center;">
+                        <h2>Đã Trả Lời</h2>
+                    </div>
+                    <div class="action-locked-overlay" style="padding: 10px;">
+                        <div class="icon"><i class="fas fa-check-circle"></i></div>
+                        <h3>Đã Ghi Nhận</h3>
+                        <p>Câu trả lời của bạn đã được ghi nhận. Hãy chờ trời sáng.</p>
+                    </div>
+                </div>`;
+            return;
+        }
+
+        const panel = document.createElement('div');
+        panel.className = 'night-action-panel';
+        panel.innerHTML = `
+            <div class="panel-header">
+                <h2 id="panel-title" style="text-align: center;">Mini-game: Trả lời câu hỏi</h2>
+                <p id="panel-description" style="font-size: 1.2rem; text-align: center; margin-top: 15px; color: var(--light-text); font-style: italic;">"${questionData.questionText}"</p>
+            </div>
+            <div id="action-content" style="display: flex; justify-content: center; gap: 20px; margin-top: 25px;">
+                <button class="choice-btn" id="yes-btn" style="width: 120px; background-color: var(--button-bg);">Yes</button>
+                <button class="choice-btn" id="no-btn" style="width: 120px; background-color: var(--wolf-color);">No</button>
+            </div>
+            <p style="text-align: center; opacity: 0.7; font-size: 0.9em; margin-top: 20px;">Bạn phải trả lời để có thể tham gia biểu quyết vào ngày mai.</p>
+        `;
+        interactiveActionSection.appendChild(panel);
+
+        const answerPath = `rooms/${currentRoomId}/interactiveState/nightlyQuestions/${myPlayerId}/answer`;
+
+        panel.querySelector('#yes-btn').addEventListener('click', () => {
+            database.ref(answerPath).set('yes');
+        });
+
+        panel.querySelector('#no-btn').addEventListener('click', () => {
+            database.ref(answerPath).set('no');
+        });
     }
 
     function renderActionPanel(actions) {
@@ -977,7 +1033,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el) el.addEventListener(event, handler);
     });
 
-    // --- CẬP NHẬT: THÊM MODAL MỚI VÀO DANH SÁCH ---
     [willWritingModal, publishedWillModal, assassinModal, wolfActionChoiceModal, document.getElementById('announcement-modal')].forEach(modal => { 
         if (modal) {
             modal.addEventListener('click', (e) => {

@@ -20,8 +20,8 @@ export default async function handler(request, response) {
     try {
       const { sheetName = 'Roles' } = request.query;
 
-      // === THAY ĐỔI: Thêm 'Quotes' vào danh sách cho phép ===
-      if (!['Roles', 'Players', 'Favor Deck', 'Quotes'].includes(sheetName)) {
+      // === THAY ĐỔI: Thêm 'Question' vào danh sách cho phép ===
+      if (!['Roles', 'Players', 'Favor Deck', 'Quotes', 'Question'].includes(sheetName)) {
         return response.status(400).json({ error: 'Invalid sheet name specified.' });
       }
 
@@ -37,10 +37,10 @@ export default async function handler(request, response) {
       
       response.setHeader('Cache-Control', 's-maxage=10, stale-while-revalidate');
 
-      // === THAY ĐỔI: Thêm logic đọc sheet 'Quotes' ===
-      if (sheetName === 'Quotes') {
-        const quotes = rows.flat().filter(Boolean); // Chuyển [[q1], [q2]] thành [q1, q2] và loại bỏ dòng trống
-        return response.status(200).json(quotes);
+      // === THAY ĐỔI: Thêm logic đọc sheet 'Quotes' và 'Question' ===
+      if (sheetName === 'Quotes' || sheetName === 'Question') {
+        const items = rows.flat().filter(Boolean); // Chuyển [[item1], [item2]] thành [item1, item2] và loại bỏ dòng trống
+        return response.status(200).json(items);
       }
 
       if (sheetName === 'Favor Deck') {

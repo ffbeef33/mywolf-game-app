@@ -40,6 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let roomListener = null;
     let roomData = {};
     let allRolesData = {};
+    let allNightQuestions = []; // <-- THÊM MỚI
     let voteTimerInterval = null;
     let voteChoicesListener = null;
     let rememberedVoteWeights = {};
@@ -54,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         await fetchAllRolesData();
+        await fetchNightQuestions(); // <-- THÊM MỚI
         roomIdDisplay.textContent = currentRoomId;
         attachListenersToRoom();
         attachVoteButtonListeners(); 
@@ -80,6 +82,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }, {});
         } catch (error) {
             console.error("Lỗi tải dữ liệu vai trò:", error);
+        }
+    };
+    
+    // <-- HÀM MỚI: Tải câu hỏi từ Google Sheet -->
+    const fetchNightQuestions = async () => {
+        try {
+            const response = await fetch(`/api/sheets?sheetName=Question`);
+            if (response.ok) {
+                allNightQuestions = await response.json();
+            } else {
+                console.error("Không thể tải câu hỏi đêm.");
+            }
+        } catch (error) {
+            console.error("Lỗi khi tải câu hỏi đêm:", error);
         }
     };
 
@@ -617,17 +633,41 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const currentNightNumber = (state.currentNight || 0) + 1;
-        const updates = {
-            phase: 'night',
-            currentNight: currentNightNumber,
-            message: `Đêm ${currentNightNumber} bắt đầu.`
-        };
+        // <-- THAY ĐỔI: Gộp các cập nhật vào một object -->
+        const updates = {};
         
-        if (!state.curseAbility) {
-            updates['curseAbility'] = { status: 'locked' };
+        updates[`/interactiveState/phase`] = 'night';
+        updates[`/interactiveState/currentNight`] = currentNightNumber;
+        updates[`/interactiveState/message`] = `Đêm ${currentNightNumber} bắt đầu.`;
+        updates[`/interactiveState/nightlyQuestions`] = null; // Xóa câu hỏi của đêm trước
+
+        // Gán câu hỏi mới cho người chơi bị động
+        if (allNightQuestions.length > 0) {
+            const players = roomData.players || {};
+            Object.entries(players).forEach(([playerId, player]) => {
+                if (!player.isAlive) return;
+
+                const roleData = allRolesData[player.roleName] || {};
+                const isWolf = player.currentFaction === 'Bầy Sói' || roleData.faction === 'Bầy Sói';
+                const kinds = (roleData.kind || '').split('_');
+                const hasNightAction = kinds.some(k => KIND_TO_ACTION_MAP[k] && k !== 'empty');
+                
+                const isPassive = !isWolf && !hasNightAction;
+
+                if (isPassive) {
+                    const randomQuestion = allNightQuestions[Math.floor(Math.random() * allNightQuestions.length)];
+                    updates[`/interactiveState/nightlyQuestions/${playerId}`] = {
+                        questionText: randomQuestion
+                    };
+                }
+            });
         }
         
-        database.ref(`rooms/${currentRoomId}/interactiveState`).update(updates);
+        if (!state.curseAbility) {
+            updates['/interactiveState/curseAbility'] = { status: 'locked' };
+        }
+        
+        database.ref(`rooms/${currentRoomId}`).update(updates);
     });
 
     endNightBtn.addEventListener('click', processNightResults);
@@ -714,21 +754,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function handleStartVote() {
+    // <-- THAY ĐỔI: Lọc người chơi đủ điều kiện vote -->
+    async function handleStartVote() {
         if (!currentRoomId) return;
+
+        // Tải dữ liệu phòng mới nhất để đảm bảo tính chính xác
+        const roomSnapshot = await database.ref(`rooms/${currentRoomId}`).once('value');
+        const freshRoomData = roomSnapshot.val();
+        
+        const livingPlayers = Object.entries(freshRoomData.players).filter(([, p]) => p.isAlive);
+        const nightActions = freshRoomData.nightActions?.[freshRoomData.interactiveState.currentNight] || {};
+        const questionAnswers = freshRoomData.interactiveState?.nightlyQuestions || {};
+
+        const eligibleVoterIds = livingPlayers.map(([playerId, player]) => {
+            // Kiểm tra xem người chơi có thực hiện chức năng không
+            const performedAction = nightActions[playerId] || nightActions.wolf_group?.votes?.[playerId];
+            // Kiểm tra xem người chơi có trả lời câu hỏi không
+            const answeredQuestion = questionAnswers[playerId]?.answer;
+
+            if (performedAction || answeredQuestion) {
+                return playerId;
+            }
+            return null;
+        }).filter(Boolean); // Lọc bỏ các giá trị null
+
+        if (eligibleVoterIds.length === 0) {
+            alert("Không có người chơi nào đủ điều kiện để bỏ phiếu (chưa ai tương tác trong đêm).");
+            return;
+        }
+
         secretVoteWeights = {};
         const voteWeightDisplays = document.querySelectorAll('.vote-weight-display');
         voteWeightDisplays.forEach(display => {
             const playerId = display.id.replace('weight-display-', '');
             const weight = parseInt(display.textContent, 10);
-            if (playerId && !isNaN(weight)) {
+            if (playerId && !isNaN(weight) && eligibleVoterIds.includes(playerId)) {
                 secretVoteWeights[playerId] = weight;
             }
         });
         
-        const livingPlayers = Object.entries(roomData.players).filter(([,p]) => p.isAlive);
-        const candidates = livingPlayers.reduce((acc, [id, p]) => {
-            acc[id] = p.name;
+        const candidates = eligibleVoterIds.reduce((acc, id) => {
+            acc[id] = freshRoomData.players[id].name;
+            return acc;
+        }, {});
+
+        // Lưu danh sách người vote hợp lệ vào state để các hàm khác sử dụng
+        const voters = eligibleVoterIds.reduce((acc, id) => {
+            acc[id] = { name: freshRoomData.players[id].name, roleName: freshRoomData.players[id].roleName };
             return acc;
         }, {});
 
@@ -741,6 +813,7 @@ document.addEventListener('DOMContentLoaded', () => {
             title: title,
             endTime: endTime, 
             candidates: candidates,
+            voters: voters, // <-- Lưu danh sách người vote hợp lệ
             choices: null
         };
 
@@ -803,13 +876,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const choices = roomData.votingState.choices || {};
-            const livingPlayers = Object.entries(roomData.players).filter(([,p]) => p.isAlive);
+            // <-- THAY ĐỔI: Sử dụng danh sách người vote đã được lọc -->
+            const voters = Object.entries(roomData.votingState.voters || {});
             const weights = secretVoteWeights;
 
             const tally = {};
 
-            livingPlayers.forEach(([voterId, voter]) => {
-                const choice = choices[voter.name];
+            voters.forEach(([voterId, voterData]) => {
+                const choice = choices[voterData.name];
                 const weight = weights[voterId] || 1;
                 
                 if (choice && choice !== 'skip_vote') {
@@ -857,13 +931,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // <-- THAY ĐỔI: Sử dụng danh sách người vote đã được lọc -->
     function renderVoteResults(choices, weights) {
         if (!voteResultsContainer || !roomData.players) return;
-
-        const livingPlayers = Object.entries(roomData.players).filter(([,p]) => p.isAlive);
+        
+        const voters = Object.entries(roomData.votingState?.voters || {});
         let detailsHtml = '<h4>Chi tiết:</h4><ul>';
         
-        livingPlayers.sort(([,a],[,b]) => a.name.localeCompare(b.name)).forEach(([voterId, voter]) => {
+        voters.sort(([,a],[,b]) => a.name.localeCompare(b.name)).forEach(([voterId, voter]) => {
             const choice = choices ? choices[voter.name] : null;
             let targetName;
             if (choice === 'skip_vote') {
@@ -880,10 +955,12 @@ document.addEventListener('DOMContentLoaded', () => {
         voteResultsContainer.querySelector('#vote-results-details').innerHTML = detailsHtml;
 
         const tally = {};
-        livingPlayers.forEach(([id]) => tally[id] = 0);
+        voters.forEach(([id]) => { 
+            if(roomData.players[id]) tally[id] = 0; 
+        });
         tally['skip_vote'] = 0;
         
-        livingPlayers.forEach(([voterId, voter]) => {
+        voters.forEach(([voterId, voter]) => {
             const choice = choices ? choices[voter.name] : null;
             const weight = weights[voterId] || 0;
             if (!choice || choice === 'skip_vote') {
