@@ -85,18 +85,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
+    // === START: HÀM ĐÃ ĐƯỢC CẬP NHẬT ===
     const fetchNightQuestions = async () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Question`);
             if (response.ok) {
-                allNightQuestions = await response.json();
+                const questions = await response.json();
+                if (Array.isArray(questions) && questions.length > 0) {
+                    allNightQuestions = questions;
+                } else {
+                    // Log cảnh báo khi sheet trống và dùng câu hỏi dự phòng
+                    console.warn("Cảnh báo: Tải câu hỏi thành công nhưng danh sách trống hoặc sai định dạng. Sử dụng câu hỏi dự phòng.");
+                    allNightQuestions = ["Bạn có tin tưởng vào quyết định của mình trong ngày hôm nay không?"];
+                }
             } else {
-                console.error("Không thể tải câu hỏi đêm.");
+                // Log lỗi khi không fetch được và dùng câu hỏi dự phòng
+                console.error("Lỗi: Không thể tải danh sách câu hỏi. Status:", response.status, ". Sử dụng câu hỏi dự phòng.");
+                allNightQuestions = ["Bạn có tin tưởng vào quyết định của mình trong ngày hôm nay không?"];
             }
         } catch (error) {
-            console.error("Lỗi khi tải câu hỏi đêm:", error);
+            // Log lỗi khi có exception và dùng câu hỏi dự phòng
+            console.error("Lỗi nghiêm trọng khi tải câu hỏi:", error, ". Sử dụng câu hỏi dự phòng.");
+            allNightQuestions = ["Bạn có tin tưởng vào quyết định của mình trong ngày hôm nay không?"];
         }
     };
+    // === END: HÀM ĐÃ ĐƯỢC CẬP NHẬT ===
 
     const attachListenersToRoom = () => {
         if (roomListener) database.ref(`rooms/${currentRoomId}`).off('value', roomListener);
