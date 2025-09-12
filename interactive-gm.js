@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let roomListener = null;
     let roomData = {};
     let allRolesData = {};
-    let allNightQuestions = []; // <-- THÊM MỚI
+    let allNightQuestions = [];
     let voteTimerInterval = null;
     let voteChoicesListener = null;
     let rememberedVoteWeights = {};
@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         await fetchAllRolesData();
-        await fetchNightQuestions(); // <-- THÊM MỚI
+        await fetchNightQuestions();
         roomIdDisplay.textContent = currentRoomId;
         attachListenersToRoom();
         attachVoteButtonListeners(); 
@@ -85,7 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // <-- HÀM MỚI: Tải câu hỏi từ Google Sheet -->
     const fetchNightQuestions = async () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Question`);
@@ -633,7 +632,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const currentNightNumber = (state.currentNight || 0) + 1;
-        // <-- THAY ĐỔI: Gộp các cập nhật vào một object -->
         const updates = {};
         
         updates[`/interactiveState/phase`] = 'night';
@@ -641,22 +639,66 @@ document.addEventListener('DOMContentLoaded', () => {
         updates[`/interactiveState/message`] = `Đêm ${currentNightNumber} bắt đầu.`;
         updates[`/interactiveState/nightlyQuestions`] = null; // Xóa câu hỏi của đêm trước
 
-        // Gán câu hỏi mới cho người chơi bị động
+        // <-- THAY ĐỔI LOGIC: Xác định người chơi không có chức năng khả dụng -->
         if (allNightQuestions.length > 0) {
             const players = roomData.players || {};
+            const allNightActions = roomData.nightActions || {};
+
             Object.entries(players).forEach(([playerId, player]) => {
                 if (!player.isAlive) return;
 
                 const roleData = allRolesData[player.roleName] || {};
-                const isWolf = player.currentFaction === 'Bầy Sói' || roleData.faction === 'Bầy Sói';
-                const kinds = (roleData.kind || '').split('_');
-                const hasNightAction = kinds.some(k => KIND_TO_ACTION_MAP[k] && k !== 'empty');
-                
-                const isPassive = !isWolf && !hasNightAction;
+                let hasAvailableAction = false;
 
-                if (isPassive) {
-                    const randomQuestion = allNightQuestions[Math.floor(Math.random() * allNightQuestions.length)];
-                    updates[`/interactiveState/nightlyQuestions/${playerId}`] = {
+                // Sói luôn có hành động
+                const isWolf = player.currentFaction === 'Bầy Sói' || roleData.faction === 'Bầy Sói';
+                if (isWolf) {
+                    hasAvailableAction = true;
+                }
+
+                // Kiểm tra các chức năng khác
+                if (!hasAvailableAction) {
+                    const kinds = (roleData.kind || '').split('_');
+                    for (const kind of kinds) {
+                        const actionInfo = KIND_TO_ACTION_MAP[kind];
+                        if (actionInfo && kind !== 'empty') {
+                            // Kiểm tra xem chức năng có dùng được trong đêm này không
+                            const activeRule = roleData.active;
+                            const parts = activeRule.split('_');
+                            const usesRule = parts[0];
+                            const startNightRule = parts.length > 1 ? parseInt(parts[1], 10) : 1;
+
+                            let isCurrentlyUsable = true;
+
+                            if (currentNightNumber < startNightRule) {
+                                isCurrentlyUsable = false;
+                            }
+
+                            if (isCurrentlyUsable && usesRule !== 'n') {
+                                const useLimit = parseInt(usesRule, 10);
+                                let timesUsed = 0;
+                                for (const night in allNightActions) {
+                                    if (allNightActions[night][playerId]?.action === actionInfo.key) {
+                                        timesUsed++;
+                                    }
+                                }
+                                if (timesUsed >= useLimit) {
+                                    isCurrentlyUsable = false;
+                                }
+                            }
+
+                            if (isCurrentlyUsable) {
+                                hasAvailableAction = true;
+                                break; 
+                            }
+                        }
+                    }
+                }
+                
+                // Nếu không có chức năng nào khả dụng, gán câu hỏi
+                if (!hasAvailableAction) {
+                     const randomQuestion = allNightQuestions[Math.floor(Math.random() * allNightQuestions.length)];
+                     updates[`/interactiveState/nightlyQuestions/${playerId}`] = {
                         questionText: randomQuestion
                     };
                 }
@@ -753,12 +795,10 @@ document.addEventListener('DOMContentLoaded', () => {
             votePlayersList.innerHTML += '<p>Không có người chơi nào còn sống để vote.</p>';
         }
     }
-
-    // <-- THAY ĐỔI: Lọc người chơi đủ điều kiện vote -->
+    
     async function handleStartVote() {
         if (!currentRoomId) return;
 
-        // Tải dữ liệu phòng mới nhất để đảm bảo tính chính xác
         const roomSnapshot = await database.ref(`rooms/${currentRoomId}`).once('value');
         const freshRoomData = roomSnapshot.val();
         
@@ -767,16 +807,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const questionAnswers = freshRoomData.interactiveState?.nightlyQuestions || {};
 
         const eligibleVoterIds = livingPlayers.map(([playerId, player]) => {
-            // Kiểm tra xem người chơi có thực hiện chức năng không
             const performedAction = nightActions[playerId] || nightActions.wolf_group?.votes?.[playerId];
-            // Kiểm tra xem người chơi có trả lời câu hỏi không
             const answeredQuestion = questionAnswers[playerId]?.answer;
 
             if (performedAction || answeredQuestion) {
                 return playerId;
             }
             return null;
-        }).filter(Boolean); // Lọc bỏ các giá trị null
+        }).filter(Boolean);
 
         if (eligibleVoterIds.length === 0) {
             alert("Không có người chơi nào đủ điều kiện để bỏ phiếu (chưa ai tương tác trong đêm).");
@@ -798,7 +836,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return acc;
         }, {});
 
-        // Lưu danh sách người vote hợp lệ vào state để các hàm khác sử dụng
         const voters = eligibleVoterIds.reduce((acc, id) => {
             acc[id] = { name: freshRoomData.players[id].name, roleName: freshRoomData.players[id].roleName };
             return acc;
@@ -813,7 +850,7 @@ document.addEventListener('DOMContentLoaded', () => {
             title: title,
             endTime: endTime, 
             candidates: candidates,
-            voters: voters, // <-- Lưu danh sách người vote hợp lệ
+            voters: voters,
             choices: null
         };
 
@@ -848,8 +885,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
-
-    // --- CẬP NHẬT TOÀN BỘ HÀM NÀY ---
+    
     function handleEndVote() {
         if (!currentRoomId) return;
 
@@ -876,7 +912,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const choices = roomData.votingState.choices || {};
-            // <-- THAY ĐỔI: Sử dụng danh sách người vote đã được lọc -->
             const voters = Object.entries(roomData.votingState.voters || {});
             const weights = secretVoteWeights;
 
@@ -931,7 +966,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // <-- THAY ĐỔI: Sử dụng danh sách người vote đã được lọc -->
     function renderVoteResults(choices, weights) {
         if (!voteResultsContainer || !roomData.players) return;
         
