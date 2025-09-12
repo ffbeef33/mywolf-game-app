@@ -85,7 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // === START: HÀM ĐÃ ĐƯỢC CẬP NHẬT ===
     const fetchNightQuestions = async () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Question`);
@@ -94,22 +93,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (Array.isArray(questions) && questions.length > 0) {
                     allNightQuestions = questions;
                 } else {
-                    // Log cảnh báo khi sheet trống và dùng câu hỏi dự phòng
                     console.warn("Cảnh báo: Tải câu hỏi thành công nhưng danh sách trống hoặc sai định dạng. Sử dụng câu hỏi dự phòng.");
                     allNightQuestions = ["Bạn có tin tưởng vào quyết định của mình trong ngày hôm nay không?"];
                 }
             } else {
-                // Log lỗi khi không fetch được và dùng câu hỏi dự phòng
                 console.error("Lỗi: Không thể tải danh sách câu hỏi. Status:", response.status, ". Sử dụng câu hỏi dự phòng.");
                 allNightQuestions = ["Bạn có tin tưởng vào quyết định của mình trong ngày hôm nay không?"];
             }
         } catch (error) {
-            // Log lỗi khi có exception và dùng câu hỏi dự phòng
             console.error("Lỗi nghiêm trọng khi tải câu hỏi:", error, ". Sử dụng câu hỏi dự phòng.");
             allNightQuestions = ["Bạn có tin tưởng vào quyết định của mình trong ngày hôm nay không?"];
         }
     };
-    // === END: HÀM ĐÃ ĐƯỢC CẬP NHẬT ===
 
     const attachListenersToRoom = () => {
         if (roomListener) database.ref(`rooms/${currentRoomId}`).off('value', roomListener);
@@ -651,7 +646,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updates[`/interactiveState/currentNight`] = currentNightNumber;
         updates[`/interactiveState/message`] = `Đêm ${currentNightNumber} bắt đầu.`;
 
-        // <-- THAY ĐỔI LOGIC: Xây dựng object câu hỏi mới thay vì xóa/ghi -->
         const newNightlyQuestions = {};
         if (allNightQuestions.length > 0) {
             const players = roomData.players || {};
@@ -663,48 +657,60 @@ document.addEventListener('DOMContentLoaded', () => {
                 const roleData = allRolesData[player.roleName] || {};
                 let hasAvailableAction = false;
 
-                const isWolf = player.currentFaction === 'Bầy Sói' || roleData.faction === 'Bầy Sói';
-                if (isWolf) {
+                const isBitePackMember = player.currentFaction === 'Bầy Sói' || roleData.faction === 'Bầy Sói';
+                if (isBitePackMember) {
                     hasAvailableAction = true;
                 }
-
+                
+                // === START: CẬP NHẬT LOGIC CHO WIZARD (VẤN ĐỀ 1) ===
                 if (!hasAvailableAction) {
-                    const kinds = (roleData.kind || '').split('_');
-                    for (const kind of kinds) {
-                        const actionInfo = KIND_TO_ACTION_MAP[kind];
-                        if (actionInfo && kind !== 'empty') {
-                            const activeRule = roleData.active;
-                            const parts = activeRule.split('_');
-                            const usesRule = parts[0];
-                            const startNightRule = parts.length > 1 ? parseInt(parts[1], 10) : 1;
+                    // Kiểm tra logic đặc biệt cho Wizard trước
+                    if (roleData.kind === 'wizard') {
+                        const wizardState = player.wizardAbilityState || 'save_available';
+                        if (wizardState !== 'used') {
+                            hasAvailableAction = true;
+                        }
+                    } 
+                    // Logic chung cho các vai trò khác
+                    else {
+                        const kinds = (roleData.kind || '').split('_');
+                        for (const kind of kinds) {
+                            const actionInfo = KIND_TO_ACTION_MAP[kind];
+                            if (actionInfo && kind !== 'empty') {
+                                const activeRule = roleData.active;
+                                const parts = activeRule.split('_');
+                                const usesRule = parts[0];
+                                const startNightRule = parts.length > 1 ? parseInt(parts[1], 10) : 1;
 
-                            let isCurrentlyUsable = true;
-                            if (currentNightNumber < startNightRule) {
-                                isCurrentlyUsable = false;
-                            }
+                                let isCurrentlyUsable = true;
+                                if (currentNightNumber < startNightRule) {
+                                    isCurrentlyUsable = false;
+                                }
 
-                            if (isCurrentlyUsable && usesRule !== 'n') {
-                                const useLimit = parseInt(usesRule, 10);
-                                if (!isNaN(useLimit)) {
-                                    let timesUsed = 0;
-                                    for (const night in allNightActions) {
-                                        if (allNightActions[night][playerId]?.action === actionInfo.key) {
-                                            timesUsed++;
+                                if (isCurrentlyUsable && usesRule !== 'n') {
+                                    const useLimit = parseInt(usesRule, 10);
+                                    if (!isNaN(useLimit)) {
+                                        let timesUsed = 0;
+                                        for (const night in allNightActions) {
+                                            if (allNightActions[night][playerId]?.action === actionInfo.key) {
+                                                timesUsed++;
+                                            }
+                                        }
+                                        if (timesUsed >= useLimit) {
+                                            isCurrentlyUsable = false;
                                         }
                                     }
-                                    if (timesUsed >= useLimit) {
-                                        isCurrentlyUsable = false;
-                                    }
                                 }
-                            }
 
-                            if (isCurrentlyUsable) {
-                                hasAvailableAction = true;
-                                break; 
+                                if (isCurrentlyUsable) {
+                                    hasAvailableAction = true;
+                                    break; 
+                                }
                             }
                         }
                     }
                 }
+                // === END: CẬP NHẬT LOGIC CHO WIZARD (VẤN ĐỀ 1) ===
                 
                 if (!hasAvailableAction) {
                      const randomQuestion = allNightQuestions[Math.floor(Math.random() * allNightQuestions.length)];
@@ -715,7 +721,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         updates['/interactiveState/nightlyQuestions'] = newNightlyQuestions;
-        // <-- KẾT THÚC THAY ĐỔI -->
         
         if (!state.curseAbility) {
             updates['/interactiveState/curseAbility'] = { status: 'locked' };
@@ -818,18 +823,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const nightActions = freshRoomData.nightActions?.[freshRoomData.interactiveState.currentNight] || {};
         const questionAnswers = freshRoomData.interactiveState?.nightlyQuestions || {};
 
+        // === START: CẬP NHẬT LOGIC VOTE (VẤN ĐỀ 2) ===
         const eligibleVoterIds = livingPlayers.map(([playerId, player]) => {
-            const performedAction = nightActions[playerId] || nightActions.wolf_group?.votes?.[playerId];
-            const answeredQuestion = questionAnswers[playerId]?.answer;
+            const wasGivenQuestion = questionAnswers.hasOwnProperty(playerId);
 
-            if (performedAction || answeredQuestion) {
+            if (wasGivenQuestion) {
+                // Nếu được giao câu hỏi, PHẢI trả lời mới được vote
+                const answeredQuestion = questionAnswers[playerId]?.answer;
+                return answeredQuestion ? playerId : null;
+            } else {
+                // Nếu không được giao câu hỏi (vì có chức năng), LUÔN được vote
                 return playerId;
             }
-            return null;
-        }).filter(Boolean);
+        }).filter(Boolean); // Lọc ra những giá trị null
+        // === END: CẬP NHẬT LOGIC VOTE (VẤN ĐỀ 2) ===
 
         if (eligibleVoterIds.length === 0) {
-            alert("Không có người chơi nào đủ điều kiện để bỏ phiếu (chưa ai tương tác trong đêm).");
+            alert("Không có người chơi nào đủ điều kiện để bỏ phiếu.");
             return;
         }
 
