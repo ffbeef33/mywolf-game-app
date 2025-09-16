@@ -728,3 +728,23 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     overflow-y: auto;
     border: 1px solid var(--border-color);
 }
+
+/* --- Chế độ Tương tác Override --- */
+#mode-override-container {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: var(--primary-bg);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    text-align: center;
+}
+
+#mode-status-indicator {
+    font-weight: 700;
+    margin-right: 15px;
+}
+
+#force-manual-mode-btn {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+}

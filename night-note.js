@@ -1,3 +1,7 @@
+// =================================================================
+// === night-note.js - CẬP NHẬT: THÊM NÚT TẮT CHẾ ĐỘ TƯƠNG TÁC ===
+// =================================================================
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- Firebase ---
     const firebaseConfig = {
@@ -24,6 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultsCard = document.querySelector('.results-card');
     const endNightBtn = document.getElementById('end-night-btn');
     const resetNightBtn = document.getElementById('reset-night-btn');
+    const forceManualModeBtn = document.getElementById('force-manual-mode-btn');
+    const modeStatusIndicator = document.getElementById('mode-status-indicator');
     
     const willModalGm = document.getElementById('will-modal-gm');
     const willModalGmTitle = document.getElementById('will-modal-gm-title');
@@ -918,11 +924,26 @@ document.addEventListener('DOMContentLoaded', () => {
             if(!roomData) return;
             
             roomDataState = roomData;
-            isInteractiveMode = !!roomData.interactiveState && roomData.interactiveState.phase !== 'setup';
             
-            // Luôn bật nút vì GM có thể muốn ghi đè
-            endNightBtn.disabled = false;
-            resetNightBtn.disabled = false;
+            isInteractiveMode = !!roomData.interactiveState && roomData.interactiveState.phase !== 'setup';
+
+            // Cập nhật giao diện dựa trên chế độ được phát hiện
+            if (isInteractiveMode) {
+                modeStatusIndicator.textContent = '⚠️ Chế độ Tương Tác đang hoạt động.';
+                modeStatusIndicator.style.color = 'var(--danger-color)';
+                forceManualModeBtn.style.display = 'inline-block';
+                // Vô hiệu hóa các nút chức năng chính của chế độ thủ công
+                endNightBtn.disabled = true;
+                resetNightBtn.disabled = true;
+            } else {
+                modeStatusIndicator.textContent = '✅ Chế độ Ghi Chú Thủ Công.';
+                modeStatusIndicator.style.color = 'var(--safe-color)';
+                forceManualModeBtn.style.display = 'none';
+                // Kích hoạt lại nút nếu cần
+                endNightBtn.disabled = false;
+                resetNightBtn.disabled = false;
+            }
+            
             gmNoteBtn.disabled = false;
             
             const addNightBtn = document.getElementById('add-night-btn');
@@ -1010,6 +1031,20 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             willModalGmPublishBtn.addEventListener('click', publishWill);
         }
+        
+        forceManualModeBtn.addEventListener('click', () => {
+            if (!roomId) return;
+            if (confirm('Bạn có chắc chắn muốn tắt chế độ tương tác cho phòng này không? Hành động này sẽ xóa trạng thái tương tác hiện tại và không thể hoàn tác.')) {
+                database.ref(`rooms/${roomId}/interactiveState`).set(null)
+                    .then(() => {
+                        alert('Đã tắt thành công chế độ tương tác. Giao diện sẽ được cập nhật.');
+                        // Listener `roomRef.on('value', ...)` sẽ tự động chạy lại và cập nhật isInteractiveMode thành false.
+                    })
+                    .catch(err => {
+                        alert('Có lỗi xảy ra khi tắt chế độ tương tác: ' + err.message);
+                    });
+            }
+        });
     };
     
     const urlRoomId = new URLSearchParams(window.location.search).get('roomId');
