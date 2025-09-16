@@ -1,5 +1,5 @@
 // =================================================================
-// === night-note.js - CẬP NHẬT: THÊM NÚT TẮT CHẾ ĐỘ TƯƠNG TÁC ===
+// === night-note.js - SỬA LỖI CẤU TRÚC DỮ LIỆU ACTION ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -158,11 +158,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const gmManualActions = (nightState.actions || []).filter(a => a.action.startsWith('gm_'));
-        gmManualActions.forEach(({ action, targetId }) => {
-            const target = roomPlayers.find(p => p.id === targetId);
-            const targetName = target ? `<strong class="player-name">${target.name}</strong>` : '???';
-            const actionLabel = ALL_ACTIONS[action]?.label || action;
-            gmActions.push(`Áp dụng hiệu ứng "${actionLabel}" lên ${targetName}.`);
+        gmManualActions.forEach(({ action, targets }) => {
+            (targets || []).forEach(targetId => {
+                const target = roomPlayers.find(p => p.id === targetId);
+                const targetName = target ? `<strong class="player-name">${target.name}</strong>` : '???';
+                const actionLabel = ALL_ACTIONS[action]?.label || action;
+                gmActions.push(`Áp dụng hiệu ứng "${actionLabel}" lên ${targetName}.`);
+            });
         });
 
         if (gmActions.length === 0) {
@@ -177,14 +179,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const regularActions = actions.filter(a => !a.action.startsWith('gm_'));
 
-        regularActions.forEach(({ action, targetId, actorId }) => {
-            const actor = roomPlayers.find(p => p.id === actorId);
-            const target = roomPlayers.find(p => p.id === targetId);
-            const actorName = actor ? `<strong class="player-name">${actor.name}</strong> <span class="role-name">(${actor.roleName || '???'})</span>` : '<strong>Bầy Sói</strong>';
-            const targetName = target ? `<strong class="target-name">${target.name}</strong>` : "???";
-            const actionLabel = ALL_ACTIONS[action]?.label || action;
+        regularActions.forEach(({ action, targets, actorId }) => {
+             (targets || []).forEach(targetId => {
+                const actor = roomPlayers.find(p => p.id === actorId);
+                const target = roomPlayers.find(p => p.id === targetId);
+                const actorName = actor ? `<strong class="player-name">${actor.name}</strong> <span class="role-name">(${actor.roleName || '???'})</span>` : '<strong>Bầy Sói</strong>';
+                const targetName = target ? `<strong class="target-name">${target.name}</strong>` : "???";
+                const actionLabel = ALL_ACTIONS[action]?.label || action;
 
-            playerActions.push(`${actorName} đã chọn <strong>${actionLabel}</strong> ${targetName}.`);
+                playerActions.push(`${actorName} đã chọn <strong>${actionLabel}</strong> ${targetName}.`);
+            });
         });
 
         if (playerActions.length === 0 && infoResults.length === 0) {
@@ -238,19 +242,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     formattedActions.push({
                         id: actionIdCounter++,
                         actorId: voterId,
-                        targetId: targetId,
+                        targets: [targetId],
                         action: actionData.action || 'kill'
                     });
                 });
             } else {
-                 (actionData.targets || []).forEach(targetId => {
-                    formattedActions.push({
-                        id: actionIdCounter++,
-                        actorId: actorId,
-                        targetId: targetId,
-                        action: actionData.action
-                    });
-                 });
+                formattedActions.push({
+                    id: actionIdCounter++,
+                    actorId: actorId,
+                    targets: actionData.targets || [],
+                    action: actionData.action
+                });
             }
         }
 
@@ -475,19 +477,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (playerActions.length > 0){
             playerActions.forEach(action => {
-                const target = roomPlayers.find(p => p.id === action.targetId);
-                const actionConfig = ALL_ACTIONS[action.action];
-                const actionLabel = actionConfig?.label || action.action;
-                const actor = roomPlayers.find(p => p.id === action.actorId);
-                let displayText = `<i class="fas fa-arrow-right"></i> ${actionLabel} <strong>${target?.name || ''}</strong>`;
-                if(playerId === 'wolf_group' && actor) {
-                    displayText = `<em>${actor.name}</em> → ${actionLabel} <strong>${target?.name || ''}</strong>`;
-                }
+                const targets = action.targets || [];
+                targets.forEach(targetId => {
+                    const target = roomPlayers.find(p => p.id === targetId);
+                    const actionConfig = ALL_ACTIONS[action.action];
+                    const actionLabel = actionConfig?.label || action.action;
+                    const actor = roomPlayers.find(p => p.id === action.actorId);
+                    let displayText = `<i class="fas fa-arrow-right"></i> ${actionLabel} <strong>${target?.name || ''}</strong>`;
+                    if(playerId === 'wolf_group' && actor) {
+                        displayText = `<em>${actor.name}</em> → ${actionLabel} <strong>${target?.name || ''}</strong>`;
+                    }
 
-                html += `<div class="action-display-item">
-                            ${displayText}
-                            <button class="remove-action-btn" data-action-id="${action.id}" data-actor-id="${action.actorId}" data-target-id="${action.targetId}" data-action="${action.action}">&times;</button>
-                         </div>`;
+                    html += `<div class="action-display-item">
+                                ${displayText}
+                                <button class="remove-action-btn" data-action-id="${action.id}" data-actor-id="${action.actorId}" data-target-id="${targetId}" data-action="${action.action}">&times;</button>
+                             </div>`;
+                });
             });
         }
         return html;
@@ -548,13 +553,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (target.matches('.remove-action-btn')) {
             const actionId = parseInt(target.dataset.actionId, 10);
-            const actorId = target.dataset.actorId;
-            const targetId = target.dataset.targetId;
-
+            
             if (isInteractiveMode) {
+                // Logic xóa cho chế độ tương tác (giữ nguyên)
+                const actorId = target.dataset.actorId;
                 const currentNight = roomDataState.interactiveState.currentNight;
                 const basePath = `rooms/${roomId}/nightActions/${currentNight}`;
-                
                 const actorPlayer = roomPlayers.find(p => p.id === actorId);
                 const isWolf = actorPlayer && (actorPlayer.faction === 'Bầy Sói' || actorPlayer.faction === 'Phe Sói');
                 const gmVoteId = `GM_${actorId}`;
@@ -563,7 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     database.ref(`${basePath}/wolf_group/votes/${gmVoteId}`).set(null);
                 } else {
                     const actionRef = database.ref(`${basePath}/${actorId}`);
-                    actionRef.set(null); // GM can simply remove the whole action
+                    actionRef.set(null);
                 }
             } else { 
                  const nightState = nightStates[activeNightIndex];
@@ -683,35 +687,38 @@ document.addEventListener('DOMContentLoaded', () => {
                         nightState.factionChanges = [];
                     }
                     curseActions.forEach(action => {
-                        const originalTargetId = action.targetId;
-                        const isWolfCurse = action.actorId === 'wolf_group';
-                        if (isWolfCurse && liveStatuses[originalTargetId] && liveStatuses[originalTargetId].isImmuneToWolves) {
-                            return; 
-                        }
-                        let finalTargetId = originalTargetId;
-                        const loverId = loveRedirects[originalTargetId];
-                        if(loverId && isWolfCurse) {
-                            finalTargetId = loverId;
-                        }
-                        const targetPlayer = roomPlayers.find(p => p.id === finalTargetId);
-                        if (targetPlayer && targetPlayer.faction !== 'Bầy Sói' && !nightState.factionChanges.some(fc => fc.playerId === finalTargetId)) {
-                            nightState.factionChanges.push({
-                                playerId: finalTargetId,
-                                newFaction: 'Bầy Sói',
-                                originalRoleName: targetPlayer.roleName
-                            });
-                        }
+                        (action.targets || []).forEach(originalTargetId => {
+                            const isWolfCurse = action.actorId === 'wolf_group';
+                            if (isWolfCurse && liveStatuses[originalTargetId] && liveStatuses[originalTargetId].isImmuneToWolves) {
+                                return; 
+                            }
+                            let finalTargetId = originalTargetId;
+                            const loverId = loveRedirects[originalTargetId];
+                            if(loverId && isWolfCurse) {
+                                finalTargetId = loverId;
+                            }
+                            const targetPlayer = roomPlayers.find(p => p.id === finalTargetId);
+                            if (targetPlayer && targetPlayer.faction !== 'Bầy Sói' && !nightState.factionChanges.some(fc => fc.playerId === finalTargetId)) {
+                                nightState.factionChanges.push({
+                                    playerId: finalTargetId,
+                                    newFaction: 'Bầy Sói',
+                                    originalRoleName: targetPlayer.roleName
+                                });
+                            }
+                        });
                     });
                     collectActions.forEach(action => {
-                        const actor = roomPlayers.find(p => p.id === action.actorId);
-                        const targetPlayer = roomPlayers.find(p => p.id === action.targetId);
-                        if(actor && targetPlayer && !nightState.factionChanges.some(fc => fc.playerId === action.targetId)) {
-                             nightState.factionChanges.push({
-                                playerId: action.targetId,
-                                newFaction: actor.faction,
-                                originalRoleName: targetPlayer.roleName
-                            });
-                        }
+                        (action.targets || []).forEach(targetId => {
+                            const actor = roomPlayers.find(p => p.id === action.actorId);
+                            const targetPlayer = roomPlayers.find(p => p.id === targetId);
+                            if(actor && targetPlayer && !nightState.factionChanges.some(fc => fc.playerId === targetId)) {
+                                 nightState.factionChanges.push({
+                                    playerId: targetId,
+                                    newFaction: actor.faction,
+                                    originalRoleName: targetPlayer.roleName
+                                });
+                            }
+                        });
                     });
                 }
                 nightState.isFinished = true;
@@ -836,14 +843,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     !(a.actorId === actorId && actionsToRemove.includes(a.action))
                 );
 
-                checkedTargets.forEach(targetId => {
-                     nightState.actions.push({
+                if (checkedTargets.length > 0) {
+                    nightState.actions.push({
                         id: nextActionId++,
                         actorId: actorId,
-                        targetId: targetId,
+                        targets: checkedTargets,
                         action: actionKey
                     });
-                });
+                }
+                
                 saveNightNotes();
             }
             actionModal.classList.add('hidden');
@@ -883,12 +891,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 if (['gm_kill', 'gm_save', 'gm_protect', 'gm_add_armor'].includes(overrideAction)) {
-                    const existingActionIndex = nightState.actions.findIndex(a => a.action === overrideAction && a.actorId === targetId && a.targetId === targetId);
+                    const existingActionIndex = nightState.actions.findIndex(a => a.action === overrideAction && a.actorId === targetId && a.targets.includes(targetId));
                     if (existingActionIndex > -1) {
                         nightState.actions.splice(existingActionIndex, 1);
                     } else {
                          nightState.actions.push({
-                            id: nextActionId++, actorId: targetId, targetId: targetId, action: overrideAction
+                            id: nextActionId++, actorId: targetId, targets: [targetId], action: overrideAction
                         });
                     }
                 } 
@@ -1031,7 +1039,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             willModalGmPublishBtn.addEventListener('click', publishWill);
         }
-        
+
         forceManualModeBtn.addEventListener('click', () => {
             if (!roomId) return;
             if (confirm('Bạn có chắc chắn muốn tắt chế độ tương tác cho phòng này không? Hành động này sẽ xóa trạng thái tương tác hiện tại và không thể hoàn tác.')) {
@@ -1238,7 +1246,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             const currentActions = (nightStates[activeNightIndex].actions || []).filter(a => a.actorId === currentActorInModal.id && a.action === actionKey);
             currentActions.forEach(action => {
-                currentTargetIds.add(action.targetId);
+                (action.targets || []).forEach(targetId => currentTargetIds.add(targetId));
             });
         }
 
