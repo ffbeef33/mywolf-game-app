@@ -517,6 +517,10 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
+        const groupTagHTML = playerState.groupId
+            ? `<span class="player-group-tag">${playerState.groupId}</span>`
+            : '';
+
         row.innerHTML = `
             <div class="player-header">
                 <div class="player-info">
@@ -524,6 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div>
                         <div class="player-name-wrapper">
                             <div class="player-name">${player.name}</div>
+                            ${groupTagHTML}
                         </div>
                         <div class="player-role">${roleDisplayName}</div>
                     </div>
@@ -1470,11 +1475,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    function openFactionChangeModal(actor) {
-        currentActorInModal = actor;
-        factionChangeModal.querySelector('#faction-change-title').textContent = `Chuyển phe cho ${actor.name}`;
-        factionChangeModal.classList.remove('hidden');
-    }
     function recalculateAllPlayerFactions() {
         const basePlayers = roomPlayers.map(p => ({...p, faction: p.baseFaction}));
         const finalFactions = {};
@@ -1644,7 +1644,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for(const targetId in tally) {
             if (targetId !== 'skip_vote') {
                 if (tally[targetId] > maxVotes) {
-                    maxVotes = tally[targetId];
+                    maxVotes = targetId;
                     mostVotedPlayers = [targetId];
                 } else if (tally[targetId] === maxVotes && maxVotes > 0) {
                      mostVotedPlayers.push(targetId);
