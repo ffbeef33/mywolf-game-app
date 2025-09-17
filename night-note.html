@@ -48,10 +48,9 @@
                     <button id="end-night-btn" class="btn-end-night">Kết Thúc Đêm</button>
                     <button id="reset-night-btn">Làm Mới Đêm</button>
                     <button id="save-gm-night-note-btn">Lưu Ghi Chú</button>
-                    
                     <button id="nn-start-random-btn" class="btn-special">Bắt Đầu Game Mới (Random)</button>
                     <button id="nn-clear-log-btn" class="btn-danger">Xóa Log & Reset Game</button>
-                    </div>
+                </div>
             </div>
             </section>
 
@@ -71,6 +70,24 @@
             </div>
         </section>
 
+        <section id="voting-section" class="card" style="display: none;">
+            <h2><i class="fas fa-gavel"></i> Dàn Xử Án (Vote Thủ Công)</h2>
+            <div class="voting-controls">
+                <input type="text" id="vote-title-input" placeholder="Tiêu đề (ví dụ: Vote treo cổ ngày 1)" value="Vote treo cổ">
+                <input type="number" id="vote-timer-input" value="60" min="10" title="Thời gian vote (giây)">
+                <button id="start-vote-btn" class="btn-special">Bắt Đầu Vote</button>
+                <button id="end-vote-btn" class="btn-danger" style="display: none;">Kết Thúc Vote</button>
+                <span id="gm-vote-timer-display" class="gm-timer-display"></span>
+            </div>
+            <div id="vote-players-list"></div>
+            <div id="vote-results-container" style="display: none;">
+                <h3>Kết Quả Vote</h3>
+                <div class="results-grid">
+                    <div id="vote-results-summary"></div>
+                    <div id="vote-results-details"></div>
+                </div>
+            </div>
+        </section>
         </div>
 
     <div id="group-modal-overlay" class="modal-overlay hidden">

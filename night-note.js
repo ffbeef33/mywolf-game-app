@@ -2,7 +2,6 @@
 // === night-note.js - SỬA LỖI CẤU TRÚC DỮ LIỆU ACTION ===
 // =================================================================
 
-// === BẮT ĐẦU CODE MỚI ===
 /**
  * Xáo trộn một mảng tại chỗ (in-place) sử dụng thuật toán Fisher-Yates.
  * @param {Array} array Mảng cần xáo trộn.
@@ -13,7 +12,6 @@ const shuffleArray = (array) => {
         [array[i], array[j]] = [array[j], array[i]];
     }
 };
-// === KẾT THÚC CODE MỚI ===
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Firebase ---
@@ -76,7 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let roomDataState = {};
     let isInteractiveMode = false;
 
-    // === BẮT ĐẦU CODE MỚI ===
     const handleClearLog = async () => {
         if (!roomId || !confirm('Bạn có chắc muốn xóa log và reset vai trò của tất cả người chơi trong phòng này?')) return;
         
@@ -164,7 +161,6 @@ document.addEventListener('DOMContentLoaded', () => {
             startBtn.textContent = 'Bắt Đầu Game Mới (Random)';
         }
     };
-    // === KẾT THÚC CODE MỚI ===
 
     // --- Data Fetching ---
     const fetchAllRolesData = async () => {
@@ -466,8 +462,12 @@ document.addEventListener('DOMContentLoaded', () => {
         renderNightTabs();
         
         resultsCard.style.display = 'grid';
-        if(votingSection) votingSection.style.display = 'block';
-        renderVotingModule();
+        
+        if (!isInteractiveMode) {
+            renderVotingModule();
+        } else if (votingSection) {
+            votingSection.style.display = 'none';
+        }
     }
     
     function createPlayerRow(player, playerState, liveStatus, isFinished) {
@@ -475,7 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
         row.className = 'player-row';
         row.dataset.playerId = player.id;
         
-        if (!player.isAlive) {
+        if (!playerState.isAlive) {
             row.classList.add('status-dead');
         } else {
             if (liveStatus) {
@@ -503,19 +503,30 @@ document.addEventListener('DOMContentLoaded', () => {
              roleDisplayName = `${player.roleName} <span class="cursed-note">(Gốc: ${player.originalRoleName})</span>`;
         }
     
-        const willButtonHTML = player.isAlive ? '' : `
+        const willButtonHTML = !playerState.isAlive ? `
             <button class="will-modal-btn" data-player-id="${player.id}">Di Chúc</button>
-        `;
+        ` : '';
     
         const isActionDisabled = isFinished && !isInteractiveMode;
+
+        const lifeStatusClass = playerState.isAlive ? 'alive' : 'dead';
+        const lifeStatusIcon = playerState.isAlive ? 'fa-heart' : 'fa-skull-crossbones';
+        const lifeStatusToggleHTML = isInteractiveMode ? '' : `
+            <div class="player-status-icon life ${lifeStatusClass}" title="Click để đổi trạng thái Sống/Chết">
+                <i class="fas ${lifeStatusIcon}"></i>
+            </div>
+        `;
 
         row.innerHTML = `
             <div class="player-header">
                 <div class="player-info">
-                    <div class="player-name-wrapper">
-                        <div class="player-name">${player.name}</div>
+                    ${lifeStatusToggleHTML}
+                    <div>
+                        <div class="player-name-wrapper">
+                            <div class="player-name">${player.name}</div>
+                        </div>
+                        <div class="player-role">${roleDisplayName}</div>
                     </div>
-                    <div class="player-role">${roleDisplayName}</div>
                 </div>
                 <div class="player-controls">
                     <div class="status-icons">${statusIconsHTML}</div>
@@ -570,7 +581,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (playerId === 'wolf_group') {
                 const wolfActions = currentNightState.actions.filter(action => {
                     const actor = roomPlayers.find(p => p.id === action.actorId);
-                    // === DÒNG ĐÃ SỬA LỖI ===
                     return action.actorId === 'wolf_group' || (actor && (actor.faction === 'Bầy Sói' || actor.faction === 'Phe Sói'));
                 });
                 playerActions = wolfActions;
@@ -588,11 +598,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const actionLabel = actionConfig?.label || action.action;
                     const actor = roomPlayers.find(p => p.id === action.actorId);
                     
-                    // Thay đổi cách hiển thị để phân biệt hành động chung và hành động cá nhân
                     let displayText = '';
                     if (action.actorId === 'wolf_group') {
                         displayText = `<i class="fas fa-arrow-right"></i> ${actionLabel} <strong>${target?.name || ''}</strong>`;
-                    } else if (actor) { // Nếu là hành động cá nhân của Sói
+                    } else if (actor) { 
                         displayText = `<em>${actor.name}</em> → ${actionLabel} <strong>${target?.name || ''}</strong>`;
                     }
 
@@ -663,7 +672,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const actionId = parseInt(target.dataset.actionId, 10);
             
             if (isInteractiveMode) {
-                // Logic xóa cho chế độ tương tác (giữ nguyên)
                 const actorId = target.dataset.actorId;
                 const currentNight = roomDataState.interactiveState.currentNight;
                 const basePath = `rooms/${roomId}/nightActions/${currentNight}`;
@@ -687,28 +695,19 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // --- HÀNH ĐỘNG CỦA GM TRONG CHẾ ĐỘ THỦ CÔNG ---
         if (isInteractiveMode) return;
 
         const nightState = nightStates[activeNightIndex];
         if (target.closest('.player-status-icon.life')) {
             const actorId = target.closest('.player-row').dataset.playerId;
              if (nightState && !nightState.isFinished) {
-                 const newStatus = !nightState.playersStatus[actorId].isAlive;
-                 nightState.playersStatus[actorId].isAlive = newStatus;
-                 nightState.initialPlayersStatus[actorId].isAlive = newStatus;
-
-                 if (newStatus === false) { 
-                    const killedPlayer = roomPlayers.find(p => p.id === actorId);
-                    if (killedPlayer) {
-                        const isWolf = killedPlayer.faction === 'Bầy Sói' || killedPlayer.faction === 'Phe Sói';
-                        const curseState = roomDataState.interactiveState?.curseAbility?.status || 'locked';
-                        if (isWolf && curseState === 'locked') {
-                            database.ref(`rooms/${roomId}/interactiveState/curseAbility/status`).set('available');
-                        }
-                    }
+                 const playerStatus = nightState.playersStatus[actorId];
+                 if (playerStatus) {
+                     const newStatus = !playerStatus.isAlive;
+                     playerStatus.isAlive = newStatus;
+                     nightState.initialPlayersStatus[actorId].isAlive = newStatus;
+                     saveNightNotes();
                  }
-                 saveNightNotes();
              }
             return;
         }
@@ -1033,6 +1032,7 @@ document.addEventListener('DOMContentLoaded', () => {
         createActionModal();
         createFactionChangeModal();
         createGroupModal();
+        createVotingModuleStructure();
         
         const roomRef = database.ref(`rooms/${roomId}`);
         roomRef.on('value', (snapshot) => {
@@ -1043,19 +1043,17 @@ document.addEventListener('DOMContentLoaded', () => {
             
             isInteractiveMode = !!roomData.interactiveState && roomData.interactiveState.phase !== 'setup';
 
-            // Cập nhật giao diện dựa trên chế độ được phát hiện
             if (isInteractiveMode) {
                 modeStatusIndicator.textContent = '⚠️ Chế độ Tương Tác đang hoạt động.';
                 modeStatusIndicator.style.color = 'var(--danger-color)';
                 forceManualModeBtn.style.display = 'inline-block';
-                // Vô hiệu hóa các nút chức năng chính của chế độ thủ công
                 endNightBtn.disabled = true;
                 resetNightBtn.disabled = true;
+                if (votingSection) votingSection.style.display = 'none';
             } else {
                 modeStatusIndicator.textContent = '✅ Chế độ Ghi Chú Thủ Công.';
                 modeStatusIndicator.style.color = 'var(--safe-color)';
                 forceManualModeBtn.style.display = 'none';
-                // Kích hoạt lại nút nếu cần
                 endNightBtn.disabled = false;
                 resetNightBtn.disabled = false;
             }
@@ -1148,10 +1146,8 @@ document.addEventListener('DOMContentLoaded', () => {
             willModalGmPublishBtn.addEventListener('click', publishWill);
         }
 
-        // === BẮT ĐẦU CODE MỚI ===
         document.getElementById('nn-clear-log-btn')?.addEventListener('click', handleClearLog);
         document.getElementById('nn-start-random-btn')?.addEventListener('click', handleStartRandom);
-        // === KẾT THÚC CODE MỚI ===
         
         forceManualModeBtn.addEventListener('click', () => {
             if (!roomId) return;
@@ -1159,7 +1155,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 database.ref(`rooms/${roomId}/interactiveState`).set(null)
                     .then(() => {
                         alert('Đã tắt thành công chế độ tương tác. Giao diện sẽ được cập nhật.');
-                        // Listener `roomRef.on('value', ...)` sẽ tự động chạy lại và cập nhật isInteractiveMode thành false.
                     })
                     .catch(err => {
                         alert('Có lỗi xảy ra khi tắt chế độ tương tác: ' + err.message);
@@ -1497,34 +1492,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     function createVotingModuleStructure() {
-        if (document.getElementById('voting-section')) {
-            votingSection = document.getElementById('voting-section');
-            votePlayersList = votingSection.querySelector('#vote-players-list');
-            voteResultsContainer = votingSection.querySelector('#vote-results-container');
-            startVoteBtn = votingSection.querySelector('#start-vote-btn');
-            endVoteBtn = votingSection.querySelector('#end-vote-btn');
-            startVoteBtn.addEventListener('click', handleStartVote);
-            endVoteBtn.addEventListener('click', handleEndVote);
-            return;
-        };
-        const mainContainer = document.querySelector('.container');
-        const logSection = document.getElementById('night-logs-section');
-        const votingModuleEl = document.createElement('div');
-        votingModuleEl.id = 'voting-section';
-        votingModuleEl.className = 'card';
-        votingModuleEl.innerHTML = `...`; // Giữ nguyên
-        if (logSection) {
-            logSection.parentNode.insertBefore(votingModuleEl, logSection.nextSibling);
-        } else {
-             mainContainer.appendChild(votingModuleEl);
-        }
+        if (!document.getElementById('voting-section')) return;
+        
+        votingSection = document.getElementById('voting-section');
+        votePlayersList = votingSection.querySelector('#vote-players-list');
+        voteResultsContainer = votingSection.querySelector('#vote-results-container');
+        startVoteBtn = votingSection.querySelector('#start-vote-btn');
+        endVoteBtn = votingSection.querySelector('#end-vote-btn');
+
+        if(startVoteBtn) startVoteBtn.addEventListener('click', handleStartVote);
+        if(endVoteBtn) endVoteBtn.addEventListener('click', handleEndVote);
     }
     function renderVotingModule() {
-        if(!votingSection) createVotingModuleStructure();
+        if (!votingSection) return;
+        
         if (isInteractiveMode || nightStates.length === 0) {
-            if (votingSection) votingSection.style.display = 'none';
+            votingSection.style.display = 'none';
             return;
-        };
+        }
+        votingSection.style.display = 'block';
+
         const lastNight = nightStates[nightStates.length - 1];
         if (!lastNight || !votePlayersList) return;
         const { finalStatus } = calculateNightStatus(lastNight, roomPlayers);
@@ -1535,9 +1522,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 const playerRow = document.createElement('div');
                 playerRow.className = 'vote-player-row';
                 const currentWeight = rememberedVoteWeights[player.id] ?? 1;
-                playerRow.innerHTML = `...`; // Giữ nguyên
+                playerRow.innerHTML = `
+                    <span class="vote-player-name">${player.name}</span>
+                    <div class="vote-weight-controls">
+                        <button class="weight-btn minus" data-player-id="${player.id}" title="Giảm phiếu">-</button>
+                        <span class="vote-weight-display" id="weight-display-${player.id}">${currentWeight}</span>
+                        <button class="weight-btn plus" data-player-id="${player.id}" title="Tăng phiếu">+</button>
+                    </div>
+                `;
                 votePlayersList.appendChild(playerRow);
             });
+
+            votePlayersList.addEventListener('click', (e) => {
+                if(e.target.classList.contains('weight-btn')) {
+                    const playerId = e.target.dataset.playerId;
+                    const display = document.getElementById(`weight-display-${playerId}`);
+                    if(!display) return;
+                    let current = parseInt(display.textContent, 10);
+                    if(e.target.classList.contains('plus')) current++;
+                    else if(e.target.classList.contains('minus')) current = Math.max(0, current - 1);
+                    display.textContent = current;
+                    rememberedVoteWeights[playerId] = current;
+                }
+            });
+
         } else {
             votePlayersList.innerHTML += '<p>Không có người chơi nào còn sống để vote.</p>';
         }
@@ -1550,13 +1558,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const weight = parseInt(display.textContent, 10);
             if (playerId && !isNaN(weight)) secretVoteWeights[playerId] = weight;
         });
-        const { finalStatus } = calculateNightStatus(nightStates[nightStates.length - 1], roomPlayers);
+        const lastNight = nightStates[nightStates.length - 1];
+        if (!lastNight) return;
+        const { finalStatus } = calculateNightStatus(lastNight, roomPlayers);
         const livingPlayers = roomPlayers.filter(p => finalStatus[p.id]?.isAlive);
         const candidates = livingPlayers.reduce((acc, p) => { acc[p.id] = p.name; return acc; }, {});
+        const voters = livingPlayers.reduce((acc, p) => { acc[p.id] = { name: p.name, roleName: p.roleName }; return acc; }, {});
         const title = document.getElementById('vote-title-input').value || 'Vote';
         const timerSeconds = parseInt(document.getElementById('vote-timer-input').value, 10) || 60;
         const endTime = Date.now() + (timerSeconds * 1000);
-        const votingState = { status: 'active', title, endTime, candidates, choices: null };
+        const votingState = { status: 'active', title, endTime, candidates, voters, choices: null };
         database.ref(`rooms/${roomId}/votingState`).set(votingState).then(() => {
             startVoteBtn.style.display = 'none';
             endVoteBtn.style.display = 'inline-block';
@@ -1601,7 +1612,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function renderVoteResults(choices, weights) {
         if (!voteResultsContainer) return;
-        const { finalStatus } = calculateNightStatus(nightStates[nightStates.length - 1], roomPlayers);
+        const lastNight = nightStates[nightStates.length - 1];
+        if (!lastNight) return;
+        const { finalStatus } = calculateNightStatus(lastNight, roomPlayers);
         const livingPlayers = roomPlayers.filter(p => finalStatus[p.id]?.isAlive);
         let detailsHtml = '<h4>Chi tiết:</h4><ul>';
         livingPlayers.sort((a,b) => a.name.localeCompare(b.name)).forEach(voter => {
@@ -1609,7 +1622,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let targetName = '<em style="opacity: 0.7">Chưa bỏ phiếu</em>';
             if (choice === 'skip_vote') targetName = 'Bỏ qua';
             else if (choice) targetName = roomPlayers.find(p => p.id === choice)?.name || 'Không rõ';
-            const weight = weights[voter.id] || 0;
+            const weight = weights[voter.id] || 1;
             detailsHtml += `<li><strong>${voter.name}</strong> (x${weight}) → <strong>${targetName}</strong></li>`;
         });
         detailsHtml += '</ul>';
@@ -1619,7 +1632,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tally['skip_vote'] = 0;
         livingPlayers.forEach(voter => {
             const choice = choices ? choices[voter.name] : null;
-            const weight = weights[voter.id] || 0;
+            const weight = weights[voter.id] || 1;
             if (!choice || choice === 'skip_vote') {
                 tally['skip_vote'] += weight;
             } else if (tally.hasOwnProperty(choice)) {
