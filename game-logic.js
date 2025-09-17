@@ -602,22 +602,44 @@ function calculateNightStatus(nightState, roomPlayers) {
         }
     });
     
+    // === START: SỬA LỖI CHECKDMG KHÔNG THỂ CỨU/BẢO VỆ ===
     let chainReactionOccurred = true;
     while(chainReactionOccurred) {
         chainReactionOccurred = false;
         const newlyDead = [];
-        roomPlayers.forEach(player => {
-            if (deadPlayerIdsThisNight.has(player.id) && finalStatus[player.id] && finalStatus[player.id].deathLinkTarget) {
-                const linkedTargetId = finalStatus[player.id].deathLinkTarget;
-                if (finalStatus[linkedTargetId] && finalStatus[linkedTargetId].isAlive) {
-                    finalStatus[linkedTargetId].isAlive = false;
-                    newlyDead.push(linkedTargetId);
-                    chainReactionOccurred = true;
+        const currentDeadPlayers = Array.from(deadPlayerIdsThisNight);
+
+        currentDeadPlayers.forEach(deadPlayerId => {
+            const deadPlayer = roomPlayers.find(p => p.id === deadPlayerId);
+            if (!deadPlayer) return;
+
+            // Kiểm tra người chơi vừa chết có death link không
+            if (finalStatus[deadPlayerId]?.deathLinkTarget) {
+                const linkedTargetId = finalStatus[deadPlayerId].deathLinkTarget;
+
+                // Kiểm tra mục tiêu của link có còn sống và chưa bị xử lý trong chuỗi này không
+                if (finalStatus[linkedTargetId]?.isAlive && !deadPlayerIdsThisNight.has(linkedTargetId)) {
+                    const targetLiveStatus = liveStatuses[linkedTargetId];
+                    const isProtected = targetLiveStatus?.isProtected || false;
+                    const isSaved = targetLiveStatus?.isSaved || targetLiveStatus?.isSavedByKillif || didSaveAll;
+
+                    // Chỉ giết mục tiêu nếu họ không được bảo vệ hoặc cứu
+                    if (!isProtected && !isSaved) {
+                        finalStatus[linkedTargetId].isAlive = false;
+                        finalStatus[linkedTargetId].causeOfDeath = 'death_link'; // Thêm nguyên nhân chết
+                        newlyDead.push(linkedTargetId);
+                        chainReactionOccurred = true; // Có người chết mới, cần lặp lại
+                        infoResults.push(`- ${roomPlayers.find(p=>p.id===linkedTargetId).name} đã chết do liên kết với ${deadPlayer.name}.`);
+                    } else {
+                        // Ghi log nếu người chơi được cứu khỏi hiệu ứng
+                        infoResults.push(`- ${roomPlayers.find(p=>p.id===linkedTargetId).name} đã được cứu/bảo vệ khỏi hiệu ứng chết chùm từ ${deadPlayer.name}.`);
+                    }
                 }
             }
         });
         newlyDead.forEach(id => deadPlayerIdsThisNight.add(id));
     }
+    // === END: SỬA LỖI CHECKDMG KHÔNG THỂ CỨU/BẢO VỆ ===
 
     const deadPlayerNames = Array.from(deadPlayerIdsThisNight).map(id => roomPlayers.find(p => p.id === id)?.name).filter(Boolean);
     
