@@ -1,5 +1,5 @@
 // =================================================================
-// === minigame-logic.js - Module quản lý Mini Game ===
+// === minigame-logic.js - Module quản lý Mini Game (Đã cập nhật) ===
 // =================================================================
 
 class MinigameManager {
@@ -16,6 +16,8 @@ class MinigameManager {
         this.endMinigameBtn = document.getElementById('end-minigame-btn');
         this.minigameResultsContainer = document.getElementById('minigame-results-container');
         this.minigameResultsDetails = document.getElementById('minigame-results-details');
+        this.minigameLiveChoices = document.getElementById('minigame-live-choices');
+        this.minigameLiveChoicesList = document.getElementById('minigame-live-choices-list');
 
         this.attachEventListeners();
         this.listenForStateChanges();
@@ -36,20 +38,46 @@ class MinigameManager {
                 this.endMinigameBtn.style.display = 'none';
                 this.minigameResultsContainer.style.display = 'none';
                 this.minigameSelect.disabled = false;
+                this.minigameLiveChoices.style.display = 'none';
             } else if (state.status === 'active') {
                 this.startMinigameBtn.style.display = 'none';
                 this.endMinigameBtn.style.display = 'inline-block';
                 this.minigameResultsContainer.style.display = 'none';
                 this.minigameSelect.disabled = true;
+                this.minigameLiveChoices.style.display = 'block';
+                this.renderLiveChoices(state);
             } else if (state.status === 'finished') {
                 this.startMinigameBtn.style.display = 'inline-block';
                 this.endMinigameBtn.style.display = 'none';
                 this.minigameResultsContainer.style.display = 'block';
                 this.minigameSelect.disabled = false;
-                
+                this.minigameLiveChoices.style.display = 'none';
                 this.renderResults(state);
             }
         });
+    }
+
+    renderLiveChoices(state) {
+        if (!this.minigameLiveChoicesList) return;
+        this.minigameLiveChoicesList.innerHTML = '';
+        
+        const choices = state.choices || {};
+        const participants = state.participants || {};
+        
+        for (const playerId in participants) {
+            const playerName = participants[playerId];
+            const playerChoice = choices[playerId];
+            let choiceText = '<em>Đang chờ...</em>';
+
+            if (Array.isArray(playerChoice) && playerChoice.length > 0) {
+                const chosenNames = playerChoice.map(id => participants[id] || 'N/A').join(', ');
+                choiceText = `đã chọn: <strong>${chosenNames}</strong>`;
+            }
+
+            const li = document.createElement('li');
+            li.innerHTML = `${playerName} ${choiceText}`;
+            this.minigameLiveChoicesList.appendChild(li);
+        }
     }
 
     renderResults(state) {
@@ -141,6 +169,23 @@ class MinigameManager {
                 updates[`/players/${id}/isAlive`] = false;
             });
             await this.database.ref(`rooms/${this.roomId}`).update(updates);
+
+            const nightStates = this.getNightStates();
+            if (nightStates.length > 0) {
+                const lastNightState = nightStates[nightStates.length - 1];
+                deadPlayerIds.forEach(id => {
+                    if (lastNightState.playersStatus[id]) {
+                        lastNightState.playersStatus[id].isAlive = false;
+                    }
+                });
+                this.database.ref(`rooms/${this.roomId}/nightNotes`).set(nightStates);
+            }
+            
+            const announcementText = `Mini game "Đêm của Lòng Tin" đã kết thúc. ${deadPlayerNames.length > 0 ? `Người không nhận được sự tin tưởng và phải chết là: ${deadPlayerNames.join(', ')}.` : 'Tất cả mọi người đều an toàn.'}`;
+            updates['/publicData/latestAnnouncement'] = {
+                message: announcementText,
+                timestamp: this.database.ServerValue.TIMESTAMP
+            };
 
             updates[`/minigameState/status`] = 'finished';
             updates[`/minigameState/results`] = { trustCounts, deadPlayerNames };
