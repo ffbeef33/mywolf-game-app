@@ -59,6 +59,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const assassinRoleChoices = document.getElementById('assassin-role-choices');
     const wolfActionChoiceModal = document.getElementById('wolf-action-choice-modal');
 
+    // === BẮT ĐẦU: DOM ELEMENTS CHO MINI GAME ===
+    const minigameSection = document.getElementById('minigame-section');
+    const minigameTitle = document.getElementById('minigame-title');
+    const minigameRules = document.getElementById('minigame-rules');
+    const minigameOptionsContainer = document.getElementById('minigame-options-container');
+    const minigameConfirmBtn = document.getElementById('minigame-confirm-btn');
+    const minigameStatusMessage = document.getElementById('minigame-status-message');
+    // === KẾT THÚC: DOM ELEMENTS CHO MINI GAME ===
+
     // --- State ---
     let roomListener = null;
     let publicWillListener = null;
@@ -233,6 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
     function updateGameState(username, roomId, currentRoomData) {
         roomIdDisplay.textContent = roomId;
         displayRolesInGame(currentRoomData.rolesToAssign || []);
@@ -252,6 +262,16 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             playerActionsContainer.classList.add('hidden');
         }
+
+        // === BẮT ĐẦU: KIỂM TRA TRẠNG THÁI MINI GAME ===
+        const minigameState = currentRoomData.minigameState;
+        if (minigameState && minigameState.status === 'active' && myPlayerData.isAlive) {
+            showSection(minigameSection);
+            handleMinigameState(minigameState);
+            return; // Dừng lại để chỉ hiển thị mini game
+        }
+        // === KẾT THÚC: KIỂM TRA TRẠNG THÁI MINI GAME ===
+
         const interactiveState = currentRoomData.interactiveState;
         if (interactiveState && interactiveState.phase === 'night' && myPlayerData.isAlive) {
             hideAllGameCards();
@@ -263,7 +283,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const votingState = currentRoomData.votingState;
         if (votingState && votingState.status === 'active') {
             if (myPlayerData.isAlive) {
-                 // <-- THAY ĐỔI: Kiểm tra xem người chơi có trong danh sách được vote không -->
                 if (votingState.voters && votingState.voters[myPlayerId]) {
                     showSection(votingUiSection);
                     handleVotingState(username, roomId, votingState);
@@ -292,11 +311,14 @@ document.addEventListener('DOMContentLoaded', () => {
             waitingSection.querySelector('.waiting-message').textContent = "Chờ quản trò bắt đầu...";
         }
     }
+
     function showSection(sectionToShow) {
-        [waitingSection, playerPickSection, roleRevealSection, votingUiSection, interactiveActionSection].forEach(section => {
+        // Thêm minigameSection vào danh sách quản lý
+        [waitingSection, playerPickSection, roleRevealSection, votingUiSection, interactiveActionSection, minigameSection].forEach(section => {
             section.classList.toggle('hidden', section !== sectionToShow);
         });
     }
+
     function hideAllGameCards() {
          [waitingSection, playerPickSection, roleRevealSection, votingUiSection].forEach(section => {
             section.classList.add('hidden');
@@ -605,9 +627,159 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // === BẮT ĐẦU: LOGIC MINI GAME ===
+    function handleMinigameState(state) {
+        minigameTitle.textContent = state.title;
+        const myChoice = state.choices ? state.choices[myPlayerId] : [];
+        const hasChosen = Array.isArray(myChoice) && myChoice.length > 0;
+
+        if (state.gameType === 'night_of_trust') {
+            minigameRules.textContent = "Chọn 2 người chơi bạn tin tưởng nhất. Người không được ai tin tưởng sẽ chết.";
+            
+            if (hasChosen) {
+                const chosenNames = myChoice.map(id => state.participants[id] || 'người chơi không xác định').join(', ');
+                minigameOptionsContainer.innerHTML = `<p>Bạn đã chọn tin tưởng: <strong>${chosenNames}</strong>.</p>`;
+                minigameConfirmBtn.style.display = 'none';
+                minigameStatusMessage.textContent = "Đã ghi nhận lựa chọn. Đang chờ những người khác...";
+                return;
+            }
+
+            minigameOptionsContainer.innerHTML = '';
+            minigameConfirmBtn.style.display = 'block';
+            minigameConfirmBtn.disabled = true;
+
+            for (const pId in state.participants) {
+                if (pId !== myPlayerId) { // Không thể tự chọn mình
+                    const playerName = state.participants[pId];
+                    const btn = document.createElement('button');
+                    btn.className = 'choice-btn';
+                    btn.textContent = playerName;
+                    btn.dataset.targetId = pId;
+                    minigameOptionsContainer.appendChild(btn);
+                }
+            }
+            
+            minigameStatusMessage.textContent = 'Hãy chọn 2 người.';
+
+            // Xóa event listener cũ để tránh bị chồng chéo
+            const newOptionsContainer = minigameOptionsContainer.cloneNode(true);
+            minigameOptionsContainer.parentNode.replaceChild(newOptionsContainer, minigameOptionsContainer);
+            
+            newOptionsContainer.addEventListener('click', (e) => {
+                if (e.target.classList.contains('choice-btn')) {
+                    e.target.classList.toggle('selected');
+                    const selectedCount = newOptionsContainer.querySelectorAll('.selected').length;
+                    
+                    newOptionsContainer.querySelectorAll('.choice-btn:not(.selected)').forEach(btn => {
+                        btn.disabled = (selectedCount >= 2);
+                    });
+                    
+                    minigameConfirmBtn.disabled = (selectedCount !== 2);
+                }
+            });
+            // Gán lại biến DOM sau khi clone
+            minigameOptionsContainer = newOptionsContainer;
+        }
+    }
+    // === KẾT THÚC: LOGIC MINI GAME ===
+
+
     // --- LOGIC MỚI CHO HÀNH ĐỘNG ĐÊM ---
-    
     function isActionAvailable(roleData, actionKey, currentNight) {
+        //... (Hàm này giữ nguyên)
+    }
+    function displayNightActions(currentRoomData, currentNight) {
+        //... (Hàm này giữ nguyên)
+    }
+    function renderNightlyQuestionPanel(questionData) {
+        //... (Hàm này giữ nguyên)
+    }
+    function renderActionPanel(actions) {
+        //... (Hàm này giữ nguyên)
+    }
+    function renderRestingPanel() {
+        //... (Hàm này giữ nguyên)
+    }
+    function renderActionContent(actionDetails) {
+        //... (Hàm này giữ nguyên)
+    }
+    function createAssassinTargetPanel() {
+        //... (Hàm này giữ nguyên)
+    }
+    function createWizardSavePanel() {
+        //... (Hàm này giữ nguyên)
+    }
+    function handleWolfActionChoice(choice) {
+        //... (Hàm này giữ nguyên)
+    }
+    
+    // --- EVENT LISTENERS ---
+    const eventListeners = [
+        { el: loginBtn, event: 'click', handler: handleLogin },
+        { el: passwordInput, event: 'keyup', handler: (e) => { if (e.key === 'Enter') loginBtn.click(); } },
+        { el: roleRevealSection, event: 'click', handler: () => roleRevealSection.classList.toggle('is-flipped') },
+        { el: randomChoiceBtn, event: 'click', handler: () => {
+            if (currentRoomId) {
+                const username = sessionStorage.getItem('mywolf_username');
+                if (username) selectRole(username, currentRoomId, 'random');
+            }
+        }},
+        { el: roleDescriptionModal, event: 'click', handler: (e) => {
+            if (e.target === roleDescriptionModal || e.target.classList.contains('close-modal-btn')) {
+                roleDescriptionModal.classList.add('hidden');
+            }
+        }},
+        { el: openWillModalBtn, event: 'click', handler: openWillModal },
+        { el: willTextarea, event: 'input', handler: updateWordCount },
+        { el: saveWillBtn, event: 'click', handler: saveWill }
+    ];
+    eventListeners.forEach(({ el, event, handler }) => {
+        if (el) el.addEventListener(event, handler);
+    });
+
+    [willWritingModal, publishedWillModal, assassinModal, wolfActionChoiceModal, document.getElementById('announcement-modal')].forEach(modal => { 
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal || e.target.classList.contains('close-modal-btn')) {
+                    modal.classList.add('hidden');
+                }
+            });
+        }
+    });
+
+    document.getElementById('wolf-choice-bite-btn')?.addEventListener('click', () => handleWolfActionChoice('kill'));
+    document.getElementById('wolf-choice-curse-btn')?.addEventListener('click', () => handleWolfActionChoice('curse'));
+
+    // === BẮT ĐẦU: EVENT LISTENER CHO MINI GAME ===
+    if (minigameConfirmBtn) {
+        minigameConfirmBtn.addEventListener('click', () => {
+            const currentMinigameOptions = document.getElementById('minigame-options-container');
+            const selectedNodes = currentMinigameOptions.querySelectorAll('.selected');
+            if (selectedNodes.length !== 2) {
+                minigameStatusMessage.textContent = "Vui lòng chọn đúng 2 người chơi.";
+                return;
+            }
+            
+            const selectedIds = Array.from(selectedNodes).map(node => node.dataset.targetId);
+            const choiceRef = database.ref(`rooms/${currentRoomId}/minigameState/choices/${myPlayerId}`);
+            
+            choiceRef.set(selectedIds).catch(err => {
+                minigameStatusMessage.textContent = "Lỗi khi gửi lựa chọn: " + err.message;
+            });
+        });
+    }
+    // === KẾT THÚC: EVENT LISTENER CHO MINI GAME ===
+
+
+    // --- INITIAL LOAD ---
+    const initialize = async () => {
+        await fetchAllRolesData();
+        await fetchNightQuotes();
+        checkSessionAndAutoLogin();
+    };
+    
+    // Sao chép lại các hàm không thay đổi để đảm bảo file đầy đủ
+    isActionAvailable = function(roleData, actionKey, currentNight) {
         const activeRule = roleData.active;
         const parts = activeRule.split('_');
         const usesRule = parts[0];
@@ -631,8 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
-    // <-- THAY ĐỔI: Cập nhật hàm này để hiển thị câu hỏi -->
-    function displayNightActions(currentRoomData, currentNight) {
+    displayNightActions = function(currentRoomData, currentNight) {
         interactiveActionSection.innerHTML = '';
         interactiveActionSection.classList.remove('hidden');
         
@@ -700,9 +871,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         renderActionPanel(availableActions);
     }
-
-    // <-- HÀM MỚI: Hiển thị câu hỏi cho người chơi bị động -->
-    function renderNightlyQuestionPanel(questionData) {
+    
+    renderNightlyQuestionPanel = function(questionData) {
         interactiveActionSection.innerHTML = '';
 
         if (questionData.answer) {
@@ -746,7 +916,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function renderActionPanel(actions) {
+    renderActionPanel = function(actions) {
         const actionDetailsArray = Array.isArray(actions) ? actions : [actions];
 
         const panel = document.createElement('div');
@@ -780,8 +950,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderActionContent(actionDetailsArray[0]);
     }
-
-    function renderRestingPanel() {
+    
+    renderRestingPanel = function() {
         let randomMessage = "Bạn không có hành động nào đêm nay. Hãy cố gắng nghỉ ngơi và chuẩn bị cho ngày mai.";
         if (allNightQuotes && allNightQuotes.length > 0) {
             randomMessage = allNightQuotes[Math.floor(Math.random() * allNightQuotes.length)];
@@ -798,8 +968,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>`;
     }
-
-    function renderActionContent(actionDetails) {
+    
+    renderActionContent = function(actionDetails) {
         const contentContainer = document.getElementById('action-content');
         if (!contentContainer) return;
         contentContainer.innerHTML = '';
@@ -961,7 +1131,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function createAssassinTargetPanel() {
+    createAssassinTargetPanel = function() {
         const container = document.createElement('div');
         const livingPlayers = Object.entries(roomData.players).filter(([, p]) => p.isAlive);
         const targetGrid = document.createElement('div');
@@ -979,7 +1149,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return container;
     }
     
-    function createWizardSavePanel() {
+    createWizardSavePanel = function() {
          const container = document.createElement('div');
          container.style.textAlign = 'center';
          const currentNight = roomData.interactiveState.currentNight;
@@ -1001,56 +1171,13 @@ document.addEventListener('DOMContentLoaded', () => {
          container.append(useBtn, skipBtn);
          return container;
     }
-
-    function handleWolfActionChoice(choice) {
+    
+    handleWolfActionChoice = function(choice) {
         const currentNight = roomData.interactiveState.currentNight;
         const actionPath = `rooms/${currentRoomId}/nightActions/${currentNight}/wolf_group/action`;
         database.ref(actionPath).set(choice);
         wolfActionChoiceModal.classList.add('hidden');
     }
 
-    // --- EVENT LISTENERS ---
-    const eventListeners = [
-        { el: loginBtn, event: 'click', handler: handleLogin },
-        { el: passwordInput, event: 'keyup', handler: (e) => { if (e.key === 'Enter') loginBtn.click(); } },
-        { el: roleRevealSection, event: 'click', handler: () => roleRevealSection.classList.toggle('is-flipped') },
-        { el: randomChoiceBtn, event: 'click', handler: () => {
-            if (currentRoomId) {
-                const username = sessionStorage.getItem('mywolf_username');
-                if (username) selectRole(username, currentRoomId, 'random');
-            }
-        }},
-        { el: roleDescriptionModal, event: 'click', handler: (e) => {
-            if (e.target === roleDescriptionModal || e.target.classList.contains('close-modal-btn')) {
-                roleDescriptionModal.classList.add('hidden');
-            }
-        }},
-        { el: openWillModalBtn, event: 'click', handler: openWillModal },
-        { el: willTextarea, event: 'input', handler: updateWordCount },
-        { el: saveWillBtn, event: 'click', handler: saveWill }
-    ];
-    eventListeners.forEach(({ el, event, handler }) => {
-        if (el) el.addEventListener(event, handler);
-    });
-
-    [willWritingModal, publishedWillModal, assassinModal, wolfActionChoiceModal, document.getElementById('announcement-modal')].forEach(modal => { 
-        if (modal) {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal || e.target.classList.contains('close-modal-btn')) {
-                    modal.classList.add('hidden');
-                }
-            });
-        }
-    });
-
-    document.getElementById('wolf-choice-bite-btn')?.addEventListener('click', () => handleWolfActionChoice('kill'));
-    document.getElementById('wolf-choice-curse-btn')?.addEventListener('click', () => handleWolfActionChoice('curse'));
-
-    // --- INITIAL LOAD ---
-    const initialize = async () => {
-        await fetchAllRolesData();
-        await fetchNightQuotes();
-        checkSessionAndAutoLogin();
-    };
     initialize();
 });

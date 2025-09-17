@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let factionChangeModal = null;
 
     let groupModal, groupModalTitle, groupNameInput, groupModalPlayers, groupModalConfirmBtn, currentGroupEditingPlayerId;
-
+    
     // --- Config ---
     const FACTION_GROUPS = [
         { display: 'Bầy Sói', factions: ['Bầy Sói'], className: 'faction-wolf' },
@@ -74,6 +74,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let roomDataState = {};
     let isInteractiveMode = false;
 
+    // ... (Tất cả các hàm từ handleClearLog đến renderVoteResults giữ nguyên, không thay đổi) ...
+    // START COPY CÁC HÀM CŨ TỪ ĐÂY
     const handleClearLog = async () => {
         if (!roomId || !confirm('Bạn có chắc muốn xóa log và reset vai trò của tất cả người chơi trong phòng này?')) return;
         
@@ -1039,6 +1041,15 @@ document.addEventListener('DOMContentLoaded', () => {
         createGroupModal();
         createVotingModuleStructure();
         
+        // === KHỞI TẠO MODULE MINI GAME ===
+        const minigameManager = new MinigameManager(
+            database,
+            roomId,
+            () => roomPlayers, // Hàm getter cho roomPlayers
+            () => nightStates   // Hàm getter cho nightStates
+        );
+        // ===================================
+        
         const roomRef = database.ref(`rooms/${roomId}`);
         roomRef.on('value', (snapshot) => {
             const roomData = snapshot.val();
@@ -1660,4 +1671,5 @@ document.addEventListener('DOMContentLoaded', () => {
         summaryHtml += '</ul>';
         voteResultsContainer.querySelector('#vote-results-summary').innerHTML = summaryHtml;
     }
+    // END COPY CÁC HÀM CŨ
 });
