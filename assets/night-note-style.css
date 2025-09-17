@@ -185,9 +185,9 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .player-info {
     flex-grow: 1; 
     min-width: 0;
-    display: flex; /* Bổ sung */
-    align-items: center; /* Bổ sung */
-    gap: 12px; /* Bổ sung */
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .player-info .player-name-wrapper,
@@ -274,7 +274,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     filter: brightness(1.2);
 }
 
-/* === BẮT ĐẦU CODE MỚI === */
 .player-status-icon {
     width: 32px;
     height: 32px;
@@ -299,7 +298,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     color: var(--danger-color);
     border-color: var(--danger-color);
 }
-/* === KẾT THÚC CODE MỚI === */
 
 .player-row.status-dead { opacity: 0.5; background-color: #111; }
 .player-row.status-dead .action-modal-btn { display: none; }
