@@ -1,5 +1,5 @@
 // =================================================================
-// === minigame-logic.js - Module quản lý Mini Game (Đã cập nhật) ===
+// === minigame-logic.js - Module quản lý Mini Game (Đã sửa lỗi) ===
 // =================================================================
 
 class MinigameManager {
@@ -184,7 +184,7 @@ class MinigameManager {
             const announcementText = `Mini game "Đêm của Lòng Tin" đã kết thúc. ${deadPlayerNames.length > 0 ? `Người không nhận được sự tin tưởng và phải chết là: ${deadPlayerNames.join(', ')}.` : 'Tất cả mọi người đều an toàn.'}`;
             updates['/publicData/latestAnnouncement'] = {
                 message: announcementText,
-                timestamp: this.database.ServerValue.TIMESTAMP
+                timestamp: firebase.database.ServerValue.TIMESTAMP // <-- ĐÃ SỬA LỖI
             };
 
             updates[`/minigameState/status`] = 'finished';
