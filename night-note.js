@@ -103,6 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 '/nightNotes': null,
                 '/playerOrder': null,
                 '/minigameState': null // <-- ĐÃ THÊM
+                '/publicData/latestAnnouncement': null //
             });
             alert('Đã xóa log và reset phòng thành công! Trang sẽ được làm mới.');
             location.reload();

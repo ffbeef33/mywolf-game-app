@@ -84,6 +84,8 @@ document.addEventListener('DOMContentLoaded', () => {
             updates['/nightActions'] = null;
             updates['/nightResults'] = null;
             updates['/minigameState'] = null; // <-- THÊM DÒNG NÀY ĐỂ RESET MINI GAME
+            updates['/publicData/latestAnnouncement'] = null;
+            
             updates['/interactiveState'] = {
                 phase: 'setup',
                 currentNight: 0,
