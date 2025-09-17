@@ -2,6 +2,19 @@
 // === interactive-gm.js - NÂNG CẤP LOG CHI TIẾT CHO QUẢN TRÒ ===
 // =================================================================
 
+// === BẮT ĐẦU CODE MỚI ===
+/**
+ * Xáo trộn một mảng tại chỗ (in-place) sử dụng thuật toán Fisher-Yates.
+ * @param {Array} array Mảng cần xáo trộn.
+ */
+const shuffleArray = (array) => {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+};
+// === KẾT THÚC CODE MỚI ===
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- Cấu hình Firebase ---
     const firebaseConfig = {
@@ -46,6 +59,96 @@ document.addEventListener('DOMContentLoaded', () => {
     let rememberedVoteWeights = {};
     let secretVoteWeights = {};
 
+    // === BẮT ĐẦU CODE MỚI ===
+    const handleClearLog = async () => {
+        if (!currentRoomId || !confirm('Bạn có chắc muốn xóa log và reset TOÀN BỘ game?')) return;
+        
+        try {
+            await fetch(`/api/sheets`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'clearGameLog' })
+            });
+
+            const updates = {};
+            Object.keys(roomData.players).forEach(pId => {
+                updates[`/players/${pId}/isAlive`] = true;
+                updates[`/players/${pId}/roleName`] = null;
+                updates[`/players/${pId}/currentFaction`] = null;
+                updates[`/players/${pId}/originalRoleName`] = null;
+                updates[`/players/${pId}/causeOfDeath`] = null;
+                updates[`/players/${pId}/will`] = null;
+                updates[`/players/${pId}/wizardAbilityState`] = null;
+            });
+
+            updates['/nightActions'] = null;
+            updates['/nightResults'] = null;
+            updates['/interactiveState'] = {
+                phase: 'setup',
+                currentNight: 0,
+                message: 'Game đã được reset. Chờ Quản trò chia vai.',
+                curseAbility: { status: 'locked' } 
+            };
+            
+            await database.ref(`rooms/${currentRoomId}`).update(updates);
+            alert('Đã xóa log và reset game thành công!');
+        } catch (error) {
+            console.error('Lỗi khi xóa log:', error);
+            alert('Có lỗi xảy ra: ' + error.message);
+        }
+    };
+
+    const handleStartRandom = async () => {
+        if (!currentRoomId || !confirm('Bạn có chắc muốn random và gửi vai trò mới?')) return;
+
+        const startBtn = document.getElementById('ig-start-random-btn');
+        startBtn.disabled = true;
+        startBtn.textContent = 'Đang random...';
+
+        try {
+            const roomRef = database.ref(`rooms/${currentRoomId}`);
+            const roomSnapshot = await roomRef.once('value');
+            const currentRoomData = roomSnapshot.val();
+
+            if (!currentRoomData || !currentRoomData.players || !currentRoomData.rolesToAssign) {
+                throw new Error("Lỗi: Không tìm thấy dữ liệu phòng.");
+            }
+
+            let rolesToAssign = [...currentRoomData.rolesToAssign];
+            let playerIds = Object.keys(currentRoomData.players);
+
+            shuffleArray(rolesToAssign);
+            shuffleArray(playerIds);
+
+            const updates = {};
+            const logPayload = [];
+            playerIds.forEach((id, index) => {
+                const assignedRoleName = rolesToAssign[index];
+                updates[`/players/${id}/roleName`] = assignedRoleName;
+                logPayload.push({ name: currentRoomData.players[id].name, role: assignedRoleName });
+            });
+
+            updates['/gameState/status'] = 'roles-sent';
+            updates['/interactiveState/message'] = 'Quản trò đã gửi vai trò mới.';
+            
+            await roomRef.update(updates);
+
+            await fetch(`/api/sheets`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'saveGameLog', payload: logPayload })
+            });
+
+            alert('Đã gửi vai trò mới và lưu log thành công!');
+        } catch (error) {
+            console.error("Lỗi khi gửi vai trò:", error);
+            alert("Lỗi: " + error.message);
+        } finally {
+            startBtn.disabled = false;
+            startBtn.innerHTML = '<i class="fas fa-random"></i> Random Lại Vai';
+        }
+    };
+    // === KẾT THÚC CODE MỚI ===
 
     const initialize = async () => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -60,6 +163,11 @@ document.addEventListener('DOMContentLoaded', () => {
         attachListenersToRoom();
         attachVoteButtonListeners(); 
         initializeCollapsibleSections(); 
+
+        // === BẮT ĐẦU CODE MỚI ===
+        document.getElementById('ig-clear-log-btn')?.addEventListener('click', handleClearLog);
+        document.getElementById('ig-start-random-btn')?.addEventListener('click', handleStartRandom);
+        // === KẾT THÚC CODE MỚI ===
     };
 
     const fetchAllRolesData = async () => {
