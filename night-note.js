@@ -570,7 +570,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (playerId === 'wolf_group') {
                 const wolfActions = currentNightState.actions.filter(action => {
                     const actor = roomPlayers.find(p => p.id === action.actorId);
-                    return actor && (actor.faction === 'Bầy Sói' || actor.faction === 'Phe Sói');
+                    // === DÒNG ĐÃ SỬA LỖI ===
+                    return action.actorId === 'wolf_group' || (actor && (actor.faction === 'Bầy Sói' || actor.faction === 'Phe Sói'));
                 });
                 playerActions = wolfActions;
             } else {
@@ -586,8 +587,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     const actionConfig = ALL_ACTIONS[action.action];
                     const actionLabel = actionConfig?.label || action.action;
                     const actor = roomPlayers.find(p => p.id === action.actorId);
-                    let displayText = `<i class="fas fa-arrow-right"></i> ${actionLabel} <strong>${target?.name || ''}</strong>`;
-                    if(playerId === 'wolf_group' && actor) {
+                    
+                    // Thay đổi cách hiển thị để phân biệt hành động chung và hành động cá nhân
+                    let displayText = '';
+                    if (action.actorId === 'wolf_group') {
+                        displayText = `<i class="fas fa-arrow-right"></i> ${actionLabel} <strong>${target?.name || ''}</strong>`;
+                    } else if (actor) { // Nếu là hành động cá nhân của Sói
                         displayText = `<em>${actor.name}</em> → ${actionLabel} <strong>${target?.name || ''}</strong>`;
                     }
 
