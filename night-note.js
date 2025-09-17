@@ -1,5 +1,5 @@
 // =================================================================
-// === night-note.js - SỬA LỖI CẤU TRÚC DỮ LIỆU ACTION ===
+// === night-note.js (Đã tách module Mini Game và cập nhật Reset) ===
 // =================================================================
 
 /**
@@ -74,8 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let roomDataState = {};
     let isInteractiveMode = false;
 
-    // ... (Tất cả các hàm từ handleClearLog đến renderVoteResults giữ nguyên, không thay đổi) ...
-    // START COPY CÁC HÀM CŨ TỪ ĐÂY
     const handleClearLog = async () => {
         if (!roomId || !confirm('Bạn có chắc muốn xóa log và reset vai trò của tất cả người chơi trong phòng này?')) return;
         
@@ -103,7 +101,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 '/gameState/status': 'setup',
                 '/gameState/message': 'Quản trò đã reset game.',
                 '/nightNotes': null,
-                '/playerOrder': null
+                '/playerOrder': null,
+                '/minigameState': null // <-- ĐÃ THÊM
             });
             alert('Đã xóa log và reset phòng thành công! Trang sẽ được làm mới.');
             location.reload();
@@ -164,7 +163,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Data Fetching ---
     const fetchAllRolesData = async () => {
         try {
             const response = await fetch(`/api/sheets?sheetName=Roles`);
@@ -246,7 +244,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
     
-    // --- Log Builder Functions ---
     function buildGmActionLog(nightState) {
         const gmActions = [];
         if (Array.isArray(nightState.factionChanges)) {
@@ -1041,14 +1038,13 @@ document.addEventListener('DOMContentLoaded', () => {
         createGroupModal();
         createVotingModuleStructure();
         
-        // === KHỞI TẠO MODULE MINI GAME ===
+        // Khởi tạo module Mini Game
         const minigameManager = new MinigameManager(
             database,
             roomId,
-            () => roomPlayers, // Hàm getter cho roomPlayers
-            () => nightStates   // Hàm getter cho nightStates
+            () => roomPlayers,
+            () => nightStates
         );
-        // ===================================
         
         const roomRef = database.ref(`rooms/${roomId}`);
         roomRef.on('value', (snapshot) => {
@@ -1185,6 +1181,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         document.body.innerHTML = '<h1>Lỗi: Không tìm thấy ID phòng trong URL.</h1>';
     }
+
+    // ... (Tất cả các hàm helper còn lại như openGmWillModal, createGroupModal, ... giữ nguyên)
+    // START COPY
     const openGmWillModal = (playerId) => {
         const player = roomPlayers.find(p => p.id === playerId);
         if (!player) return;
@@ -1671,5 +1670,5 @@ document.addEventListener('DOMContentLoaded', () => {
         summaryHtml += '</ul>';
         voteResultsContainer.querySelector('#vote-results-summary').innerHTML = summaryHtml;
     }
-    // END COPY CÁC HÀM CŨ
+    // END COPY
 });
