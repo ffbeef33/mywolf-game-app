@@ -1,5 +1,5 @@
 // =================================================================
-// === player.js - LẤY QUOTES NGẪU NHIÊN & THÊM MINI GAME MỚI ===
+// === player.js - LẤY QUOTES NGẪU NHIÊN & THÊM MINI GAME MỚI (FIXED) ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -355,7 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!nightData) continue;
 
             const publicResult = nightData.public;
-            const privateResult = nightData.private ? . [myPlayerId];
+            const privateResult = nightData.private && nightData.private[myPlayerId];
             const nightMessages = [];
 
             if (publicResult) {
@@ -651,7 +651,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleRoleGuess(targetId, guessedRole) {
-        const currentNight = roomData.interactiveState ? .currentNight;
+        const currentNight = roomData.interactiveState && roomData.interactiveState.currentNight;
         if (!currentNight) return;
 
         const actionPath = `rooms/${currentRoomId}/nightActions/${currentNight}/${myPlayerId}`;
@@ -792,7 +792,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let timesUsed = 0;
             const allNightActions = roomData.nightActions || {};
             for (const night in allNightActions) {
-                if (allNightActions[night][myPlayerId] ? .action === actionKey) {
+                const nightAction = allNightActions[night] && allNightActions[night][myPlayerId];
+                if (nightAction && nightAction.action === actionKey) {
                     timesUsed++;
                 }
             }
@@ -811,8 +812,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const availableActions = [];
 
         if (isWolfFaction) {
-            const curseState = currentRoomData.interactiveState ? .curseAbility ? .status || 'locked';
-            const wolfAction = currentRoomData.nightActions ? . [currentNight] ? .wolf_group ? .action;
+            const curseState = (currentRoomData.interactiveState && currentRoomData.interactiveState.curseAbility && currentRoomData.interactiveState.curseAbility.status) || 'locked';
+            const wolfAction = (currentRoomData.nightActions && currentRoomData.nightActions[currentNight] && currentRoomData.nightActions[currentNight].wolf_group && currentRoomData.nightActions[currentNight].wolf_group.action);
 
             if (curseState === 'available' && !wolfAction) {
                 wolfActionChoiceModal.classList.remove('hidden');
@@ -886,7 +887,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (availableActions.length === 0) {
-            const myNightlyQuestion = currentRoomData.interactiveState ? .nightlyQuestions ? . [myPlayerId];
+            const myNightlyQuestion = currentRoomData.interactiveState && currentRoomData.interactiveState.nightlyQuestions && currentRoomData.interactiveState.nightlyQuestions[myPlayerId];
             if (myNightlyQuestion && myNightlyQuestion.questionText) {
                 renderNightlyQuestionPanel(myNightlyQuestion);
             } else {
@@ -1010,9 +1011,10 @@ document.addEventListener('DOMContentLoaded', () => {
             actionDetails.description;
 
         const currentNight = roomData.interactiveState.currentNight;
-        const myNightAction = roomData.nightActions ? . [currentNight] ? . [myPlayerId];
-        const wolfVote = roomData.nightActions ? . [currentNight] ? .wolf_group ? .votes ? . [myPlayerId];
-        const wolfActionChoice = roomData.nightActions ? . [currentNight] ? .wolf_group ? .action;
+        const myNightAction = (roomData.nightActions && roomData.nightActions[currentNight]) ? roomData.nightActions[currentNight][myPlayerId] : null;
+        const wolfVoteData = (roomData.nightActions && roomData.nightActions[currentNight] && roomData.nightActions[currentNight].wolf_group) ? roomData.nightActions[currentNight].wolf_group.votes : null;
+        const wolfVote = wolfVoteData ? wolfVoteData[myPlayerId] : null;
+        const wolfActionChoice = (roomData.nightActions && roomData.nightActions[currentNight] && roomData.nightActions[currentNight].wolf_group) ? roomData.nightActions[currentNight].wolf_group.action : null;
 
         let isActionConfirmed = false;
         let confirmedTargetIds = [];
@@ -1026,7 +1028,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (isActionConfirmed) {
-            const targetNames = confirmedTargetIds.map(tid => roomData.players[tid] ? .name || '???').join(', ');
+            const targetNames = confirmedTargetIds.map(tid => (roomData.players[tid] && roomData.players[tid].name) || '???').join(', ');
             contentContainer.innerHTML = `
                 <div class="action-locked-overlay">
                     <div class="icon"><i class="fas fa-check-circle"></i></div>
@@ -1059,14 +1061,14 @@ document.addEventListener('DOMContentLoaded', () => {
         let previousTargetIds = [];
 
         if (actionDetails.roleInfo.select === '0' && previousNight > 0) {
-            const previousAction = actionDetails.isWolfGroupAction ?
-                roomData.nightActions ? . [previousNight] ? .wolf_group :
-                roomData.nightActions ? . [previousNight] ? . [myPlayerId];
+            const previousAction = actionDetails.isWolfGroupAction
+                ? (roomData.nightActions && roomData.nightActions[previousNight] ? roomData.nightActions[previousNight].wolf_group : null)
+                : (roomData.nightActions && roomData.nightActions[previousNight] ? roomData.nightActions[previousNight][myPlayerId] : null);
 
             if (previousAction) {
-                if (actionDetails.isWolfGroupAction) {
-                    const previousVote = previousAction.votes ? . [myPlayerId];
-                    if (previousVote) {
+                if(actionDetails.isWolfGroupAction) {
+                    const previousVote = previousAction.votes && previousAction.votes[myPlayerId];
+                    if(previousVote) {
                         previousTargetIds.push(previousVote);
                     }
                 } else if (previousAction.action === actionDetails.actionKey) {
@@ -1085,7 +1087,7 @@ document.addEventListener('DOMContentLoaded', () => {
         confirmBtn.disabled = true;
         footer.appendChild(confirmBtn);
 
-        const wolfVotes = roomData.nightActions ? . [currentNight] ? .wolf_group ? .votes || {};
+        const wolfVotes = (roomData.nightActions && roomData.nightActions[currentNight] && roomData.nightActions[currentNight].wolf_group) ? roomData.nightActions[currentNight].wolf_group.votes || {} : {};
         const voteCounts = Object.values(wolfVotes).reduce((acc, targetId) => {
             acc[targetId] = (acc[targetId] || 0) + 1;
             return acc;
@@ -1274,8 +1276,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.getElementById('wolf-choice-bite-btn') ? .addEventListener('click', () => handleWolfActionChoice('kill'));
-    document.getElementById('wolf-choice-curse-btn') ? .addEventListener('click', () => handleWolfActionChoice('curse'));
+    const wolfBiteBtn = document.getElementById('wolf-choice-bite-btn');
+    if (wolfBiteBtn) {
+        wolfBiteBtn.addEventListener('click', () => handleWolfActionChoice('kill'));
+    }
+    
+    const wolfCurseBtn = document.getElementById('wolf-choice-curse-btn');
+    if (wolfCurseBtn) {
+        wolfCurseBtn.addEventListener('click', () => handleWolfActionChoice('curse'));
+    }
+
 
     // === BẮT ĐẦU: EVENT LISTENER CHO MINI GAME ===
     if (minigameConfirmBtn) {
