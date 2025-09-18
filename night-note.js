@@ -475,7 +475,10 @@ document.addEventListener('DOMContentLoaded', () => {
         row.className = 'player-row';
         row.dataset.playerId = player.id;
         
-        if (!playerState.isAlive) {
+        // ================= SỬA LỖI =================
+        // Chỉ thêm class 'status-dead' (ẩn nút action) KHI ĐÊM ĐÃ KẾT THÚC.
+        // Nếu đêm chưa kết thúc, người chơi dự kiến chết sẽ có class 'status-danger' (nền đỏ) nhưng nút vẫn hiện.
+        if (isFinished && !playerState.isAlive) {
             row.classList.add('status-dead');
         } else {
             if (liveStatus) {
@@ -485,6 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (liveStatus.isDisabled) row.classList.add('status-disabled-by-ability');
             }
         }
+        // ================= KẾT THÚC SỬA LỖI =================
     
         if (player.originalRoleName) row.classList.add('status-cursed');
     
