@@ -1223,31 +1223,33 @@ document.addEventListener('DOMContentLoaded', () => {
         wolfActionChoiceModal.classList.add('hidden');
     }
 
+// Tệp: player.js
+
     function handleReturningSpiritState(state) {
         const myProgress = state.playerProgress[myPlayerId];
         if (!myProgress) return; // Không tham gia
-    
+
         const doorA = spiritDoorOptions.querySelector('[data-choice="A"]');
         const doorB = spiritDoorOptions.querySelector('[data-choice="B"]');
-    
+
         // Vô hiệu hóa các nút trước khi cập nhật
         doorA.disabled = true;
         doorB.disabled = true;
-    
+
         if (myProgress.isWinner) {
             spiritRoundDisplay.textContent = "CHIẾN THẮNG!";
             spiritStatusMessage.textContent = "Bạn đã vượt qua tất cả các cửa và trở thành người chiến thắng!";
             spiritDoorOptions.classList.add('hidden');
             return;
         }
-    
+
         if (myProgress.isEliminated) {
             spiritRoundDisplay.textContent = "ĐÃ BỊ LOẠI";
             spiritStatusMessage.textContent = `Bạn đã chọn sai ở vòng ${myProgress.currentRound}.`;
             spiritDoorOptions.classList.add('hidden');
             return;
         }
-    
+
         // Nếu chưa bị loại hoặc thắng, hiển thị vòng hiện tại
         spiritDoorOptions.classList.remove('hidden');
         spiritRoundDisplay.textContent = `Vòng ${myProgress.currentRound}`;
@@ -1256,25 +1258,29 @@ document.addEventListener('DOMContentLoaded', () => {
         // Mở lại các nút
         doorA.disabled = false;
         doorB.disabled = false;
-    
+
         // Xử lý khi click chọn cửa
         const handleChoice = (choice) => {
             // Khóa các nút lại ngay sau khi chọn
             doorA.disabled = true;
             doorB.disabled = true;
             spiritStatusMessage.textContent = "Đang kiểm tra...";
-    
+
             const correctChoice = state.correctPath[myProgress.currentRound - 1];
             const isCorrect = (choice === correctChoice);
             
             const updates = {};
             const basePath = `rooms/${currentRoomId}/minigameState/playerProgress/${myPlayerId}`;
-    
+            
+            // ================= SỬA LỖI =================
+            // Sử dụng `(myProgress.choices || [])` để đảm bảo luôn là một mảng có thể trải được
+            const newChoices = [...(myProgress.choices || []), choice];
+
             if (isCorrect) {
                 const nextRound = myProgress.currentRound + 1;
-                updates[`${basePath}/choices`] = [...myProgress.choices, choice];
+                updates[`${basePath}/choices`] = newChoices;
                 updates[`${basePath}/currentRound`] = nextRound;
-    
+
                 if (nextRound > 3) { // Thắng
                     updates[`${basePath}/isWinner`] = true;
                     // Chỉ người chơi đầu tiên thắng mới cập nhật được `winner`
@@ -1285,13 +1291,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
             } else { // Thua
-                updates[`${basePath}/choices`] = [...myProgress.choices, choice];
+                updates[`${basePath}/choices`] = newChoices;
                 updates[`${basePath}/isEliminated`] = true;
             }
-    
+            // ================= KẾT THÚC SỬA LỖI =================
+
             database.ref().update(updates);
         };
-    
+
         // Gán lại event listeners để tránh bị trùng lặp
         doorA.onclick = () => handleChoice('A');
         doorB.onclick = () => handleChoice('B');
