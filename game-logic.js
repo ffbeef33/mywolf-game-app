@@ -233,7 +233,8 @@ function calculateNightStatus(nightState, roomPlayers) {
                 if(finalStatus[targetId]) finalStatus[targetId].isBoobyTrapped = true;
             }
             else if (actionKind === 'love') {
-                if (liveStatuses[actorId]) liveStatuses[actorId].isImmuneToWolves = true;
+                // SỬA LỖI: Xóa dòng code sai, người dùng love không được miễn nhiễm với Sói
+                // if (liveStatuses[actorId]) liveStatuses[actorId].isImmuneToWolves = true; 
                 loveRedirects[targetId] = actorId;
 
                 if(target.faction === 'Bầy Sói') {
@@ -467,7 +468,7 @@ function calculateNightStatus(nightState, roomPlayers) {
 
     executableActions.forEach(({ actorId, targets, action }) => {
          const actor = roomPlayers.find(p => p.id === actorId);
-         if (!actor || disabledPlayerIds.has(actorId)) return;
+         if (!actor || disabledPlayerIds.has(actor.id)) return;
          
          (targets || []).forEach(targetId => {
             const actionKind = ALL_ACTIONS[action]?.key || action;

@@ -1,5 +1,5 @@
 // =================================================================
-// === minigame-logic.js - Module quản lý Mini Game (Đã nâng cấp) ===
+// === minigame-logic.js - Module quản lý Mini Game (Đã sửa lỗi) ===
 // =================================================================
 
 class MinigameManager {
@@ -86,9 +86,12 @@ class MinigameManager {
                 const submission = submissions[playerId];
                 let statusText = '<em>Chưa trả lời...</em>';
 
-                if (submission) {
+                // SỬA LỖI: Chỉ tính toán thời gian khi timestamp đã là một con số
+                if (submission && typeof submission.timestamp === 'number' && typeof state.startTime === 'number') {
                     const timeTaken = ((submission.timestamp - state.startTime) / 1000).toFixed(2);
                     statusText = `đã trả lời (Đáp án: ${submission.answer}) - <strong>${timeTaken}s</strong>`;
+                } else if (submission) {
+                    statusText = `đã trả lời (Đáp án: ${submission.answer}) - <strong>Đang xử lý...</strong>`;
                 }
                 const li = document.createElement('li');
                 li.innerHTML = `${playerName} ${statusText}`;
@@ -274,7 +277,8 @@ class MinigameManager {
             const { correctAnswer } = currentState.problem;
 
             const correctSubmissions = Object.entries(submissions)
-                .filter(([, sub]) => sub.answer == correctAnswer)
+                // SỬA LỖI: Chỉ lọc những câu trả lời đúng VÀ có timestamp là một con số
+                .filter(([, sub]) => sub.answer == correctAnswer && typeof sub.timestamp === 'number' && typeof currentState.startTime === 'number')
                 .sort(([, a], [, b]) => a.timestamp - b.timestamp);
 
             if (correctSubmissions.length > 0) {
