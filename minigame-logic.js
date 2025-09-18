@@ -180,7 +180,7 @@ class MinigameManager {
             const { correctPath, playerProgress, winner } = state;
             
             const answerLi = document.createElement('li');
-            answerLi.innerHTML = `<strong style="color: var(--safe-color);">Đáp án đúng: ${correctPath.join(' - ')}</strong>`;
+            answerLi.innerHTML = `<strong style="color: var(--safe-color);">Đáp án đúng: ${(correctPath || []).join(' - ')}</strong>`;
             this.minigameLiveChoicesList.appendChild(answerLi);
             
             if(winner) {
@@ -193,12 +193,14 @@ class MinigameManager {
             for (const pId in playerProgress) {
                 const progress = playerProgress[pId];
                 let statusText = '';
+                const choicesText = (progress.choices || []).join(', ');
+
                 if (progress.isWinner) {
-                    statusText = `<span style="color: var(--safe-color);">ĐÃ THẮNG!</span> (Lựa chọn: ${progress.choices.join(', ')})`;
+                    statusText = `<span style="color: var(--safe-color);">ĐÃ THẮNG!</span> (Lựa chọn: ${choicesText})`;
                 } else if (progress.isEliminated) {
-                    statusText = `<span style="color: var(--danger-color);">ĐÃ BỊ LOẠI</span> (Lựa chọn: ${progress.choices.join(', ')})`;
+                    statusText = `<span style="color: var(--danger-color);">ĐÃ BỊ LOẠI</span> (Lựa chọn: ${choicesText})`;
                 } else {
-                    statusText = `Đang ở Vòng ${progress.currentRound} (Đã chọn: ${progress.choices.join(', ') || 'Chưa có'})`;
+                    statusText = `Đang ở Vòng ${progress.currentRound} (Đã chọn: ${choicesText || 'Chưa có'})`;
                 }
 
                 const li = document.createElement('li');
@@ -430,7 +432,7 @@ class MinigameManager {
                 alert(`Mini game kết thúc! Không có ai thắng.`);
             }
         } else if (currentState.gameType === 'returning_spirit') {
-            const winnerId = currentState.winner;
+            const winnerId = currentState.winner || null; // SỬA LỖI 2
             const winnerName = winnerId ? currentState.participants[winnerId] : null;
             
             if(winnerName) {
