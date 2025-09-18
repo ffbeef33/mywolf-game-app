@@ -74,6 +74,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const mathOptionsContainer = document.getElementById('math-options-container');
     const mathStatusMessage = document.getElementById('math-status-message');
 
+    // === BIẾN MỚI CHO VONG HỒN TRỞ LẠI ===
+    const returningSpiritSection = document.getElementById('returning-spirit-section');
+    const spiritRoundDisplay = document.getElementById('spirit-round-display');
+    const spiritDoorOptions = document.getElementById('spirit-door-options');
+    const spiritStatusMessage = document.getElementById('spirit-status-message');
+
 
     // --- State ---
     let roomListener = null;
@@ -281,13 +287,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const minigameState = currentRoomData.minigameState;
-        if (minigameState && minigameState.status === 'active' && myPlayerData.isAlive) {
+        if (minigameState && minigameState.status === 'active' && minigameState.participants[myPlayerId]) {
             if (minigameState.gameType === 'night_of_trust') {
                 showSection(minigameSection);
                 handleMinigameState(minigameState);
             } else if (minigameState.gameType === 'math_whiz') {
                 showSection(mathWhizSection);
                 handleMathWhizState(minigameState);
+            }
+            else if (minigameState.gameType === 'returning_spirit') {
+                showSection(returningSpiritSection);
+                handleReturningSpiritState(minigameState);
             }
             return;
         }
@@ -333,7 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showSection(sectionToShow) {
-        [waitingSection, playerPickSection, roleRevealSection, votingUiSection, interactiveActionSection, minigameSection, mathWhizSection].forEach(section => {
+        [waitingSection, playerPickSection, roleRevealSection, votingUiSection, interactiveActionSection, minigameSection, mathWhizSection, returningSpiritSection].forEach(section => {
             section.classList.toggle('hidden', section !== sectionToShow);
         });
     }
@@ -1211,6 +1221,80 @@ document.addEventListener('DOMContentLoaded', () => {
         const actionPath = `rooms/${currentRoomId}/nightActions/${currentNight}/wolf_group/action`;
         database.ref(actionPath).set(choice);
         wolfActionChoiceModal.classList.add('hidden');
+    }
+
+    function handleReturningSpiritState(state) {
+        const myProgress = state.playerProgress[myPlayerId];
+        if (!myProgress) return; // Không tham gia
+    
+        const doorA = spiritDoorOptions.querySelector('[data-choice="A"]');
+        const doorB = spiritDoorOptions.querySelector('[data-choice="B"]');
+    
+        // Vô hiệu hóa các nút trước khi cập nhật
+        doorA.disabled = true;
+        doorB.disabled = true;
+    
+        if (myProgress.isWinner) {
+            spiritRoundDisplay.textContent = "CHIẾN THẮNG!";
+            spiritStatusMessage.textContent = "Bạn đã vượt qua tất cả các cửa và trở thành người chiến thắng!";
+            spiritDoorOptions.classList.add('hidden');
+            return;
+        }
+    
+        if (myProgress.isEliminated) {
+            spiritRoundDisplay.textContent = "ĐÃ BỊ LOẠI";
+            spiritStatusMessage.textContent = `Bạn đã chọn sai ở vòng ${myProgress.currentRound}.`;
+            spiritDoorOptions.classList.add('hidden');
+            return;
+        }
+    
+        // Nếu chưa bị loại hoặc thắng, hiển thị vòng hiện tại
+        spiritDoorOptions.classList.remove('hidden');
+        spiritRoundDisplay.textContent = `Vòng ${myProgress.currentRound}`;
+        spiritStatusMessage.textContent = "Hãy đưa ra lựa chọn của bạn...";
+        
+        // Mở lại các nút
+        doorA.disabled = false;
+        doorB.disabled = false;
+    
+        // Xử lý khi click chọn cửa
+        const handleChoice = (choice) => {
+            // Khóa các nút lại ngay sau khi chọn
+            doorA.disabled = true;
+            doorB.disabled = true;
+            spiritStatusMessage.textContent = "Đang kiểm tra...";
+    
+            const correctChoice = state.correctPath[myProgress.currentRound - 1];
+            const isCorrect = (choice === correctChoice);
+            
+            const updates = {};
+            const basePath = `rooms/${currentRoomId}/minigameState/playerProgress/${myPlayerId}`;
+    
+            if (isCorrect) {
+                const nextRound = myProgress.currentRound + 1;
+                updates[`${basePath}/choices`] = [...myProgress.choices, choice];
+                updates[`${basePath}/currentRound`] = nextRound;
+    
+                if (nextRound > 3) { // Thắng
+                    updates[`${basePath}/isWinner`] = true;
+                    // Chỉ người chơi đầu tiên thắng mới cập nhật được `winner`
+                    database.ref(`rooms/${currentRoomId}/minigameState/winner`).once('value', snapshot => {
+                        if (!snapshot.exists()) {
+                            database.ref(`rooms/${currentRoomId}/minigameState/winner`).set(myPlayerId);
+                        }
+                    });
+                }
+            } else { // Thua
+                updates[`${basePath}/choices`] = [...myProgress.choices, choice];
+                updates[`${basePath}/isEliminated`] = true;
+            }
+    
+            database.ref().update(updates);
+        };
+    
+        // Gán lại event listeners để tránh bị trùng lặp
+        doorA.onclick = () => handleChoice('A');
+        doorB.onclick = () => handleChoice('B');
     }
 
     // --- EVENT LISTENERS ---

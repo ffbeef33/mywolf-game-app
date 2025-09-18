@@ -1,5 +1,5 @@
 // =================================================================
-// === minigame-logic.js - Module quản lý Mini Game (Đã sửa lỗi) ===
+// === minigame-logic.js - Module quản lý Mini Game (Đã cập nhật) ===
 // =================================================================
 
 class MinigameManager {
@@ -57,6 +57,85 @@ class MinigameManager {
         });
     }
 
+    createParticipantSelectionModal(allPlayers, callback) {
+        const oldModal = document.getElementById('participant-selection-modal');
+        if (oldModal) oldModal.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'participant-selection-modal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 500px;">
+                <span class="close-modal-btn" style="color: #c9d1d9; position: absolute; top: 10px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+                <h3>Chọn người chơi tham gia</h3>
+                <div id="modal-player-list" class="target-grid" style="max-height: 40vh; overflow-y: auto; grid-template-columns: 1fr 1fr; border: 1px solid #30363d; padding: 10px; border-radius: 8px;"></div>
+                <div style="text-align: right; margin-top: 20px;">
+                    <button id="confirm-participants-btn" class="btn-primary">Xác Nhận</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        const playerList = modal.querySelector('#modal-player-list');
+        allPlayers.sort((a, b) => a.name.localeCompare(b.name)).forEach(p => {
+            const item = document.createElement('div');
+            item.className = 'target-item';
+            item.style.backgroundColor = '#0d1117';
+            item.innerHTML = `
+                <input type="checkbox" id="participant-${p.id}" value="${p.id}" data-name="${p.name}">
+                <label for="participant-${p.id}">${p.name} ${!p.isAlive ? '(Đã chết)' : ''}</label>
+            `;
+            playerList.appendChild(item);
+        });
+
+        const closeModal = () => modal.remove();
+        modal.querySelector('.close-modal-btn').addEventListener('click', closeModal);
+        modal.querySelector('#confirm-participants-btn').addEventListener('click', () => {
+            const selected = modal.querySelectorAll('input:checked');
+            const participants = {};
+            selected.forEach(input => {
+                participants[input.value] = input.dataset.name;
+            });
+            
+            if (Object.keys(participants).length > 0) {
+                callback(participants);
+                closeModal();
+            } else {
+                alert("Vui lòng chọn ít nhất một người chơi.");
+            }
+        });
+    }
+
+    startReturningSpiritGame(participants) {
+        const correctPath = [
+            Math.random() < 0.5 ? 'A' : 'B',
+            Math.random() < 0.5 ? 'A' : 'B',
+            Math.random() < 0.5 ? 'A' : 'B'
+        ];
+        
+        const playerProgress = {};
+        for (const pId in participants) {
+            playerProgress[pId] = {
+                name: participants[pId],
+                choices: [],
+                currentRound: 1,
+                isEliminated: false,
+                isWinner: false,
+            };
+        }
+
+        const newMinigameState = {
+            status: 'active',
+            gameType: 'returning_spirit',
+            title: 'Mini Game: Vong Hồn Trở Lại',
+            participants,
+            correctPath,
+            playerProgress,
+            winner: null
+        };
+        this.database.ref(`rooms/${this.roomId}/minigameState`).set(newMinigameState);
+    }
+
     renderLiveChoices(state) {
         if (!this.minigameLiveChoicesList) return;
         this.minigameLiveChoicesList.innerHTML = '';
@@ -86,7 +165,6 @@ class MinigameManager {
                 const submission = submissions[playerId];
                 let statusText = '<em>Chưa trả lời...</em>';
 
-                // SỬA LỖI: Chỉ tính toán thời gian khi timestamp đã là một con số
                 if (submission && typeof submission.timestamp === 'number' && typeof state.startTime === 'number') {
                     const timeTaken = ((submission.timestamp - state.startTime) / 1000).toFixed(2);
                     statusText = `đã trả lời (Đáp án: ${submission.answer}) - <strong>${timeTaken}s</strong>`;
@@ -95,6 +173,36 @@ class MinigameManager {
                 }
                 const li = document.createElement('li');
                 li.innerHTML = `${playerName} ${statusText}`;
+                this.minigameLiveChoicesList.appendChild(li);
+            }
+        }
+        else if (state.gameType === 'returning_spirit') {
+            const { correctPath, playerProgress, winner } = state;
+            
+            const answerLi = document.createElement('li');
+            answerLi.innerHTML = `<strong style="color: var(--safe-color);">Đáp án đúng: ${correctPath.join(' - ')}</strong>`;
+            this.minigameLiveChoicesList.appendChild(answerLi);
+            
+            if(winner) {
+                 const winnerName = state.participants[winner];
+                 const winnerLi = document.createElement('li');
+                 winnerLi.innerHTML = `🏆 <strong>Người thắng cuộc: ${winnerName}</strong>`;
+                 this.minigameLiveChoicesList.appendChild(winnerLi);
+            }
+
+            for (const pId in playerProgress) {
+                const progress = playerProgress[pId];
+                let statusText = '';
+                if (progress.isWinner) {
+                    statusText = `<span style="color: var(--safe-color);">ĐÃ THẮNG!</span> (Lựa chọn: ${progress.choices.join(', ')})`;
+                } else if (progress.isEliminated) {
+                    statusText = `<span style="color: var(--danger-color);">ĐÃ BỊ LOẠI</span> (Lựa chọn: ${progress.choices.join(', ')})`;
+                } else {
+                    statusText = `Đang ở Vòng ${progress.currentRound} (Đã chọn: ${progress.choices.join(', ') || 'Chưa có'})`;
+                }
+
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>${progress.name}:</strong> ${statusText}`;
                 this.minigameLiveChoicesList.appendChild(li);
             }
         }
@@ -129,12 +237,31 @@ class MinigameManager {
             } else {
                 resultsHTML += `<p> Rất tiếc, không có ai trả lời đúng.</p>`;
             }
+        } else if (state.gameType === 'returning_spirit') {
+             const { winnerId, correctPath, participants } = state.results;
+             const winnerName = winnerId ? participants[winnerId] : null;
+             resultsHTML = `<p><strong>Con đường đúng:</strong> ${correctPath.join(' - ')}</p>`;
+             if(winnerName) {
+                resultsHTML += `<p>🏆 <strong>Người thắng cuộc:</strong> ${winnerName}</p>`;
+             } else {
+                resultsHTML += `<p>Rất tiếc, không có ai chiến thắng.</p>`;
+             }
         }
         
         this.minigameResultsDetails.innerHTML = resultsHTML;
     }
 
     handleStartMinigame() {
+        const gameType = this.minigameSelect.value;
+        
+        if (gameType === 'returning_spirit') {
+            const allPlayers = this.getRoomPlayers();
+            this.createParticipantSelectionModal(allPlayers, (participants) => {
+                this.startReturningSpiritGame(participants);
+            });
+            return; 
+        }
+
         const nightStates = this.getNightStates();
         const roomPlayers = this.getRoomPlayers();
         const lastNight = nightStates[nightStates.length - 1];
@@ -156,7 +283,6 @@ class MinigameManager {
             return acc;
         }, {});
 
-        const gameType = this.minigameSelect.value;
         let newMinigameState = {
             status: 'active',
             gameType,
@@ -277,7 +403,6 @@ class MinigameManager {
             const { correctAnswer } = currentState.problem;
 
             const correctSubmissions = Object.entries(submissions)
-                // SỬA LỖI: Chỉ lọc những câu trả lời đúng VÀ có timestamp là một con số
                 .filter(([, sub]) => sub.answer == correctAnswer && typeof sub.timestamp === 'number' && typeof currentState.startTime === 'number')
                 .sort(([, a], [, b]) => a.timestamp - b.timestamp);
 
@@ -304,6 +429,21 @@ class MinigameManager {
                 };
                 alert(`Mini game kết thúc! Không có ai thắng.`);
             }
+        } else if (currentState.gameType === 'returning_spirit') {
+            const winnerId = currentState.winner;
+            const winnerName = winnerId ? currentState.participants[winnerId] : null;
+            
+            if(winnerName) {
+                announcementText = `Mini game "Vong Hồn Trở Lại" đã kết thúc. Chúc mừng ${winnerName} đã tìm thấy con đường đúng và chiến thắng!`;
+            } else {
+                announcementText = `Mini game "Vong Hồn Trở Lại" đã kết thúc. Rất tiếc, không có ai chiến thắng.`;
+            }
+            updates[`/minigameState/results`] = { 
+                winnerId: winnerId,
+                participants: currentState.participants,
+                correctPath: currentState.correctPath
+            };
+            alert(`Mini game kết thúc! Người thắng cuộc: ${winnerName || 'Không có ai'}.`);
         }
         
         updates['/publicData/latestAnnouncement'] = {
