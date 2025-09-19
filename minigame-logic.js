@@ -8,6 +8,7 @@ class MinigameManager {
         this.roomId = roomId;
         this.getRoomPlayers = getRoomPlayers; // Hàm để lấy danh sách người chơi hiện tại
         this.getNightStates = getNightStates; // Hàm để lấy trạng thái các đêm
+        this.bomberGameTimeout = null;
 
         // Lấy các DOM elements
         this.minigameSection = document.getElementById('minigame-section');
@@ -53,6 +54,12 @@ class MinigameManager {
                 this.minigameSelect.disabled = false;
                 this.minigameLiveChoices.style.display = 'none';
                 this.renderResults(state);
+            }
+
+            if (state && state.gameType === 'bomber_game' && !state.loser) {
+                this.handleBomberGameTick(state);
+            } else {
+                if (this.bomberGameTimeout) clearTimeout(this.bomberGameTimeout);
             }
         });
     }
@@ -104,6 +111,118 @@ class MinigameManager {
                 alert("Vui lòng chọn ít nhất một người chơi.");
             }
         });
+    }
+
+    createBomberSetupModal(allPlayers, callback) {
+        const oldModal = document.getElementById('bomber-setup-modal');
+        if (oldModal) oldModal.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'bomber-setup-modal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 500px;">
+                <span class="close-modal-btn">&times;</span>
+                <h3>Thiết lập game Kẻ Gài Boom</h3>
+                <div class="form-group">
+                    <label for="pass-limit-input">Boom sẽ nổ sau bao nhiêu lượt chuyền?</label>
+                    <input type="number" id="pass-limit-input" class="form-control" value="5" min="2">
+                </div>
+                <h4>Chọn người chơi tham gia</h4>
+                <div id="modal-player-list" class="target-grid" style="max-height: 40vh; overflow-y: auto;"></div>
+                <div style="text-align: right; margin-top: 20px;">
+                    <button id="confirm-bomber-setup-btn" class="btn-primary">Bắt Đầu Game</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        const playerList = modal.querySelector('#modal-player-list');
+        allPlayers.sort((a, b) => a.name.localeCompare(b.name)).forEach(p => {
+            const item = document.createElement('div');
+            item.className = 'target-item';
+            item.innerHTML = `
+                <input type="checkbox" id="participant-${p.id}" value="${p.id}" data-name="${p.name}" checked>
+                <label for="participant-${p.id}">${p.name} ${!p.isAlive ? '(Đã chết)' : ''}</label>
+            `;
+            playerList.appendChild(item);
+        });
+
+        const closeModal = () => modal.remove();
+        modal.querySelector('.close-modal-btn').addEventListener('click', closeModal);
+        modal.querySelector('#confirm-bomber-setup-btn').addEventListener('click', () => {
+            const selected = modal.querySelectorAll('input:checked');
+            const participants = {};
+            selected.forEach(input => {
+                participants[input.value] = input.dataset.name;
+            });
+
+            const passLimit = parseInt(modal.querySelector('#pass-limit-input').value, 10);
+
+            if (Object.keys(participants).length < 2) {
+                alert("Vui lòng chọn ít nhất 2 người chơi.");
+                return;
+            }
+            if (isNaN(passLimit) || passLimit < 2) {
+                alert("Số lượt chuyền phải là một số lớn hơn 1.");
+                return;
+            }
+            
+            callback(participants, passLimit);
+            closeModal();
+        });
+    }
+
+    startBomberGame(participants, passLimit) {
+        const participantIds = Object.keys(participants);
+        const firstHolderId = participantIds[Math.floor(Math.random() * participantIds.length)];
+
+        const newMinigameState = {
+            status: 'active',
+            gameType: 'bomber_game',
+            title: 'Mini Game: Kẻ Gài Boom',
+            participants,
+            passLimit,
+            passHistory: [firstHolderId],
+            currentHolderId: firstHolderId,
+            previousHolderId: null,
+            passDeadline: firebase.database.ServerValue.TIMESTAMP
+        };
+        this.database.ref(`rooms/${this.roomId}/minigameState`).set(newMinigameState);
+    }
+
+    handleBomberGameTick(state) {
+        if (this.bomberGameTimeout) clearTimeout(this.bomberGameTimeout);
+
+        if (state.passHistory.length > state.passLimit) {
+            const loserId = state.currentHolderId;
+            const updates = {
+                loser: { id: loserId, reason: 'pass_limit' }
+            };
+            this.database.ref(`rooms/${this.roomId}/minigameState`).update(updates);
+            return;
+        }
+
+        const timeSincePass = Date.now() - state.passDeadline;
+        const timeRemaining = 12000 - timeSincePass;
+
+        if (timeRemaining <= 0) {
+            const loserId = state.currentHolderId;
+            const updates = {
+                loser: { id: loserId, reason: 'timeout' }
+            };
+            this.database.ref(`rooms/${this.roomId}/minigameState`).update(updates);
+        } else {
+            this.bomberGameTimeout = setTimeout(() => {
+                // Refetch state to avoid acting on stale data
+                this.database.ref(`rooms/${this.roomId}/minigameState`).once('value', snapshot => {
+                    const freshState = snapshot.val();
+                    if (freshState && freshState.status === 'active' && !freshState.loser) {
+                       this.handleBomberGameTick(freshState);
+                    }
+                });
+            }, timeRemaining + 200);
+        }
     }
 
     startReturningSpiritGame(participants) {
@@ -222,6 +341,21 @@ class MinigameManager {
                 li.innerHTML = `${playerName} ${betText}`;
                 this.minigameLiveChoicesList.appendChild(li);
             }
+        } else if (state.gameType === 'bomber_game') {
+            if (state.loser) {
+                const loserName = state.participants[state.loser.id];
+                const reason = state.loser.reason === 'timeout' ? 'hết giờ' : 'hết lượt chuyền';
+                this.minigameLiveChoicesList.innerHTML = `<li><strong style="color:var(--danger-color)">KẾT THÚC:</strong> ${loserName} đã nổ tung vì ${reason}.</li>`;
+            } else if (state.currentHolderId) {
+                const holderName = state.participants[state.currentHolderId];
+                const passCount = state.passHistory.length - 1;
+                const remaining = Math.max(0, Math.round((state.passDeadline + 12000 - Date.now()) / 1000));
+                this.minigameLiveChoicesList.innerHTML = `
+                    <li><strong>Người giữ boom:</strong> ${holderName}</li>
+                    <li><strong>Thời gian còn lại:</strong> ${remaining}s</li>
+                    <li><strong>Lượt chuyền:</strong> ${passCount} / ${state.passLimit}</li>
+                `;
+            }
         }
     }
 
@@ -279,6 +413,16 @@ class MinigameManager {
             } else {
                 resultsHTML += `<p><strong>Kết quả:</strong> Không có ai đặt cược.</p>`;
             }
+        } else if (state.gameType === 'bomber_game') {
+            const { loser, participants, passHistory } = state.results;
+            if (loser) {
+                const loserName = participants[loser.id];
+                const reason = loser.reason === 'timeout' ? 'giữ boom quá lâu' : 'hết lượt chuyền';
+                resultsHTML = `<p><strong>Người thua cuộc:</strong> ${loserName}</p>`;
+                resultsHTML += `<p><strong>Lý do:</strong> ${reason}.</p>`;
+            }
+            const historyText = passHistory.map(pId => participants[pId]).join(' → ');
+            resultsHTML += `<h4>Lịch sử chuyền boom:</h4><p>${historyText}</p>`;
         }
         
         this.minigameResultsDetails.innerHTML = resultsHTML;
@@ -303,7 +447,15 @@ class MinigameManager {
                     this.database.ref(`rooms/${this.roomId}/minigameState`).set(newMinigameState);
                 }
             });
-            return; 
+            return;
+        }
+
+        if (gameType === 'bomber_game') {
+            const allPlayers = this.getRoomPlayers();
+            this.createBomberSetupModal(allPlayers, (participants, passLimit) => {
+                this.startBomberGame(participants, passLimit);
+            });
+            return;
         }
 
         const nightStates = this.getNightStates();
@@ -474,7 +626,7 @@ class MinigameManager {
                 alert(`Mini game kết thúc! Không có ai thắng.`);
             }
         } else if (currentState.gameType === 'returning_spirit') {
-            const winnerId = currentState.winner || null; // SỬA LỖI 2
+            const winnerId = currentState.winner || null;
             const winnerName = winnerId ? currentState.participants[winnerId] : null;
             
             if(winnerName) {
@@ -540,6 +692,16 @@ class MinigameManager {
             }
             updates[`/minigameState/results`] = results;
             alert(`Mini game kết thúc! ${announcementText}`);
+        } else if (currentState.gameType === 'bomber_game') {
+            const loserId = currentState.currentHolderId;
+            announcementText = `Mini game Kẻ Gài Boom đã được Quản trò kết thúc. ${currentState.participants[loserId]} là người cuối cùng giữ boom.`;
+            updates[`/minigameState/loser`] = { id: loserId, reason: 'admin_force_end' };
+            updates[`/minigameState/results`] = {
+                loser: { id: loserId, reason: 'Quản trò ép kết thúc' },
+                participants: currentState.participants,
+                passHistory: currentState.passHistory
+            };
+            alert("Đã ép kết thúc mini game.");
         }
         
         updates['/publicData/latestAnnouncement'] = {

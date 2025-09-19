@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const mathOptionsContainer = document.getElementById('math-options-container');
     const mathStatusMessage = document.getElementById('math-status-message');
     const russianRouletteSection = document.getElementById('russian-roulette-section');
+    const bomberGameSection = document.getElementById('bomber-game-section');
 
     // === BIẾN MỚI CHO VONG HỒN TRỞ LẠI ===
     const returningSpiritSection = document.getElementById('returning-spirit-section');
@@ -89,7 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let announcementListener = null;
     let pickTimerInterval = null;
     let voteTimerInterval = null;
-    let mathGameTimerInterval = null; // Thêm timer cho game toán
+    let mathGameTimerInterval = null; 
+    let bomberTimerInterval = null;
     let currentRoomId = null;
     let myPlayerId = null;
     let allRolesData = [];
@@ -199,8 +201,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (announcementListener && currentRoomId) database.ref(`rooms/${currentRoomId}/publicData/latestAnnouncement`).off('value', announcementListener);
         if (pickTimerInterval) clearInterval(pickTimerInterval);
         if (voteTimerInterval) clearInterval(voteTimerInterval);
-        if (mathGameTimerInterval) clearInterval(mathGameTimerInterval); // Dọn dẹp timer mới
-        roomListener = publicWillListener = nightResultListener = announcementListener = pickTimerInterval = voteTimerInterval = mathGameTimerInterval = currentRoomId = myPlayerId = null;
+        if (mathGameTimerInterval) clearInterval(mathGameTimerInterval);
+        if (bomberTimerInterval) clearInterval(bomberTimerInterval);
+        roomListener = publicWillListener = nightResultListener = announcementListener = pickTimerInterval = voteTimerInterval = mathGameTimerInterval = bomberTimerInterval = currentRoomId = myPlayerId = null;
     };
 
     function listenForRoomCreated(username) {
@@ -302,6 +305,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (minigameState.gameType === 'russian_roulette') {
                 showSection(russianRouletteSection);
                 handleRussianRouletteState(minigameState);
+            } else if (minigameState.gameType === 'bomber_game') {
+                showSection(bomberGameSection);
+                handleBomberGameState(minigameState);
             }
             return;
         }
@@ -347,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showSection(sectionToShow) {
-        [waitingSection, playerPickSection, roleRevealSection, votingUiSection, interactiveActionSection, minigameSection, mathWhizSection, returningSpiritSection, russianRouletteSection].forEach(section => {
+        [waitingSection, playerPickSection, roleRevealSection, votingUiSection, interactiveActionSection, minigameSection, mathWhizSection, returningSpiritSection, russianRouletteSection, bomberGameSection].forEach(section => {
             section.classList.toggle('hidden', section !== sectionToShow);
         });
     }
@@ -1337,6 +1343,65 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 optionsContainer.appendChild(btn);
             }
+        }
+    }
+
+    function handleBomberGameState(state) {
+        const statusDisplay = document.getElementById('bomber-status-display');
+        const controls = document.getElementById('bomber-controls');
+        const timerDisplay = document.getElementById('bomber-timer-display');
+        const targetsContainer = document.getElementById('bomber-targets-container');
+
+        if (state.loser) {
+            const loserName = state.participants[state.loser.id] || "Ai đó";
+            statusDisplay.innerHTML = `<h3 style="color: var(--wolf-color);">BOOM!</h3><p>${loserName} đã bị nổ tung vì ${state.loser.reason === 'timeout' ? 'giữ boom quá lâu' : 'hết lượt chuyền'}.</p>`;
+            controls.classList.add('hidden');
+            if (bomberTimerInterval) clearInterval(bomberTimerInterval);
+            return;
+        }
+
+        const currentHolderId = state.currentHolderId;
+        const currentHolderName = state.participants[currentHolderId];
+
+        if (myPlayerId === currentHolderId) {
+            // Tôi đang giữ boom
+            statusDisplay.innerHTML = `<p class="choice-status-message" style="color: var(--wolf-color); font-weight: bold;">Bạn đang giữ boom!</p>`;
+            controls.classList.remove('hidden');
+            targetsContainer.innerHTML = '';
+
+            // Hiển thị các mục tiêu hợp lệ (không phải bản thân và người vừa chuyền)
+            for (const pId in state.participants) {
+                if (pId !== myPlayerId && pId !== state.previousHolderId) {
+                    const btn = document.createElement('button');
+                    btn.className = 'choice-btn';
+                    btn.textContent = state.participants[pId];
+                    btn.onclick = () => {
+                        const newHistory = [...state.passHistory, pId];
+                        const updates = {
+                            passHistory: newHistory,
+                            currentHolderId: pId,
+                            previousHolderId: myPlayerId,
+                            passDeadline: firebase.database.ServerValue.TIMESTAMP
+                        };
+                        database.ref(`rooms/${currentRoomId}/minigameState`).update(updates);
+                    };
+                    targetsContainer.appendChild(btn);
+                }
+            }
+
+            // Cập nhật đồng hồ đếm ngược
+            if (bomberTimerInterval) clearInterval(bomberTimerInterval);
+            const deadline = state.passDeadline + 12000;
+            bomberTimerInterval = setInterval(() => {
+                const remaining = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+                timerDisplay.textContent = `${remaining}s`;
+            }, 500);
+
+        } else {
+            // Người khác đang giữ boom
+            statusDisplay.innerHTML = `<div class="spinner"></div><p class="waiting-message">Boom đang trong tay <strong>${currentHolderName}</strong>...</p>`;
+            controls.classList.add('hidden');
+            if (bomberTimerInterval) clearInterval(bomberTimerInterval);
         }
     }
 
