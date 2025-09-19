@@ -9,6 +9,13 @@ class MinigameManager {
         this.getRoomPlayers = getRoomPlayers; // Hàm để lấy danh sách người chơi hiện tại
         this.getNightStates = getNightStates; // Hàm để lấy trạng thái các đêm
         this.bomberGameTimeout = null;
+        this.bomberGmTimerInterval = null; 
+        this.serverTimeOffset = 0; 
+
+        // Lấy chênh lệch thời gian với server
+        this.database.ref('/.info/serverTimeOffset').on('value', (snapshot) => { 
+            this.serverTimeOffset = snapshot.val();
+        });
 
         // Lấy các DOM elements
         this.minigameSection = document.getElementById('minigame-section');
@@ -60,6 +67,7 @@ class MinigameManager {
                 this.handleBomberGameTick(state);
             } else {
                 if (this.bomberGameTimeout) clearTimeout(this.bomberGameTimeout);
+                if (this.bomberGmTimerInterval) clearInterval(this.bomberGmTimerInterval); 
             }
         });
     }
@@ -342,6 +350,8 @@ class MinigameManager {
                 this.minigameLiveChoicesList.appendChild(li);
             }
         } else if (state.gameType === 'bomber_game') {
+            if (this.bomberGmTimerInterval) clearInterval(this.bomberGmTimerInterval);
+
             if (state.loser) {
                 const loserName = state.participants[state.loser.id];
                 const reason = state.loser.reason === 'timeout' ? 'hết giờ' : 'hết lượt chuyền';
@@ -349,12 +359,23 @@ class MinigameManager {
             } else if (state.currentHolderId) {
                 const holderName = state.participants[state.currentHolderId];
                 const passCount = state.passHistory.length - 1;
-                const remaining = Math.max(0, Math.round((state.passDeadline + 12000 - Date.now()) / 1000));
+
                 this.minigameLiveChoicesList.innerHTML = `
                     <li><strong>Người giữ boom:</strong> ${holderName}</li>
-                    <li><strong>Thời gian còn lại:</strong> ${remaining}s</li>
+                    <li id="gm-bomber-timer-li"><strong>Thời gian còn lại:</strong> --s</li>
                     <li><strong>Lượt chuyền:</strong> ${passCount} / ${state.passLimit}</li>
                 `;
+
+                const timerElement = document.getElementById('gm-bomber-timer-li');
+                const deadline = state.passDeadline + 12000;
+
+                this.bomberGmTimerInterval = setInterval(() => {
+                    if (timerElement) {
+                        const estimatedServerTime = Date.now() + this.serverTimeOffset;
+                        const remaining = Math.max(0, Math.round((deadline - estimatedServerTime) / 1000));
+                        timerElement.innerHTML = `<strong>Thời gian còn lại:</strong> ${remaining}s`;
+                    }
+                }, 500);
             }
         }
     }

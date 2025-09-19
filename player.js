@@ -90,8 +90,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let announcementListener = null;
     let pickTimerInterval = null;
     let voteTimerInterval = null;
-    let mathGameTimerInterval = null; 
+    let mathGameTimerInterval = null;
     let bomberTimerInterval = null;
+    let serverTimeOffset = 0;
     let currentRoomId = null;
     let myPlayerId = null;
     let allRolesData = [];
@@ -1352,11 +1353,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const timerDisplay = document.getElementById('bomber-timer-display');
         const targetsContainer = document.getElementById('bomber-targets-container');
 
+        if (bomberTimerInterval) clearInterval(bomberTimerInterval);
+
         if (state.loser) {
             const loserName = state.participants[state.loser.id] || "Ai đó";
             statusDisplay.innerHTML = `<h3 style="color: var(--wolf-color);">BOOM!</h3><p>${loserName} đã bị nổ tung vì ${state.loser.reason === 'timeout' ? 'giữ boom quá lâu' : 'hết lượt chuyền'}.</p>`;
             controls.classList.add('hidden');
-            if (bomberTimerInterval) clearInterval(bomberTimerInterval);
             return;
         }
 
@@ -1364,12 +1366,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentHolderName = state.participants[currentHolderId];
 
         if (myPlayerId === currentHolderId) {
-            // Tôi đang giữ boom
             statusDisplay.innerHTML = `<p class="choice-status-message" style="color: var(--wolf-color); font-weight: bold;">Bạn đang giữ boom!</p>`;
             controls.classList.remove('hidden');
             targetsContainer.innerHTML = '';
 
-            // Hiển thị các mục tiêu hợp lệ (không phải bản thân và người vừa chuyền)
             for (const pId in state.participants) {
                 if (pId !== myPlayerId && pId !== state.previousHolderId) {
                     const btn = document.createElement('button');
@@ -1389,19 +1389,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Cập nhật đồng hồ đếm ngược
-            if (bomberTimerInterval) clearInterval(bomberTimerInterval);
             const deadline = state.passDeadline + 12000;
             bomberTimerInterval = setInterval(() => {
-                const remaining = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+                const estimatedServerTime = Date.now() + serverTimeOffset;
+                const remaining = Math.max(0, Math.round((deadline - estimatedServerTime) / 1000));
                 timerDisplay.textContent = `${remaining}s`;
             }, 500);
 
         } else {
-            // Người khác đang giữ boom
             statusDisplay.innerHTML = `<div class="spinner"></div><p class="waiting-message">Boom đang trong tay <strong>${currentHolderName}</strong>...</p>`;
             controls.classList.add('hidden');
-            if (bomberTimerInterval) clearInterval(bomberTimerInterval);
         }
     }
 
@@ -1502,6 +1499,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- INITIAL LOAD ---
     const initialize = async () => {
+        database.ref('/.info/serverTimeOffset').on('value', (snapshot) => {
+            serverTimeOffset = snapshot.val();
+        });
         await fetchAllRolesData();
         await fetchNightQuotes();
         checkSessionAndAutoLogin();
