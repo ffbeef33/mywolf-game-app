@@ -201,19 +201,19 @@ class MinigameManager {
 
     handleBomberGameTick(state) {
         if (this.bomberGameTimeout) clearTimeout(this.bomberGameTimeout);
-
+    
         if (state.loser || state.status !== 'active') {
             return;
         }
-
+    
         let loserId = null;
         let reason = null;
-
+    
         if (state.passHistory.length > state.passLimit) {
             loserId = state.currentHolderId;
             reason = 'pass_limit';
         }
-
+    
         if (!loserId) {
             const estimatedServerTime = Date.now() + this.serverTimeOffset;
             const timeRemaining = (state.passDeadline + 12000) - estimatedServerTime;
@@ -223,12 +223,11 @@ class MinigameManager {
                 reason = 'timeout';
             }
         }
-
+    
         if (loserId && reason) {
             const updates = {
-                'status': 'finished',
                 'loser': { id: loserId, reason: reason },
-                'results': {
+                'results': { 
                     loser: { id: loserId, reason: reason },
                     participants: state.participants,
                     passHistory: state.passHistory
@@ -237,7 +236,7 @@ class MinigameManager {
             this.database.ref(`rooms/${this.roomId}/minigameState`).update(updates);
             return;
         }
-
+    
         const estimatedServerTime = Date.now() + this.serverTimeOffset;
         const timeRemaining = (state.passDeadline + 12000) - estimatedServerTime;
         
@@ -752,15 +751,26 @@ class MinigameManager {
             updates[`/minigameState/results`] = results;
             alert(`Mini game kết thúc! ${announcementText}`);
         } else if (currentState.gameType === 'bomber_game') {
-            const loserId = currentState.currentHolderId;
-            announcementText = `Mini game Kẻ Gài Boom đã được Quản trò kết thúc. ${currentState.participants[loserId]} là người cuối cùng giữ boom.`;
-            updates[`/minigameState/loser`] = { id: loserId, reason: 'admin_force_end' };
-            updates[`/minigameState/results`] = {
-                loser: { id: loserId, reason: 'admin_force_end' },
-                participants: currentState.participants,
-                passHistory: currentState.passHistory
-            };
-            alert("Đã ép kết thúc mini game.");
+            if (currentState.results && currentState.results.loser) {
+                const loserName = currentState.participants[currentState.results.loser.id];
+                const reason = currentState.results.loser.reason;
+                let reasonText = '';
+                switch (reason) {
+                    case 'timeout': reasonText = 'hết giờ'; break;
+                    case 'pass_limit': reasonText = 'hết lượt chuyền'; break;
+                    default: reasonText = 'lý do khác';
+                }
+                announcementText = `Mini game Kẻ Gài Boom đã kết thúc. ${loserName} đã bị nổ tung vì ${reasonText}.`;
+            } else {
+                const finalHolder = currentState.participants[currentState.currentHolderId];
+                announcementText = `Mini game Kẻ Gài Boom đã được Quản trò kết thúc. ${finalHolder} là người cuối cùng giữ boom.`;
+                updates[`/minigameState/results`] = {
+                    loser: { id: currentState.currentHolderId, reason: 'admin_force_end' },
+                    participants: currentState.participants,
+                    passHistory: currentState.passHistory
+                };
+            }
+            alert(`Đã kết thúc mini game. ${announcementText}`);
         }
         
         updates['/publicData/latestAnnouncement'] = {
