@@ -202,35 +202,53 @@ class MinigameManager {
     handleBomberGameTick(state) {
         if (this.bomberGameTimeout) clearTimeout(this.bomberGameTimeout);
 
+        if (state.loser || state.status !== 'active') {
+            return;
+        }
+
+        let loserId = null;
+        let reason = null;
+
         if (state.passHistory.length > state.passLimit) {
-            const loserId = state.currentHolderId;
+            loserId = state.currentHolderId;
+            reason = 'pass_limit';
+        }
+
+        if (!loserId) {
+            const estimatedServerTime = Date.now() + this.serverTimeOffset;
+            const timeRemaining = (state.passDeadline + 12000) - estimatedServerTime;
+            
+            if (timeRemaining <= 0) {
+                loserId = state.currentHolderId;
+                reason = 'timeout';
+            }
+        }
+
+        if (loserId && reason) {
             const updates = {
-                loser: { id: loserId, reason: 'pass_limit' }
+                'status': 'finished',
+                'loser': { id: loserId, reason: reason },
+                'results': {
+                    loser: { id: loserId, reason: reason },
+                    participants: state.participants,
+                    passHistory: state.passHistory
+                }
             };
             this.database.ref(`rooms/${this.roomId}/minigameState`).update(updates);
             return;
         }
 
-        const timeSincePass = Date.now() - state.passDeadline;
-        const timeRemaining = 12000 - timeSincePass;
-
-        if (timeRemaining <= 0) {
-            const loserId = state.currentHolderId;
-            const updates = {
-                loser: { id: loserId, reason: 'timeout' }
-            };
-            this.database.ref(`rooms/${this.roomId}/minigameState`).update(updates);
-        } else {
-            this.bomberGameTimeout = setTimeout(() => {
-                // Refetch state to avoid acting on stale data
-                this.database.ref(`rooms/${this.roomId}/minigameState`).once('value', snapshot => {
-                    const freshState = snapshot.val();
-                    if (freshState && freshState.status === 'active' && !freshState.loser) {
-                       this.handleBomberGameTick(freshState);
-                    }
-                });
-            }, timeRemaining + 200);
-        }
+        const estimatedServerTime = Date.now() + this.serverTimeOffset;
+        const timeRemaining = (state.passDeadline + 12000) - estimatedServerTime;
+        
+        this.bomberGameTimeout = setTimeout(() => {
+            this.database.ref(`rooms/${this.roomId}/minigameState`).once('value', snapshot => {
+                const freshState = snapshot.val();
+                if (freshState && freshState.status === 'active' && !freshState.loser) {
+                   this.handleBomberGameTick(freshState);
+                }
+            });
+        }, Math.max(timeRemaining + 200, 200));
     }
 
     startReturningSpiritGame(participants) {
@@ -436,14 +454,34 @@ class MinigameManager {
             }
         } else if (state.gameType === 'bomber_game') {
             const { loser, participants, passHistory } = state.results;
-            if (loser) {
-                const loserName = participants[loser.id];
-                const reason = loser.reason === 'timeout' ? 'giữ boom quá lâu' : 'hết lượt chuyền';
-                resultsHTML = `<p><strong>Người thua cuộc:</strong> ${loserName}</p>`;
-                resultsHTML += `<p><strong>Lý do:</strong> ${reason}.</p>`;
+            resultsHTML = ''; 
+        
+            if (loser && participants) {
+                const loserName = participants[loser.id] || "Người chơi không xác định";
+                let reasonText = '';
+        
+                switch (loser.reason) {
+                    case 'timeout':
+                        reasonText = 'giữ boom quá lâu';
+                        break;
+                    case 'pass_limit':
+                        reasonText = 'hết lượt chuyền';
+                        break;
+                    case 'admin_force_end':
+                        reasonText = 'do Quản trò kết thúc game';
+                        break;
+                    default:
+                        reasonText = 'một lý do không xác định';
+                }
+        
+                resultsHTML += `<p><strong>Người thua cuộc:</strong> ${loserName}</p>`;
+                resultsHTML += `<p><strong>Lý do:</strong> ${reasonText}.</p>`;
             }
-            const historyText = passHistory.map(pId => participants[pId]).join(' → ');
-            resultsHTML += `<h4>Lịch sử chuyền boom:</h4><p>${historyText}</p>`;
+        
+            if (passHistory && participants) {
+                const historyText = passHistory.map(pId => participants[pId]).join(' → ');
+                resultsHTML += `<h4>Lịch sử chuyền boom:</h4><p>${historyText}</p>`;
+            }
         }
         
         this.minigameResultsDetails.innerHTML = resultsHTML;
@@ -718,7 +756,7 @@ class MinigameManager {
             announcementText = `Mini game Kẻ Gài Boom đã được Quản trò kết thúc. ${currentState.participants[loserId]} là người cuối cùng giữ boom.`;
             updates[`/minigameState/loser`] = { id: loserId, reason: 'admin_force_end' };
             updates[`/minigameState/results`] = {
-                loser: { id: loserId, reason: 'Quản trò ép kết thúc' },
+                loser: { id: loserId, reason: 'admin_force_end' },
                 participants: currentState.participants,
                 passHistory: currentState.passHistory
             };
