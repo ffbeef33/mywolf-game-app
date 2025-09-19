@@ -73,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const mathProblemDisplay = document.getElementById('math-problem-display');
     const mathOptionsContainer = document.getElementById('math-options-container');
     const mathStatusMessage = document.getElementById('math-status-message');
+    const russianRouletteSection = document.getElementById('russian-roulette-section');
 
     // === BIẾN MỚI CHO VONG HỒN TRỞ LẠI ===
     const returningSpiritSection = document.getElementById('returning-spirit-section');
@@ -298,6 +299,9 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (minigameState.gameType === 'returning_spirit') {
                 showSection(returningSpiritSection);
                 handleReturningSpiritState(minigameState);
+            } else if (minigameState.gameType === 'russian_roulette') {
+                showSection(russianRouletteSection);
+                handleRussianRouletteState(minigameState);
             }
             return;
         }
@@ -343,7 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showSection(sectionToShow) {
-        [waitingSection, playerPickSection, roleRevealSection, votingUiSection, interactiveActionSection, minigameSection, mathWhizSection, returningSpiritSection].forEach(section => {
+        [waitingSection, playerPickSection, roleRevealSection, votingUiSection, interactiveActionSection, minigameSection, mathWhizSection, returningSpiritSection, russianRouletteSection].forEach(section => {
             section.classList.toggle('hidden', section !== sectionToShow);
         });
     }
@@ -1302,6 +1306,38 @@ document.addEventListener('DOMContentLoaded', () => {
         // Gán lại event listeners để tránh bị trùng lặp
         doorA.onclick = () => handleChoice('A');
         doorB.onclick = () => handleChoice('B');
+    }
+    
+    function handleRussianRouletteState(state) {
+        const myBet = state.bets ? state.bets[myPlayerId] : null;
+        const optionsContainer = document.getElementById('roulette-options-container');
+        const statusMessage = document.getElementById('roulette-status-message');
+        optionsContainer.innerHTML = ''; // Xóa các nút cũ
+
+        if (myBet) {
+            statusMessage.textContent = `Bạn đã cược ${myBet} viên đạn. Đang chờ những người khác...`;
+            for (let i = 1; i <= 8; i++) {
+                const btn = document.createElement('button');
+                btn.className = 'choice-btn';
+                btn.textContent = i;
+                btn.disabled = true;
+                if (i === myBet) {
+                    btn.classList.add('selected');
+                }
+                optionsContainer.appendChild(btn);
+            }
+        } else {
+            statusMessage.textContent = "Hãy chọn số đạn...";
+            for (let i = 1; i <= 8; i++) {
+                const btn = document.createElement('button');
+                btn.className = 'choice-btn';
+                btn.textContent = i;
+                btn.addEventListener('click', () => {
+                    database.ref(`rooms/${currentRoomId}/minigameState/bets/${myPlayerId}`).set(i);
+                });
+                optionsContainer.appendChild(btn);
+            }
+        }
     }
 
     // --- EVENT LISTENERS ---
