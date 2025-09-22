@@ -22,6 +22,11 @@ class MinigameManager {
         this.minigameSelect = document.getElementById('minigame-select');
         this.startMinigameBtn = document.getElementById('start-minigame-btn');
         this.endMinigameBtn = document.getElementById('end-minigame-btn');
+        
+        // ==================== THAY ĐỔI 1: Lấy DOM element cho nút mới ====================
+        this.shootBtn = document.getElementById('shoot-minigame-btn');
+        // ===============================================================================
+
         this.minigameResultsContainer = document.getElementById('minigame-results-container');
         this.minigameResultsDetails = document.getElementById('minigame-results-details');
         this.minigameLiveChoices = document.getElementById('minigame-live-choices');
@@ -34,6 +39,10 @@ class MinigameManager {
     attachEventListeners() {
         if (this.startMinigameBtn) this.startMinigameBtn.addEventListener('click', () => this.handleStartMinigame());
         if (this.endMinigameBtn) this.endMinigameBtn.addEventListener('click', () => this.handleEndMinigame());
+        
+        // ==================== THAY ĐỔI 2: Gán sự kiện cho nút mới =======================
+        if (this.shootBtn) this.shootBtn.addEventListener('click', () => this.handleShooting());
+        // ===============================================================================
     }
 
     listenForStateChanges() {
@@ -41,22 +50,34 @@ class MinigameManager {
             const state = snapshot.val();
             if (!this.minigameSection) return;
 
+            // Mặc định ẩn tất cả các nút điều khiển
+            this.startMinigameBtn.style.display = 'none';
+            this.endMinigameBtn.style.display = 'none';
+            this.shootBtn.style.display = 'none';
+
             if (!state || state.status === 'inactive') {
                 this.startMinigameBtn.style.display = 'inline-block';
-                this.endMinigameBtn.style.display = 'none';
                 this.minigameResultsContainer.style.display = 'none';
                 this.minigameSelect.disabled = false;
                 this.minigameLiveChoices.style.display = 'none';
             } else if (state.status === 'active') {
-                this.startMinigameBtn.style.display = 'none';
                 this.endMinigameBtn.style.display = 'inline-block';
                 this.minigameResultsContainer.style.display = 'none';
                 this.minigameSelect.disabled = true;
                 this.minigameLiveChoices.style.display = 'block';
                 this.renderLiveChoices(state);
-            } else if (state.status === 'finished') {
+            } 
+            // ==================== THAY ĐỔI 3: Thêm xử lý cho trạng thái mới `reveal_choice` ====================
+            else if (state.status === 'reveal_choice') {
+                this.shootBtn.style.display = 'inline-block';
+                this.minigameSelect.disabled = true;
+                this.minigameResultsContainer.style.display = 'block'; // Hiển thị kết quả tạm thời
+                this.minigameLiveChoices.style.display = 'none';
+                this.renderResults(state); // Gọi render để hiển thị người được chọn
+            }
+            // ==================================================================================================
+            else if (state.status === 'finished') {
                 this.startMinigameBtn.style.display = 'inline-block';
-                this.endMinigameBtn.style.display = 'none';
                 this.minigameResultsContainer.style.display = 'block';
                 this.minigameSelect.disabled = false;
                 this.minigameLiveChoices.style.display = 'none';
@@ -71,6 +92,60 @@ class MinigameManager {
             }
         });
     }
+
+    // ==================== THAY ĐỔI 4: Tạo hàm mới để xử lý logic bắn ====================
+    async handleShooting() {
+        this.shootBtn.disabled = true;
+        this.shootBtn.textContent = "Đang xử lý...";
+
+        const minigameStateRef = this.database.ref(`rooms/${this.roomId}/minigameState`);
+        const snapshot = await minigameStateRef.once('value');
+        const currentState = snapshot.val();
+
+        if (!currentState || currentState.status !== 'reveal_choice') {
+            alert("Trạng thái game không hợp lệ để bắn.");
+            return;
+        }
+
+        const { chosenOneId, maxBet, participants } = currentState.results;
+        const chosenOneName = participants[chosenOneId];
+        const updates = {};
+        let finalOutcome = "";
+        let announcementText = "";
+
+        let survived = true;
+        // Logic xác suất sống/chết
+        if (maxBet === 8) { // Cược 8 viên có 5% cơ hội sống
+            if (Math.random() > 0.05) survived = false;
+        } else {
+            if (Math.random() < (maxBet / 8.0)) survived = false;
+        }
+
+        if (survived) {
+            finalOutcome = `${chosenOneName} đã SỐNG SÓT sau khi bắn với ${maxBet} viên đạn!`;
+            announcementText = `Mini game Cò Quay Nga: ${chosenOneName} đã thắng và sống sót với ${maxBet} viên đạn!`;
+        } else {
+            finalOutcome = `${chosenOneName} đã CHẾT sau khi bắn với ${maxBet} viên đạn!`;
+            announcementText = `Mini game Cò Quay Nga: ${chosenOneName} đã thua và bỏ mạng với ${maxBet} viên đạn!`;
+            // Cập nhật trạng thái người chơi là đã chết
+            updates[`/players/${chosenOneId}/isAlive`] = false;
+        }
+
+        // Cập nhật trạng thái mini game
+        updates[`/minigameState/status`] = 'finished';
+        updates[`/minigameState/results/outcome`] = finalOutcome;
+
+        updates['/publicData/latestAnnouncement'] = {
+            message: announcementText,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        };
+
+        await this.database.ref(`rooms/${this.roomId}`).update(updates);
+
+        this.shootBtn.disabled = false;
+        this.shootBtn.textContent = "Bắt Đầu Bắn";
+    }
+    // ======================================================================================
 
     createParticipantSelectionModal(allPlayers, callback) {
         const oldModal = document.getElementById('participant-selection-modal');
@@ -399,6 +474,35 @@ class MinigameManager {
 
     renderResults(state) {
         let resultsHTML = '';
+        if (state.gameType === 'russian_roulette') {
+            const { bets, chosenOneId, participants, outcome, isTie } = state.results || {};
+            resultsHTML = '<h4>Chi tiết cược:</h4><ul>';
+            if (bets) {
+                for (const name in bets) {
+                    resultsHTML += `<li><strong>${name}:</strong> ${bets[name]}</li>`;
+                }
+            }
+            resultsHTML += '</ul><hr style="border-color: var(--border-color); margin: 10px 0;">';
+            
+            if (state.status === 'reveal_choice') {
+                const chosenOneName = participants[chosenOneId];
+                resultsHTML += `<p><strong>Người được chọn:</strong> ${chosenOneName}</p>`;
+                resultsHTML += `<p><strong>Kết cục:</strong> <em style="opacity: 0.7">Đang chờ Quản trò...</em></p>`;
+            } else { // 'finished' status
+                if (isTie) {
+                    resultsHTML += `<p><strong>Kết quả:</strong> ${outcome}</p>`;
+                } else if (chosenOneId) {
+                    const chosenOneName = participants[chosenOneId];
+                    resultsHTML += `<p><strong>Người được chọn:</strong> ${chosenOneName}</p>`;
+                    resultsHTML += `<p><strong>Kết cục:</strong> ${outcome}</p>`;
+                } else {
+                    resultsHTML += `<p><strong>Kết quả:</strong> Không có ai đặt cược.</p>`;
+                }
+            }
+            this.minigameResultsDetails.innerHTML = resultsHTML;
+            return;
+        }
+
         if (!state.results) {
             this.minigameResultsDetails.innerHTML = "<p>Không có kết quả.</p>";
             return;
@@ -435,22 +539,6 @@ class MinigameManager {
              } else {
                 resultsHTML += `<p>Rất tiếc, không có ai chiến thắng.</p>`;
              }
-        } else if (state.gameType === 'russian_roulette') {
-            const { bets, chosenOne, outcome, isTie } = state.results;
-            resultsHTML = '<h4>Chi tiết cược:</h4><ul>';
-            for (const name in bets) {
-                resultsHTML += `<li><strong>${name}:</strong> ${bets[name]}</li>`;
-            }
-            resultsHTML += '</ul><hr style="border-color: var(--border-color); margin: 10px 0;">';
-            
-            if (isTie) {
-                resultsHTML += `<p><strong>Kết quả:</strong> ${outcome}</p>`;
-            } else if (chosenOne) {
-                resultsHTML += `<p><strong>Người được chọn:</strong> ${chosenOne}</p>`;
-                resultsHTML += `<p><strong>Kết cục:</strong> ${outcome}</p>`;
-            } else {
-                resultsHTML += `<p><strong>Kết quả:</strong> Không có ai đặt cược.</p>`;
-            }
         } else if (state.gameType === 'bomber_game') {
             const { loser, participants, passHistory } = state.results;
             resultsHTML = ''; 
@@ -490,7 +578,7 @@ class MinigameManager {
         const gameType = this.minigameSelect.value;
         
         if (gameType === 'returning_spirit' || gameType === 'russian_roulette') {
-            const allPlayers = this.getRoomPlayers();
+            const allPlayers = this.getRoomPlayers().filter(p => p.isAlive);
             this.createParticipantSelectionModal(allPlayers, (participants) => {
                 if (gameType === 'returning_spirit') {
                     this.startReturningSpiritGame(participants);
@@ -509,7 +597,7 @@ class MinigameManager {
         }
 
         if (gameType === 'bomber_game') {
-            const allPlayers = this.getRoomPlayers();
+            const allPlayers = this.getRoomPlayers().filter(p => p.isAlive);
             this.createBomberSetupModal(allPlayers, (participants, passLimit) => {
                 this.startBomberGame(participants, passLimit);
             });
@@ -616,96 +704,19 @@ class MinigameManager {
 
         let announcementText = "";
         const updates = {};
-        updates[`/minigameState/status`] = 'finished';
-
-        if (currentState.gameType === 'night_of_trust') {
-            const choices = currentState.choices || {};
-            const participants = currentState.participants || {};
-            const trustCounts = {};
-            Object.keys(participants).forEach(pId => { trustCounts[pId] = 0; });
-
-            Object.values(choices).forEach(trustedArray => {
-                if (Array.isArray(trustedArray)) {
-                    trustedArray.forEach(id => { if (trustCounts.hasOwnProperty(id)) trustCounts[id]++; });
-                }
-            });
-
-            const deadPlayerIds = Object.keys(trustCounts).filter(id => trustCounts[id] === 0);
-            const deadPlayerNames = deadPlayerIds.map(id => participants[id]);
-
-            deadPlayerIds.forEach(id => {
-                updates[`/players/${id}/isAlive`] = false;
-            });
-            
-            const nightStates = this.getNightStates();
-            if (nightStates.length > 0) {
-                const lastNightState = nightStates[nightStates.length - 1];
-                deadPlayerIds.forEach(id => {
-                    if (lastNightState.playersStatus[id]) {
-                        lastNightState.playersStatus[id].isAlive = false;
-                    }
-                });
-                await this.database.ref(`rooms/${this.roomId}/nightNotes`).set(nightStates);
-            }
-            
-            announcementText = `Mini game "Đêm của Lòng Tin" đã kết thúc. ${deadPlayerNames.length > 0 ? `Người không nhận được sự tin tưởng và phải chết là: ${deadPlayerNames.join(', ')}.` : 'Tất cả mọi người đều an toàn.'}`;
-            updates[`/minigameState/results`] = { trustCounts, deadPlayerNames };
-            alert(`Mini game kết thúc! Người chết: ${deadPlayerNames.join(', ') || 'Không có ai'}.`);
         
-        } else if (currentState.gameType === 'math_whiz') {
-            const submissions = currentState.submissions || {};
-            const { correctAnswer } = currentState.problem;
-
-            const correctSubmissions = Object.entries(submissions)
-                .filter(([, sub]) => sub.answer == correctAnswer && typeof sub.timestamp === 'number' && typeof currentState.startTime === 'number')
-                .sort(([, a], [, b]) => a.timestamp - b.timestamp);
-
-            if (correctSubmissions.length > 0) {
-                const [winnerId, winnerSubmission] = correctSubmissions[0];
-                const winnerName = currentState.participants[winnerId];
-                const timeToAnswer = (winnerSubmission.timestamp - currentState.startTime) / 1000;
-                
-                announcementText = `Mini game "Thần Đồng Toán Học" đã kết thúc. Chúc mừng ${winnerName} đã trả lời đúng và nhanh nhất!`;
-                updates[`/minigameState/results`] = { 
-                    winnerId, 
-                    winnerName, 
-                    timeToAnswer,
-                    problem: currentState.problem,
-                    allSubmissions: submissions
-                };
-                 alert(`Mini game kết thúc! Người thắng cuộc: ${winnerName}.`);
-            } else {
-                announcementText = `Mini game "Thần Đồng Toán Học" đã kết thúc. Rất tiếc, không có ai trả lời đúng.`;
-                updates[`/minigameState/results`] = { 
-                    winnerName: null, 
-                    problem: currentState.problem,
-                    allSubmissions: submissions
-                };
-                alert(`Mini game kết thúc! Không có ai thắng.`);
-            }
-        } else if (currentState.gameType === 'returning_spirit') {
-            const winnerId = currentState.winner || null;
-            const winnerName = winnerId ? currentState.participants[winnerId] : null;
-            
-            if(winnerName) {
-                announcementText = `Mini game "Vong Hồn Trở Lại" đã kết thúc. Chúc mừng ${winnerName} đã tìm thấy con đường đúng và chiến thắng!`;
-            } else {
-                announcementText = `Mini game "Vong Hồn Trở Lại" đã kết thúc. Rất tiếc, không có ai chiến thắng.`;
-            }
-            updates[`/minigameState/results`] = { 
-                winnerId: winnerId,
-                participants: currentState.participants,
-                correctPath: currentState.correctPath
-            };
-            alert(`Mini game kết thúc! Người thắng cuộc: ${winnerName || 'Không có ai'}.`);
-        } else if (currentState.gameType === 'russian_roulette') {
+        // ==================== THAY ĐỔI 5: Tách logic Cò Quay Nga ra khỏi luồng xử lý chung ====================
+        if (currentState.gameType === 'russian_roulette') {
             const bets = currentState.bets || {};
             const participants = currentState.participants || {};
-            let results = {
+            
+            const results = {
                 bets: {},
-                chosenOne: null,
+                chosenOneId: null,
+                maxBet: 0,
                 outcome: "Chưa xác định",
                 isTie: false,
+                participants: participants
             };
 
             for(const pId in participants) {
@@ -715,6 +726,8 @@ class MinigameManager {
             const betEntries = Object.entries(bets);
 
             if (betEntries.length === 0) {
+                results.outcome = "Không có ai đặt cược.";
+                updates[`/minigameState/status`] = 'finished';
                 announcementText = "Mini game Cò Quay Nga kết thúc. Không có ai đặt cược.";
             } else {
                 let maxBet = -1;
@@ -726,51 +739,125 @@ class MinigameManager {
 
                 if (playersWithMaxBet.length > 1) {
                     results.isTie = true;
-                    results.outcome = `Hòa ở mức cược cao nhất (${maxBet} viên). Tất cả đều thua.`;
+                    results.outcome = `Hòa ở mức cược cao nhất (${maxBet} viên). Không ai phải bắn.`;
+                    updates[`/minigameState/status`] = 'finished';
                     announcementText = `Mini game Cò Quay Nga: Có ${playersWithMaxBet.length} người cùng cược ${maxBet} viên. Không ai được chọn.`;
                 } else {
                     const [chosenOneId] = playersWithMaxBet[0];
-                    results.chosenOne = participants[chosenOneId];
-                    
-                    let survived = true;
-                    if (maxBet === 8) {
-                        if (Math.random() > 0.05) survived = false;
-                    } else {
-                        if (Math.random() < (maxBet / 8.0)) survived = false;
-                    }
-
-                    if (survived) {
-                        results.outcome = `${results.chosenOne} đã SỐNG SÓT sau khi bắn với ${maxBet} viên đạn!`;
-                        announcementText = `Mini game Cò Quay Nga: ${results.chosenOne} đã thắng và sống sót với ${maxBet} viên đạn!`;
-                    } else {
-                        results.outcome = `${results.chosenOne} đã CHẾT sau khi bắn với ${maxBet} viên đạn!`;
-                        announcementText = `Mini game Cò Quay Nga: ${results.chosenOne} đã thua và bỏ mạng với ${maxBet} viên đạn!`;
-                    }
+                    results.chosenOneId = chosenOneId;
+                    results.maxBet = maxBet;
+                    updates[`/minigameState/status`] = 'reveal_choice'; // Chuyển sang trạng thái mới
+                    announcementText = `Mini game Cò Quay Nga: ${participants[chosenOneId]} đã được chọn với mức cược cao nhất!`;
                 }
             }
             updates[`/minigameState/results`] = results;
-            alert(`Mini game kết thúc! ${announcementText}`);
-        } else if (currentState.gameType === 'bomber_game') {
-            if (currentState.results && currentState.results.loser) {
-                const loserName = currentState.participants[currentState.results.loser.id];
-                const reason = currentState.results.loser.reason;
-                let reasonText = '';
-                switch (reason) {
-                    case 'timeout': reasonText = 'hết giờ'; break;
-                    case 'pass_limit': reasonText = 'hết lượt chuyền'; break;
-                    default: reasonText = 'lý do khác';
+        } 
+        // ========================================================================================================
+        else {
+             // Logic của các game khác giữ nguyên
+            updates[`/minigameState/status`] = 'finished';
+            if (currentState.gameType === 'night_of_trust') {
+                const choices = currentState.choices || {};
+                const participants = currentState.participants || {};
+                const trustCounts = {};
+                Object.keys(participants).forEach(pId => { trustCounts[pId] = 0; });
+    
+                Object.values(choices).forEach(trustedArray => {
+                    if (Array.isArray(trustedArray)) {
+                        trustedArray.forEach(id => { if (trustCounts.hasOwnProperty(id)) trustCounts[id]++; });
+                    }
+                });
+    
+                const deadPlayerIds = Object.keys(trustCounts).filter(id => trustCounts[id] === 0);
+                const deadPlayerNames = deadPlayerIds.map(id => participants[id]);
+    
+                deadPlayerIds.forEach(id => {
+                    updates[`/players/${id}/isAlive`] = false;
+                });
+                
+                const nightStates = this.getNightStates();
+                if (nightStates.length > 0) {
+                    const lastNightState = nightStates[nightStates.length - 1];
+                    deadPlayerIds.forEach(id => {
+                        if (lastNightState.playersStatus[id]) {
+                            lastNightState.playersStatus[id].isAlive = false;
+                        }
+                    });
+                    await this.database.ref(`rooms/${this.roomId}/nightNotes`).set(nightStates);
                 }
-                announcementText = `Mini game Kẻ Gài Boom đã kết thúc. ${loserName} đã bị nổ tung vì ${reasonText}.`;
-            } else {
-                const finalHolder = currentState.participants[currentState.currentHolderId];
-                announcementText = `Mini game Kẻ Gài Boom đã được Quản trò kết thúc. ${finalHolder} là người cuối cùng giữ boom.`;
-                updates[`/minigameState/results`] = {
-                    loser: { id: currentState.currentHolderId, reason: 'admin_force_end' },
+                
+                announcementText = `Mini game "Đêm của Lòng Tin" đã kết thúc. ${deadPlayerNames.length > 0 ? `Người không nhận được sự tin tưởng và phải chết là: ${deadPlayerNames.join(', ')}.` : 'Tất cả mọi người đều an toàn.'}`;
+                updates[`/minigameState/results`] = { trustCounts, deadPlayerNames };
+                alert(`Mini game kết thúc! Người chết: ${deadPlayerNames.join(', ') || 'Không có ai'}.`);
+            
+            } else if (currentState.gameType === 'math_whiz') {
+                const submissions = currentState.submissions || {};
+                const { correctAnswer } = currentState.problem;
+    
+                const correctSubmissions = Object.entries(submissions)
+                    .filter(([, sub]) => sub.answer == correctAnswer && typeof sub.timestamp === 'number' && typeof currentState.startTime === 'number')
+                    .sort(([, a], [, b]) => a.timestamp - b.timestamp);
+    
+                if (correctSubmissions.length > 0) {
+                    const [winnerId, winnerSubmission] = correctSubmissions[0];
+                    const winnerName = currentState.participants[winnerId];
+                    const timeToAnswer = (winnerSubmission.timestamp - currentState.startTime) / 1000;
+                    
+                    announcementText = `Mini game "Thần Đồng Toán Học" đã kết thúc. Chúc mừng ${winnerName} đã trả lời đúng và nhanh nhất!`;
+                    updates[`/minigameState/results`] = { 
+                        winnerId, 
+                        winnerName, 
+                        timeToAnswer,
+                        problem: currentState.problem,
+                        allSubmissions: submissions
+                    };
+                     alert(`Mini game kết thúc! Người thắng cuộc: ${winnerName}.`);
+                } else {
+                    announcementText = `Mini game "Thần Đồng Toán Học" đã kết thúc. Rất tiếc, không có ai trả lời đúng.`;
+                    updates[`/minigameState/results`] = { 
+                        winnerName: null, 
+                        problem: currentState.problem,
+                        allSubmissions: submissions
+                    };
+                    alert(`Mini game kết thúc! Không có ai thắng.`);
+                }
+            } else if (currentState.gameType === 'returning_spirit') {
+                const winnerId = currentState.winner || null;
+                const winnerName = winnerId ? currentState.participants[winnerId] : null;
+                
+                if(winnerName) {
+                    announcementText = `Mini game "Vong Hồn Trở Lại" đã kết thúc. Chúc mừng ${winnerName} đã tìm thấy con đường đúng và chiến thắng!`;
+                } else {
+                    announcementText = `Mini game "Vong Hồn Trở Lại" đã kết thúc. Rất tiếc, không có ai chiến thắng.`;
+                }
+                updates[`/minigameState/results`] = { 
+                    winnerId: winnerId,
                     participants: currentState.participants,
-                    passHistory: currentState.passHistory
+                    correctPath: currentState.correctPath
                 };
+                alert(`Mini game kết thúc! Người thắng cuộc: ${winnerName || 'Không có ai'}.`);
+            } else if (currentState.gameType === 'bomber_game') {
+                if (currentState.results && currentState.results.loser) {
+                    const loserName = currentState.participants[currentState.results.loser.id];
+                    const reason = currentState.results.loser.reason;
+                    let reasonText = '';
+                    switch (reason) {
+                        case 'timeout': reasonText = 'hết giờ'; break;
+                        case 'pass_limit': reasonText = 'hết lượt chuyền'; break;
+                        default: reasonText = 'lý do khác';
+                    }
+                    announcementText = `Mini game Kẻ Gài Boom đã kết thúc. ${loserName} đã bị nổ tung vì ${reasonText}.`;
+                } else {
+                    const finalHolder = currentState.participants[currentState.currentHolderId];
+                    announcementText = `Mini game Kẻ Gài Boom đã được Quản trò kết thúc. ${finalHolder} là người cuối cùng giữ boom.`;
+                    updates[`/minigameState/results`] = {
+                        loser: { id: currentState.currentHolderId, reason: 'admin_force_end' },
+                        participants: currentState.participants,
+                        passHistory: currentState.passHistory
+                    };
+                }
+                alert(`Đã kết thúc mini game. ${announcementText}`);
             }
-            alert(`Đã kết thúc mini game. ${announcementText}`);
         }
         
         updates['/publicData/latestAnnouncement'] = {
