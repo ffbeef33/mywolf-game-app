@@ -13,6 +13,29 @@ const shuffleArray = (array) => {
         [array[i], array[j]] = [array[j], array[i]];
     }
 };
+
+/**
+ * Tạo một bảng puzzle 3x3 có thể giải được.
+ * @returns {Array<number>} Mảng đại diện cho bảng puzzle.
+ */
+const createSolvablePuzzle = () => {
+    let puzzle = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+    let emptyIndex = 8;
+    const shuffleCount = Math.floor(Math.random() * 100) + 100;
+    for (let i = 0; i < shuffleCount; i++) {
+        const validMoves = [];
+        const row = Math.floor(emptyIndex / 3);
+        const col = emptyIndex % 3;
+        if (row > 0) validMoves.push(emptyIndex - 3);
+        if (row < 2) validMoves.push(emptyIndex + 3);
+        if (col > 0) validMoves.push(emptyIndex - 1);
+        if (col < 2) validMoves.push(emptyIndex + 1);
+        const moveIndex = validMoves[Math.floor(Math.random() * validMoves.length)];
+        [puzzle[emptyIndex], puzzle[moveIndex]] = [puzzle[moveIndex], puzzle[emptyIndex]];
+        emptyIndex = moveIndex;
+    }
+    return puzzle;
+};
 // === KẾT THÚC CODE MỚI ===
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -647,17 +670,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         }
-
-        updates[`/nightResults/${currentNight}/public`] = {
-            deadPlayerNames: deadPlayerNames || [],
-            log: detailedLog,
-            timestamp: firebase.database.ServerValue.TIMESTAMP
-        };
-
+        
+        const newlyDeadPlayerIds = [];
         Object.keys(finalStatus).forEach(playerId => {
             const originalPlayerState = initialPlayerStatus[playerId];
             const finalPlayerState = finalStatus[playerId];
             if (originalPlayerState?.isAlive && !finalPlayerState.isAlive) {
+                newlyDeadPlayerIds.push(playerId); // Thêm người chơi vừa chết vào danh sách
                 updates[`/players/${playerId}/isAlive`] = false;
 
                 if (finalPlayerState.causeOfDeath) {
@@ -673,6 +692,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+        
+        // === LOGIC MỚI: TỰ ĐỘNG THÊM NGƯỜI CHƠI VÀO GAME PUZZLE ===
+        const allPuzzles = roomData.slidingPuzzles || {};
+        let activePuzzleId = null;
+        let activePuzzleData = null;
+
+        for (const puzzleId in allPuzzles) {
+            if (allPuzzles[puzzleId].status === 'active') {
+                activePuzzleId = puzzleId;
+                activePuzzleData = allPuzzles[puzzleId];
+                break;
+            }
+        }
+
+        if (activePuzzleId && activePuzzleData) {
+            const puzzleParticipants = activePuzzleData.participants || {};
+            newlyDeadPlayerIds.forEach(deadPlayerId => {
+                if (!puzzleParticipants[deadPlayerId]) {
+                    const deadPlayerName = allPlayers[deadPlayerId]?.name;
+                    if (deadPlayerName) {
+                        updates[`/slidingPuzzles/${activePuzzleId}/participants/${deadPlayerId}`] = deadPlayerName;
+                        updates[`/slidingPuzzles/${activePuzzleId}/playerProgress/${deadPlayerId}`] = {
+                            board: createSolvablePuzzle(),
+                            moves: 0
+                        };
+                        detailedLog.push(`- ${deadPlayerName} đã chết và tự động tham gia minigame Giải Mã Mê Cung.`);
+                    }
+                }
+            });
+        }
+        // === KẾT THÚC LOGIC MỚI ===
+
+        updates[`/nightResults/${currentNight}/public`] = {
+            deadPlayerNames: deadPlayerNames || [],
+            log: detailedLog,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        };
 
         const wizardPlayerEntry = Object.entries(allPlayers).find(([, p]) => (allRolesData[p.roleName] || {}).kind === 'wizard');
 
@@ -889,6 +945,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (isWolf && curseState === 'locked') {
                         updates[`interactiveState/curseAbility/status`] = 'available';
                     }
+                    
+                    // === LOGIC MỚI: TỰ ĐỘNG THÊM NGƯỜI CHƠI VÀO GAME PUZZLE (KHI GIẾT THỦ CÔNG) ===
+                    const allPuzzles = roomData.slidingPuzzles || {};
+                    let activePuzzleId = null;
+                    let activePuzzleData = null;
+
+                    for (const puzzleId in allPuzzles) {
+                        if (allPuzzles[puzzleId].status === 'active') {
+                            activePuzzleId = puzzleId;
+                            activePuzzleData = allPuzzles[puzzleId];
+                            break;
+                        }
+                    }
+                    
+                    if (activePuzzleId && activePuzzleData && !activePuzzleData.participants[playerId]) {
+                        updates[`/slidingPuzzles/${activePuzzleId}/participants/${playerId}`] = playerName;
+                        updates[`/slidingPuzzles/${activePuzzleId}/playerProgress/${playerId}`] = {
+                            board: createSolvablePuzzle(),
+                            moves: 0
+                        };
+                    }
+                    // === KẾT THÚC LOGIC MỚI ===
+
                     roomRef.update(updates);
                 }
             } else if (action === '2') {

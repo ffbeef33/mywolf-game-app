@@ -13,6 +13,30 @@ const shuffleArray = (array) => {
     }
 };
 
+/**
+ * Tạo một bảng puzzle 3x3 có thể giải được.
+ * @returns {Array<number>} Mảng đại diện cho bảng puzzle.
+ */
+const createSolvablePuzzle = () => {
+    let puzzle = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+    let emptyIndex = 8;
+    const shuffleCount = Math.floor(Math.random() * 100) + 100;
+    for (let i = 0; i < shuffleCount; i++) {
+        const validMoves = [];
+        const row = Math.floor(emptyIndex / 3);
+        const col = emptyIndex % 3;
+        if (row > 0) validMoves.push(emptyIndex - 3);
+        if (row < 2) validMoves.push(emptyIndex + 3);
+        if (col > 0) validMoves.push(emptyIndex - 1);
+        if (col < 2) validMoves.push(emptyIndex + 1);
+        const moveIndex = validMoves[Math.floor(Math.random() * validMoves.length)];
+        [puzzle[emptyIndex], puzzle[moveIndex]] = [puzzle[moveIndex], puzzle[emptyIndex]];
+        emptyIndex = moveIndex;
+    }
+    return puzzle;
+};
+
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- Firebase ---
     const firebaseConfig = {
@@ -793,30 +817,55 @@ document.addEventListener('DOMContentLoaded', () => {
         } 
         else if (target.closest('#end-night-btn')) {
             if (!nightState.isFinished) {
-                // TÍNH TOÁN KẾT QUẢ ĐÊM
                 const { finalStatus } = calculateNightStatus(nightState, roomPlayers);
-
-                // TẠO MỘT ĐỐI TƯỢNG ĐỂ CẬP NHẬT TRẠNG THÁI LÊN FIREBASE
                 const updates = {};
-                let playersUpdated = false;
+                const newlyDeadPlayerIds = [];
 
-                // DUYỆT QUA TẤT CẢ NGƯỜI CHƠI ĐỂ ĐỒNG BỘ TRẠNG THÁI isAlive
                 roomPlayers.forEach(p => {
                     const calculatedAlive = finalStatus[p.id]?.isAlive || false;
                     const currentFirebaseAlive = roomDataState.players[p.id]?.isAlive || false;
 
                     if (calculatedAlive !== currentFirebaseAlive) {
                         updates[`/players/${p.id}/isAlive`] = calculatedAlive;
-                        playersUpdated = true;
+                        if (!calculatedAlive) {
+                            newlyDeadPlayerIds.push(p.id);
+                        }
                     }
                 });
+
+                // === LOGIC MỚI: TỰ ĐỘNG THÊM NGƯỜI CHƠI VÀO GAME PUZZLE ===
+                const allPuzzles = roomDataState.slidingPuzzles || {};
+                let activePuzzleId = null;
+                let activePuzzleData = null;
+                for (const puzzleId in allPuzzles) {
+                    if (allPuzzles[puzzleId].status === 'active') {
+                        activePuzzleId = puzzleId;
+                        activePuzzleData = allPuzzles[puzzleId];
+                        break;
+                    }
+                }
+
+                if (activePuzzleId && activePuzzleData) {
+                    const puzzleParticipants = activePuzzleData.participants || {};
+                    newlyDeadPlayerIds.forEach(deadPlayerId => {
+                        if (!puzzleParticipants[deadPlayerId]) {
+                            const deadPlayerName = roomPlayers.find(p => p.id === deadPlayerId)?.name;
+                            if (deadPlayerName) {
+                                updates[`/slidingPuzzles/${activePuzzleId}/participants/${deadPlayerId}`] = deadPlayerName;
+                                updates[`/slidingPuzzles/${activePuzzleId}/playerProgress/${deadPlayerId}`] = {
+                                    board: createSolvablePuzzle(),
+                                    moves: 0
+                                };
+                            }
+                        }
+                    });
+                }
+                // === KẾT THÚC LOGIC MỚI ===
                 
-                // GỬI CẬP NHẬT LÊN FIREBASE NẾU CÓ THAY ĐỔI
-                if (playersUpdated) {
+                if (Object.keys(updates).length > 0) {
                     database.ref(`rooms/${roomId}`).update(updates);
                 }
 
-                // XỬ LÝ LOGIC CURSE/COLLECT (giữ nguyên logic cũ nếu có)
                 const { loveRedirects, liveStatuses } = calculateNightStatus(nightState, roomPlayers);
                 const curseActions = nightState.actions.filter(a => a.action === 'curse');
                 const collectActions = nightState.actions.filter(a => a.action === 'collect');
@@ -860,7 +909,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
                 
-                // ĐÁNH DẤU ĐÊM ĐÃ KẾT THÚC VÀ LƯU LẠI
                 nightState.isFinished = true;
                 saveNightNotes();
             }
