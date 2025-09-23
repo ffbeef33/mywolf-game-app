@@ -302,7 +302,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (activePuzzleForMe) {
             showSection(slidingPuzzleSection);
             handleSlidingPuzzleState(activePuzzleForMe);
-            return; // Ưu tiên hiển thị puzzle cho người chơi đã chết
         }
 
         if (myPlayerData.roleName) {
