@@ -662,7 +662,7 @@ class MinigameManager {
             const newMinigameState = {
                 status: 'active',
                 gameType: 'sliding_puzzle',
-                title: 'Mini Game: Puzzle Hồi Sinh',
+                title: 'Mini Game: Giải Mã Mê Cung',
                 participants,
                 playerProgress,
                 winnerId: null
