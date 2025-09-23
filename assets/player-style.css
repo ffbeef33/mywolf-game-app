@@ -553,3 +553,59 @@ button:disabled {
     transform: none;
 }
 /* KẾT THÚC CODE MỚI */
+
+/* BẮT ĐẦU: CSS CHO HƯỚNG DẪN PUZZLE */
+#puzzle-layout-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 20px;
+    margin: 20px auto;
+}
+
+#puzzle-board-container {
+    width: 100%;
+    max-width: 300px;
+    flex-shrink: 1; /* Cho phép co lại nếu cần */
+}
+
+#puzzle-guide {
+    flex-shrink: 0; /* Không co lại */
+    width: 100px; /* Kích thước cố định cho khung hướng dẫn */
+}
+
+.guide-title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text-color);
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.guide-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 4px;
+    background-color: var(--primary-bg);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.guide-tile {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--primary-bg);
+    background-color: var(--light-text);
+    opacity: 0.8;
+    border-radius: 4px;
+    aspect-ratio: 1 / 1;
+}
+
+.guide-tile.empty {
+    background-color: var(--secondary-bg);
+}
+/* KẾT THÚC: CSS CHO HƯỚNG DẪN PUZZLE */
