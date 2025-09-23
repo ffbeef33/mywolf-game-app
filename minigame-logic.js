@@ -719,18 +719,9 @@ class MinigameManager {
 
         // ================== LOGIC PHÂN LUỒNG MỚI ==================
         if (gameType === 'sliding_puzzle') {
-            // Logic riêng cho Puzzle Trượt
+            // SỬA LỖI: Lấy tất cả người chơi đã chết từ trước đến nay
             const allPlayers = this.getRoomPlayers();
-            const nightStates = this.getNightStates();
-            const lastNight = nightStates.length > 0 ? nightStates[nightStates.length - 1] : null;
-
-            if (!lastNight || !lastNight.isFinished) {
-                alert("Lỗi: Phải có ít nhất một đêm đã kết thúc để xác định người chơi đã chết.");
-                return;
-            }
-
-            const { finalStatus } = calculateNightStatus(lastNight, allPlayers);
-            const deadPlayers = allPlayers.filter(p => finalStatus[p.id] && !finalStatus[p.id].isAlive);
+            const deadPlayers = allPlayers.filter(p => !p.isAlive);
 
             if (deadPlayers.length === 0) {
                 alert("Không có người chơi nào chết để tham gia mini game này.");

@@ -720,6 +720,7 @@ document.addEventListener('DOMContentLoaded', () => {
                  if (nightState && nightState.actions) {
                     nightState.actions = nightState.actions.filter(a => a.id !== actionId);
                     saveNightNotes();
+                    render(nightState); // SỬA LỖI: Thêm re-render
                 }
             }
             return;
@@ -737,6 +738,7 @@ document.addEventListener('DOMContentLoaded', () => {
                      playerStatus.isAlive = newStatus;
                      nightState.initialPlayersStatus[actorId].isAlive = newStatus;
                      saveNightNotes();
+                     render(nightState); // SỬA LỖI: Thêm re-render
                  }
              }
             return;
@@ -796,6 +798,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             activeNightIndex = nightStates.length - 1;
             saveNightNotes();
+            render(nightStates[activeNightIndex]); // SỬA LỖI: Thêm re-render
             return;
         }
         if (!nightState) return;
@@ -814,6 +817,7 @@ document.addEventListener('DOMContentLoaded', () => {
             recalculateAllPlayerFactions();
             nightState.damageGroups = {};
             saveNightNotes();
+            render(nightState); // SỬA LỖI: Thêm re-render
         } 
         else if (target.closest('#end-night-btn')) {
             if (!nightState.isFinished) {
@@ -911,6 +915,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 nightState.isFinished = true;
                 saveNightNotes();
+                render(nightState); // SỬA LỖI: Thêm re-render
             }
         }
     };
@@ -1041,6 +1046,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 saveNightNotes();
+                render(nightState); // SỬA LỖI: Thêm re-render
             }
             actionModal.classList.add('hidden');
         });
@@ -1101,6 +1107,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 saveNightNotes();
+                render(nightState); // SỬA LỖI: Thêm re-render
                  actionModal.classList.add('hidden');
             }
         });
