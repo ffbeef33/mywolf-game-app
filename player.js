@@ -273,36 +273,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // THAY THẾ TOÀN BỘ HÀM updateGameState CŨ BẰNG HÀM MỚI NÀY
+
     function updateGameState(username, roomId, currentRoomData) {
         roomIdDisplay.textContent = roomId;
         displayRolesInGame(currentRoomData.rolesToAssign || []);
         const myPlayerEntry = Object.entries(currentRoomData.players).find(([id, p]) => p.name === username);
+
         if (!myPlayerEntry) {
             showSection(waitingSection);
             playerActionsContainer.classList.add('hidden');
             waitingSection.querySelector('.waiting-message').textContent = "Bạn không có trong phòng này!";
             return;
         }
+
         myPlayerId = myPlayerEntry[0];
         myPlayerData = myPlayerEntry[1];
-
-        const allPuzzles = currentRoomData.slidingPuzzles;
-        let activePuzzleForMe = null;
-        if (allPuzzles && myPlayerData && !myPlayerData.isAlive) {
-            for (const puzzleId in allPuzzles) {
-                const puzzle = allPuzzles[puzzleId];
-                if (puzzle.status === 'active' && puzzle.participants[myPlayerId]) {
-                    activePuzzleForMe = puzzle;
-                    currentPuzzleId = puzzleId; // Lưu lại ID của puzzle
-                    break;
-                }
-            }
-        }
-
-        if (activePuzzleForMe) {
-            showSection(slidingPuzzleSection);
-            handleSlidingPuzzleState(activePuzzleForMe);
-        }
 
         if (myPlayerData.roleName) {
             playerActionsContainer.classList.remove('hidden');
@@ -312,7 +298,18 @@ document.addEventListener('DOMContentLoaded', () => {
             playerActionsContainer.classList.add('hidden');
         }
 
+        // Lấy tất cả các trạng thái có thể có
         const minigameState = currentRoomData.minigameState;
+        const allPuzzles = currentRoomData.slidingPuzzles;
+        const votingState = currentRoomData.votingState;
+        const interactiveState = currentRoomData.interactiveState;
+        const playerPickState = currentRoomData.playerPickState;
+
+        // ==========================================================
+        // BẮT ĐẦU KIỂM TRA CÁC TRẠNG THÁI THEO THỨ TỰ ƯU TIÊN
+        // ==========================================================
+
+        // ƯU TIÊN SỐ 1: MINI GAME CHÍNH ĐANG HOẠT ĐỘNG
         if (minigameState && minigameState.status === 'active' && minigameState.participants[myPlayerId]) {
             if (minigameState.gameType === 'night_of_trust') {
                 showSection(minigameSection);
@@ -320,8 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (minigameState.gameType === 'math_whiz') {
                 showSection(mathWhizSection);
                 handleMathWhizState(minigameState);
-            }
-            else if (minigameState.gameType === 'returning_spirit') {
+            } else if (minigameState.gameType === 'returning_spirit') {
                 showSection(returningSpiritSection);
                 handleReturningSpiritState(minigameState);
             } else if (minigameState.gameType === 'russian_roulette') {
@@ -331,22 +327,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 showSection(bomberGameSection);
                 handleBomberGameState(minigameState);
             }
-            else if (minigameState.gameType === 'sliding_puzzle') {
-                showSection(slidingPuzzleSection);
-                handleSlidingPuzzleState(minigameState);
-            }
-            return;
+            return; // Dừng lại sau khi xử lý
         }
 
-        const interactiveState = currentRoomData.interactiveState;
-        if (interactiveState && interactiveState.phase === 'night' && myPlayerData.isAlive) {
-            hideAllGameCards();
-            displayNightActions(currentRoomData, interactiveState.currentNight);
-            return;
+        // ƯU TIÊN SỐ 2: GAME PUZZLE ĐANG HOẠT ĐỘNG (CHỈ DÀNH CHO NGƯỜI CHẾT)
+        if (allPuzzles && myPlayerData && !myPlayerData.isAlive) {
+            let activePuzzleForMe = null;
+            for (const puzzleId in allPuzzles) {
+                const puzzle = allPuzzles[puzzleId];
+                if (puzzle.status === 'active' && puzzle.participants[myPlayerId]) {
+                    activePuzzleForMe = puzzle;
+                    currentPuzzleId = puzzleId;
+                    break;
+                }
+            }
+            if (activePuzzleForMe) {
+                showSection(slidingPuzzleSection);
+                handleSlidingPuzzleState(activePuzzleForMe);
+                return; // Dừng lại sau khi xử lý
+            }
         }
-        interactiveActionSection.classList.add('hidden');
-        wolfActionChoiceModal.classList.add('hidden');
-        const votingState = currentRoomData.votingState;
+
+        // ƯU TIÊN SỐ 3: BỎ PHIẾU ĐANG DIỄN RA
         if (votingState && votingState.status === 'active') {
             if (myPlayerData.isAlive) {
                 if (votingState.voters && votingState.voters[myPlayerId]) {
@@ -355,22 +357,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     showSection(waitingSection);
                     waitingSection.querySelector('h2').textContent = "Đang diễn ra vote...";
-                    waitingSection.querySelector('.waiting-message').textContent = "Bạn không đủ điều kiện tham gia bỏ phiếu lần này (do không tương tác trong đêm).";
+                    waitingSection.querySelector('.waiting-message').textContent = "Bạn không đủ điều kiện tham gia bỏ phiếu lần này.";
                 }
             } else {
                 showSection(waitingSection);
                 waitingSection.querySelector('h2').textContent = "Đang diễn ra vote...";
                 waitingSection.querySelector('.waiting-message').textContent = "Bạn đã chết và không thể tham gia bỏ phiếu.";
             }
-            return;
+            return; // Dừng lại sau khi xử lý
         }
+
+        // ƯU TIÊN SỐ 4: HÀNH ĐỘNG ĐÊM (CHỈ DÀNH CHO NGƯỜI SỐNG)
+        if (interactiveState && interactiveState.phase === 'night' && myPlayerData.isAlive) {
+            hideAllGameCards();
+            displayNightActions(currentRoomData, interactiveState.currentNight);
+            return; // Dừng lại sau khi xử lý
+        }
+
+        // ƯU TIÊN SỐ 5 (TRẠNG THÁI MẶC ĐỊNH / DỰ PHÒNG)
         if (myPlayerData.roleName) {
             showSection(roleRevealSection);
             const fullRoleData = allRolesData.find(role => role.name === myPlayerData.roleName);
             updateRoleCard(fullRoleData);
-        } else if (currentRoomData.playerPickState && currentRoomData.playerPickState.status === 'picking') {
+        } else if (playerPickState && playerPickState.status === 'picking') {
             showSection(playerPickSection);
-            handlePlayerPickState(username, roomId, currentRoomData.playerPickState);
+            handlePlayerPickState(username, roomId, playerPickState);
         } else {
             showSection(waitingSection);
             waitingSection.querySelector('h2').textContent = "Đang chờ Quản Trò...";
