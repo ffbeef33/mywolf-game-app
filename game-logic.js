@@ -350,16 +350,25 @@ function calculateNightStatus(nightState, roomPlayers) {
                 const finalTarget = roomPlayers.find(p => p.id === ultimateTargetId);
                 const finalTargetStatus = liveStatuses[ultimateTargetId];
                 
-                if (!finalTarget || !finalTargetStatus || finalTargetStatus.isProtected) return;
+                if (!finalTarget || !finalTargetStatus) return;
+
+                // ===== BẮT ĐẦU SỬA LỖI KILLVILLAGER =====
+                // Logic phạt của 'killvillager' được xử lý trước, bất kể mục tiêu có được bảo vệ hay không.
+                if (actionKind === 'killvillager' && finalTarget.roleName !== 'Dân') {
+                    // Nếu chọn sai mục tiêu, tự gây sát thương cho bản thân
+                    if (liveStatuses[actorId] && !liveStatuses[actorId].isProtected) {
+                        liveStatuses[actorId].damage++;
+                    }
+                    // Dừng xử lý hành động này, không gây sát thương cho mục tiêu.
+                    return;
+                }
+                // ===== KẾT THÚC SỬA LỖI KILLVILLAGER =====
+
+                if (finalTargetStatus.isProtected) return;
                 
                 let shouldDamage = true;
-                if(actionKind === 'killwolf' && !(finalTarget.faction === 'Bầy Sói' || finalTarget.faction === 'Phe Sói')) shouldDamage = false;
-                if(actionKind === 'killvillager'){
-                    if(finalTarget.roleName === 'Dân') shouldDamage = true;
-                    else {
-                        shouldDamage = false;
-                        if (liveStatuses[actorId] && !liveStatuses[actorId].isProtected) liveStatuses[actorId].damage++;
-                    }
+                if(actionKind === 'killwolf' && !(finalTarget.faction === 'Bầy Sói' || finalTarget.faction === 'Phe Sói')) {
+                    shouldDamage = false;
                 }
                 
                 if(shouldDamage) {

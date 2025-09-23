@@ -22,11 +22,7 @@ class MinigameManager {
         this.minigameSelect = document.getElementById('minigame-select');
         this.startMinigameBtn = document.getElementById('start-minigame-btn');
         this.endMinigameBtn = document.getElementById('end-minigame-btn');
-        
-        // ==================== THAY ĐỔI 1: Lấy DOM element cho nút mới ====================
         this.shootBtn = document.getElementById('shoot-minigame-btn');
-        // ===============================================================================
-
         this.minigameResultsContainer = document.getElementById('minigame-results-container');
         this.minigameResultsDetails = document.getElementById('minigame-results-details');
         this.minigameLiveChoices = document.getElementById('minigame-live-choices');
@@ -39,10 +35,7 @@ class MinigameManager {
     attachEventListeners() {
         if (this.startMinigameBtn) this.startMinigameBtn.addEventListener('click', () => this.handleStartMinigame());
         if (this.endMinigameBtn) this.endMinigameBtn.addEventListener('click', () => this.handleEndMinigame());
-        
-        // ==================== THAY ĐỔI 2: Gán sự kiện cho nút mới =======================
         if (this.shootBtn) this.shootBtn.addEventListener('click', () => this.handleShooting());
-        // ===============================================================================
     }
 
     listenForStateChanges() {
@@ -67,7 +60,6 @@ class MinigameManager {
                 this.minigameLiveChoices.style.display = 'block';
                 this.renderLiveChoices(state);
             } 
-            // ==================== THAY ĐỔI 3: Thêm xử lý cho trạng thái mới `reveal_choice` ====================
             else if (state.status === 'reveal_choice') {
                 this.shootBtn.style.display = 'inline-block';
                 this.minigameSelect.disabled = true;
@@ -75,7 +67,6 @@ class MinigameManager {
                 this.minigameLiveChoices.style.display = 'none';
                 this.renderResults(state); // Gọi render để hiển thị người được chọn
             }
-            // ==================================================================================================
             else if (state.status === 'finished') {
                 this.startMinigameBtn.style.display = 'inline-block';
                 this.minigameResultsContainer.style.display = 'block';
@@ -93,7 +84,6 @@ class MinigameManager {
         });
     }
 
-    // ==================== THAY ĐỔI 4: Tạo hàm mới để xử lý logic bắn ====================
     async handleShooting() {
         this.shootBtn.disabled = true;
         this.shootBtn.textContent = "Đang xử lý...";
@@ -145,7 +135,6 @@ class MinigameManager {
         this.shootBtn.disabled = false;
         this.shootBtn.textContent = "Bắt Đầu Bắn";
     }
-    // ======================================================================================
 
     createParticipantSelectionModal(allPlayers, callback) {
         const oldModal = document.getElementById('participant-selection-modal');
@@ -578,7 +567,7 @@ class MinigameManager {
         const gameType = this.minigameSelect.value;
         
         if (gameType === 'returning_spirit' || gameType === 'russian_roulette') {
-            const allPlayers = this.getRoomPlayers().filter(p => p.isAlive);
+            const allPlayers = this.getRoomPlayers();
             this.createParticipantSelectionModal(allPlayers, (participants) => {
                 if (gameType === 'returning_spirit') {
                     this.startReturningSpiritGame(participants);
@@ -705,7 +694,6 @@ class MinigameManager {
         let announcementText = "";
         const updates = {};
         
-        // ==================== THAY ĐỔI 5: Tách logic Cò Quay Nga ra khỏi luồng xử lý chung ====================
         if (currentState.gameType === 'russian_roulette') {
             const bets = currentState.bets || {};
             const participants = currentState.participants || {};
@@ -752,7 +740,6 @@ class MinigameManager {
             }
             updates[`/minigameState/results`] = results;
         } 
-        // ========================================================================================================
         else {
              // Logic của các game khác giữ nguyên
             updates[`/minigameState/status`] = 'finished';
