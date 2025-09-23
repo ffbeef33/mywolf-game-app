@@ -75,6 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const mathStatusMessage = document.getElementById('math-status-message');
     const russianRouletteSection = document.getElementById('russian-roulette-section');
     const bomberGameSection = document.getElementById('bomber-game-section');
+    const slidingPuzzleSection = document.getElementById('sliding-puzzle-section');
 
     // === BIẾN MỚI CHO VONG HỒN TRỞ LẠI ===
     const returningSpiritSection = document.getElementById('returning-spirit-section');
@@ -310,6 +311,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 showSection(bomberGameSection);
                 handleBomberGameState(minigameState);
             }
+            else if (minigameState.gameType === 'sliding_puzzle') {
+                showSection(slidingPuzzleSection);
+                handleSlidingPuzzleState(minigameState);
+            }
             return;
         }
 
@@ -354,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showSection(sectionToShow) {
-        [waitingSection, playerPickSection, roleRevealSection, votingUiSection, interactiveActionSection, minigameSection, mathWhizSection, returningSpiritSection, russianRouletteSection, bomberGameSection].forEach(section => {
+        [waitingSection, playerPickSection, roleRevealSection, votingUiSection, interactiveActionSection, minigameSection, mathWhizSection, returningSpiritSection, russianRouletteSection, bomberGameSection, slidingPuzzleSection].forEach(section => {
             section.classList.toggle('hidden', section !== sectionToShow);
         });
     }
@@ -1508,4 +1513,95 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     initialize();
+
+    // =========================================================
+    // === BẮT ĐẦU: LOGIC MINI GAME PUZZLE TRƯỢT HỒI SINH ===
+    // =========================================================
+
+    function handleSlidingPuzzleState(state) {
+        const boardContainer = document.getElementById('puzzle-board');
+        const movesDisplay = document.getElementById('puzzle-moves');
+        const statusDisplay = document.getElementById('puzzle-status');
+
+        const myProgress = state.playerProgress[myPlayerId];
+        if (!myProgress) return; // Người chơi không tham gia
+
+        // Nếu đã có người thắng
+        if (state.winnerId) {
+            boardContainer.innerHTML = '';
+            statusDisplay.innerHTML = '';
+            if (state.winnerId === myPlayerId) {
+                movesDisplay.innerHTML = `<h3 style="color: var(--safe-color);">BẠN ĐÃ THẮNG!</h3><p>Bạn sẽ được hồi sinh vào đêm tiếp theo.</p>`;
+            } else {
+                const winnerName = state.participants[state.winnerId] || 'Một người chơi khác';
+                movesDisplay.innerHTML = `<h3 style="color: var(--danger-color);">TRÒ CHƠI KẾT THÚC</h3><p>${winnerName} đã thắng và được hồi sinh.</p>`;
+            }
+            return;
+        }
+
+        // Hiển thị bàn cờ
+        renderPuzzleBoard(myProgress.board);
+        movesDisplay.textContent = `Số lần di chuyển: ${myProgress.moves}`;
+        statusDisplay.textContent = 'Nhấn vào một ô cạnh ô trống để di chuyển.';
+    }
+
+    function renderPuzzleBoard(boardData) {
+        const boardContainer = document.getElementById('puzzle-board');
+        boardContainer.innerHTML = '';
+        boardData.forEach((tileValue, index) => {
+            const tile = document.createElement('div');
+            tile.className = 'puzzle-tile';
+            if (tileValue !== 0) {
+                tile.textContent = tileValue;
+                tile.onclick = () => handleTileClick(index, boardData);
+            } else {
+                tile.classList.add('empty');
+            }
+            boardContainer.appendChild(tile);
+        });
+    }
+
+    function handleTileClick(clickedIndex, currentBoard) {
+        const emptyIndex = currentBoard.indexOf(0);
+        const size = 3; // 3x3 grid
+
+        // Kiểm tra xem có di chuyển hợp lệ không (cạnh bên, không phải đường chéo)
+        const isAdjacent = 
+            (Math.abs(clickedIndex - emptyIndex) === 1 && Math.floor(clickedIndex / size) === Math.floor(emptyIndex / size)) || // Cùng hàng
+            (Math.abs(clickedIndex - emptyIndex) === size); // Cùng cột
+
+        if (isAdjacent) {
+            const newBoard = [...currentBoard];
+            // Hoán đổi vị trí
+            [newBoard[clickedIndex], newBoard[emptyIndex]] = [newBoard[emptyIndex], newBoard[clickedIndex]];
+
+            const newMoves = (roomData.minigameState.playerProgress[myPlayerId].moves || 0) + 1;
+            
+            const updates = {};
+            updates[`/minigameState/playerProgress/${myPlayerId}/board`] = newBoard;
+            updates[`/minigameState/playerProgress/${myPlayerId}/moves`] = newMoves;
+
+            // Kiểm tra thắng
+            if (checkPuzzleWin(newBoard)) {
+                updates[`/minigameState/winnerId`] = myPlayerId;
+                updates[`/minigameState/status`] = 'finished';
+                // Logic hồi sinh người chơi
+                updates[`/players/${myPlayerId}/isAlive`] = true; 
+            }
+            
+            database.ref(`rooms/${currentRoomId}`).update(updates);
+        }
+    }
+
+    function checkPuzzleWin(board) {
+        // Trạng thái thắng là [1, 2, 3, 4, 5, 6, 7, 8, 0]
+        for (let i = 0; i < 8; i++) {
+            if (board[i] !== i + 1) {
+                return false;
+            }
+        }
+        return board[8] === 0;
+    }
+
+    // === KẾT THÚC: LOGIC MINI GAME PUZZLE TRƯỢT HỒI SINH ===
 });

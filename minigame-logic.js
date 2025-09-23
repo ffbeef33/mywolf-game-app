@@ -343,6 +343,34 @@ class MinigameManager {
         };
         this.database.ref(`rooms/${this.roomId}/minigameState`).set(newMinigameState);
     }
+    
+    // === HÀM MỚI ĐỂ TẠO PUZZLE ===
+    createSolvablePuzzle() {
+        // Trạng thái đã giải: [1, 2, 3, 4, 5, 6, 7, 8, 0] (0 là ô trống)
+        let puzzle = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+        let emptyIndex = 8;
+
+        // Thực hiện 100-200 lần di chuyển ngẫu nhiên hợp lệ từ trạng thái đã giải
+        const shuffleCount = Math.floor(Math.random() * 100) + 100;
+        for (let i = 0; i < shuffleCount; i++) {
+            const validMoves = [];
+            const row = Math.floor(emptyIndex / 3);
+            const col = emptyIndex % 3;
+
+            if (row > 0) validMoves.push(emptyIndex - 3); // Lên
+            if (row < 2) validMoves.push(emptyIndex + 3); // Xuống
+            if (col > 0) validMoves.push(emptyIndex - 1); // Trái
+            if (col < 2) validMoves.push(emptyIndex + 1); // Phải
+
+            const moveIndex = validMoves[Math.floor(Math.random() * validMoves.length)];
+            
+            // Hoán đổi ô trống với ô được chọn
+            [puzzle[emptyIndex], puzzle[moveIndex]] = [puzzle[moveIndex], puzzle[emptyIndex]];
+            emptyIndex = moveIndex;
+        }
+
+        return puzzle;
+    }
 
     renderLiveChoices(state) {
         if (!this.minigameLiveChoicesList) return;
@@ -459,6 +487,28 @@ class MinigameManager {
                 }, 500);
             }
         }
+        // === BẮT ĐẦU CODE MỚI ===
+        else if (state.gameType === 'sliding_puzzle') {
+            const { playerProgress, winnerId } = state;
+            this.minigameLiveChoicesList.innerHTML = '';
+            
+            if (winnerId) {
+                const winnerName = state.participants[winnerId] || 'Người chơi lạ';
+                const li = document.createElement('li');
+                li.innerHTML = `🏆 <strong>TRÒ CHƠI KẾT THÚC!</strong> Người thắng cuộc: <strong>${winnerName}</strong>`;
+                this.minigameLiveChoicesList.appendChild(li);
+                return;
+            }
+
+            for (const pId in playerProgress) {
+                const progress = playerProgress[pId];
+                const playerName = state.participants[pId];
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>${playerName}:</strong> đã di chuyển ${progress.moves || 0} lần.`;
+                this.minigameLiveChoicesList.appendChild(li);
+            }
+        }
+        // === KẾT THÚC CODE MỚI ===
     }
 
     renderResults(state) {
@@ -559,12 +609,68 @@ class MinigameManager {
                 resultsHTML += `<h4>Lịch sử chuyền boom:</h4><p>${historyText}</p>`;
             }
         }
+        // === BẮT ĐẦU CODE MỚI ===
+        else if (state.gameType === 'sliding_puzzle') {
+            const { winnerId, participants } = state.results || {};
+            if (winnerId) {
+                const winnerName = participants[winnerId] || 'Người chơi lạ';
+                resultsHTML = `<p>🏆 <strong>Người thắng cuộc:</strong> ${winnerName} đã giải được puzzle và sẽ được hồi sinh!</p>`;
+            } else {
+                resultsHTML = `<p>Trò chơi đã kết thúc nhưng không có người thắng cuộc.</p>`;
+            }
+        }
+        // === KẾT THÚC CODE MỚI ===
         
         this.minigameResultsDetails.innerHTML = resultsHTML;
     }
 
     handleStartMinigame() {
         const gameType = this.minigameSelect.value;
+
+        // === BẮT ĐẦU CODE MỚI ===
+        if (gameType === 'sliding_puzzle') {
+            const allPlayers = this.getRoomPlayers();
+            const nightStates = this.getNightStates();
+            const lastNight = nightStates.length > 0 ? nightStates[nightStates.length - 1] : null;
+
+            if (!lastNight || !lastNight.isFinished) {
+                alert("Lỗi: Phải có ít nhất một đêm đã kết thúc để xác định người chơi đã chết.");
+                return;
+            }
+
+            const { finalStatus } = calculateNightStatus(lastNight, allPlayers);
+            const deadPlayers = allPlayers.filter(p => finalStatus[p.id] && !finalStatus[p.id].isAlive);
+
+            if (deadPlayers.length === 0) {
+                alert("Không có người chơi nào chết để tham gia mini game này.");
+                return;
+            }
+            
+            const participants = deadPlayers.reduce((acc, p) => {
+                acc[p.id] = p.name;
+                return acc;
+            }, {});
+
+            const playerProgress = {};
+            for (const pId in participants) {
+                playerProgress[pId] = {
+                    board: this.createSolvablePuzzle(),
+                    moves: 0,
+                };
+            }
+
+            const newMinigameState = {
+                status: 'active',
+                gameType: 'sliding_puzzle',
+                title: 'Mini Game: Puzzle Hồi Sinh',
+                participants,
+                playerProgress,
+                winnerId: null
+            };
+            this.database.ref(`rooms/${this.roomId}/minigameState`).set(newMinigameState);
+            return; // Dừng hàm tại đây
+        }
+        // === KẾT THÚC CODE MỚI ===
         
         if (gameType === 'returning_spirit' || gameType === 'russian_roulette') {
             const allPlayers = this.getRoomPlayers();
