@@ -476,9 +476,6 @@ document.addEventListener('DOMContentLoaded', () => {
         row.className = 'player-row';
         row.dataset.playerId = player.id;
         
-        // ================= SỬA LỖI =================
-        // Chỉ thêm class 'status-dead' (ẩn nút action) KHI ĐÊM ĐÃ KẾT THÚC.
-        // Nếu đêm chưa kết thúc, người chơi dự kiến chết sẽ có class 'status-danger' (nền đỏ) nhưng nút vẫn hiện.
         if (isFinished && !playerState.isAlive) {
             row.classList.add('status-dead');
         } else {
@@ -489,7 +486,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (liveStatus.isDisabled) row.classList.add('status-disabled-by-ability');
             }
         }
-        // ================= KẾT THÚC SỬA LỖI =================
     
         if (player.originalRoleName) row.classList.add('status-cursed');
     
@@ -794,8 +790,25 @@ document.addEventListener('DOMContentLoaded', () => {
             recalculateAllPlayerFactions();
             nightState.damageGroups = {};
             saveNightNotes();
-        } else if (target.closest('#end-night-btn')) {
+        } 
+        else if (target.closest('#end-night-btn')) {
             if (!nightState.isFinished) {
+                const { finalStatus } = calculateNightStatus(nightState, roomPlayers);
+                const updates = {};
+                Object.keys(finalStatus).forEach(playerId => {
+                    const playerInitialStatus = nightState.initialPlayersStatus[playerId];
+                    const playerFinalStatus = finalStatus[playerId];
+                    if (playerInitialStatus && playerInitialStatus.isAlive && !playerFinalStatus.isAlive) {
+                        updates[`/players/${playerId}/isAlive`] = false;
+                    }
+                });
+                if (Object.keys(updates).length > 0) {
+                    database.ref(`rooms/${roomId}`).update(updates).then(() => {
+                        console.log("Đã cập nhật trạng thái isAlive cho người chơi chết.");
+                    }).catch(err => {
+                        console.error("Lỗi khi cập nhật isAlive:", err);
+                    });
+                }
                 const { loveRedirects, liveStatuses } = calculateNightStatus(nightState, roomPlayers);
                 const curseActions = nightState.actions.filter(a => a.action === 'curse');
                 const collectActions = nightState.actions.filter(a => a.action === 'collect');
