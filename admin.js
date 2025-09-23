@@ -685,7 +685,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 '/interactiveState': null,
                 '/nightActions': null,
                 '/nightResults': null,
-                '/minigameState': null, // <-- DÒNG ĐÃ CẬP NHẬT
+                '/minigameState': null,
+                '/slidingPuzzles': null,
             };
             await database.ref(`rooms/${currentRoomId}`).update(roomUpdates);
             alert('Đã xóa log trên Google Sheet và reset toàn bộ phòng thành công!');

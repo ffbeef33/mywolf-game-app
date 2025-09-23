@@ -83,7 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             updates['/nightActions'] = null;
             updates['/nightResults'] = null;
-            updates['/minigameState'] = null; // <-- THÊM DÒNG NÀY ĐỂ RESET MINI GAME
+            updates['/minigameState'] = null;
+            updates['/slidingPuzzles'] = null;
             updates['/publicData/latestAnnouncement'] = null;
             
             updates['/interactiveState'] = {

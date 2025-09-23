@@ -102,8 +102,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 '/gameState/message': 'Quản trò đã reset game.',
                 '/nightNotes': null,
                 '/playerOrder': null,
-                '/minigameState': null, // <-- ĐÃ THÊM
-                '/publicData/latestAnnouncement': null // <-- THÊM DÒNG NÀY
+                '/minigameState': null,
+                '/slidingPuzzles': null,
+                '/publicData/latestAnnouncement': null
             });
             alert('Đã xóa log và reset phòng thành công! Trang sẽ được làm mới.');
             location.reload();

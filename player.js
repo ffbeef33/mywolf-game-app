@@ -100,6 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let myPlayerData = {};
     let roomData = {};
     let allNightQuotes = [];
+    let currentPuzzleId = null; 
 
     // --- DATA FETCHING ---
     const fetchAllRolesData = async () => {
@@ -284,6 +285,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         myPlayerId = myPlayerEntry[0];
         myPlayerData = myPlayerEntry[1];
+
+        const allPuzzles = currentRoomData.slidingPuzzles;
+        let activePuzzleForMe = null;
+        if (allPuzzles && myPlayerData && !myPlayerData.isAlive) {
+            for (const puzzleId in allPuzzles) {
+                const puzzle = allPuzzles[puzzleId];
+                if (puzzle.status === 'active' && puzzle.participants[myPlayerId]) {
+                    activePuzzleForMe = puzzle;
+                    currentPuzzleId = puzzleId; // Lưu lại ID của puzzle
+                    break;
+                }
+            }
+        }
+
+        if (activePuzzleForMe) {
+            showSection(slidingPuzzleSection);
+            handleSlidingPuzzleState(activePuzzleForMe);
+            return; // Ưu tiên hiển thị puzzle cho người chơi đã chết
+        }
+
         if (myPlayerData.roleName) {
             playerActionsContainer.classList.remove('hidden');
             openWillModalBtn.disabled = !myPlayerData.isAlive;
@@ -1562,6 +1583,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleTileClick(clickedIndex, currentBoard) {
+        if (!currentPuzzleId) return; // Đảm bảo chúng ta có ID của puzzle
+
         const emptyIndex = currentBoard.indexOf(0);
         const size = 3; // 3x3 grid
 
@@ -1575,18 +1598,23 @@ document.addEventListener('DOMContentLoaded', () => {
             // Hoán đổi vị trí
             [newBoard[clickedIndex], newBoard[emptyIndex]] = [newBoard[emptyIndex], newBoard[clickedIndex]];
 
-            const newMoves = (roomData.minigameState.playerProgress[myPlayerId].moves || 0) + 1;
+            const myPuzzleProgress = roomData.slidingPuzzles[currentPuzzleId].playerProgress[myPlayerId];
+            const newMoves = (myPuzzleProgress.moves || 0) + 1;
             
             const updates = {};
-            updates[`/minigameState/playerProgress/${myPlayerId}/board`] = newBoard;
-            updates[`/minigameState/playerProgress/${myPlayerId}/moves`] = newMoves;
+            // Cập nhật vào đúng đường dẫn puzzle bằng ID
+            const basePath = `/slidingPuzzles/${currentPuzzleId}`;
+            updates[`${basePath}/playerProgress/${myPlayerId}/board`] = newBoard;
+            updates[`${basePath}/playerProgress/${myPlayerId}/moves`] = newMoves;
 
-            // Kiểm tra thắng
             if (checkPuzzleWin(newBoard)) {
-                updates[`/minigameState/winnerId`] = myPlayerId;
-                updates[`/minigameState/status`] = 'finished';
-                // Logic hồi sinh người chơi
-                updates[`/players/${myPlayerId}/isAlive`] = true; 
+                // Thay vì kết thúc game, chỉ gửi một tín hiệu bí mật
+                // bao gồm số lần di chuyển và thời gian hoàn thành
+                const solveData = {
+                    moves: newMoves,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+                updates[`${basePath}/solvedBy/${myPlayerId}`] = solveData;
             }
             
             database.ref(`rooms/${currentRoomId}`).update(updates);

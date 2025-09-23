@@ -23,6 +23,7 @@ class MinigameManager {
         this.startMinigameBtn = document.getElementById('start-minigame-btn');
         this.endMinigameBtn = document.getElementById('end-minigame-btn');
         this.shootBtn = document.getElementById('shoot-minigame-btn');
+        this.endPuzzleGameBtn = document.getElementById('end-puzzle-game-btn');
         this.minigameResultsContainer = document.getElementById('minigame-results-container');
         this.minigameResultsDetails = document.getElementById('minigame-results-details');
         this.minigameLiveChoices = document.getElementById('minigame-live-choices');
@@ -36,6 +37,7 @@ class MinigameManager {
         if (this.startMinigameBtn) this.startMinigameBtn.addEventListener('click', () => this.handleStartMinigame());
         if (this.endMinigameBtn) this.endMinigameBtn.addEventListener('click', () => this.handleEndMinigame());
         if (this.shootBtn) this.shootBtn.addEventListener('click', () => this.handleShooting());
+        if (this.endPuzzleGameBtn) this.endPuzzleGameBtn.addEventListener('click', () => this.handleEndPuzzleGame());
     }
 
     listenForStateChanges() {
@@ -82,6 +84,93 @@ class MinigameManager {
                 if (this.bomberGmTimerInterval) clearInterval(this.bomberGmTimerInterval); 
             }
         });
+
+        this.database.ref(`rooms/${this.roomId}/slidingPuzzles`).on('value', (snapshot) => {
+            const allPuzzles = snapshot.val();
+            if (!this.endPuzzleGameBtn) return;
+
+            // Mặc định ẩn nút
+            this.endPuzzleGameBtn.style.display = 'none';
+            
+            if (!allPuzzles) {
+                 // Xóa các thông tin puzzle cũ nếu không còn puzzle nào
+                this.minigameLiveChoicesList.querySelectorAll('.sliding-puzzle-progress').forEach(el => el.remove());
+                return;
+            }
+
+            const latestPuzzle = Object.values(allPuzzles).sort((a, b) => b.startTime - a.startTime)[0];
+
+            if (latestPuzzle && latestPuzzle.status === 'active') {
+                // Nếu có puzzle đang chạy -> HIỂN THỊ NÚT KẾT THÚC
+                this.endPuzzleGameBtn.style.display = 'inline-block';
+                this.minigameLiveChoices.style.display = 'block';
+                this.renderPuzzleProgressForGM(latestPuzzle);
+            } else {
+                // Nếu không có puzzle nào active -> Xóa thông tin tiến trình cũ
+                this.minigameLiveChoicesList.querySelectorAll('.sliding-puzzle-progress').forEach(el => el.remove());
+            }
+        });
+    }
+
+    async handleEndPuzzleGame() {
+        if (!confirm("Bạn có chắc muốn kết thúc mini game 'Giải Mã Mê Cung' không?")) return;
+
+        this.endPuzzleGameBtn.disabled = true;
+        this.endPuzzleGameBtn.textContent = "Đang xử lý...";
+
+        const puzzlesRef = this.database.ref(`rooms/${this.roomId}/slidingPuzzles`);
+        const snapshot = await puzzlesRef.once('value');
+        const allPuzzles = snapshot.val();
+
+        if (allPuzzles) {
+            let activePuzzleId = null;
+            let activePuzzleData = null;
+            for (const puzzleId in allPuzzles) {
+                if (allPuzzles[puzzleId].status === 'active') {
+                    activePuzzleId = puzzleId;
+                    activePuzzleData = allPuzzles[puzzleId];
+                    break;
+                }
+            }
+
+            if (activePuzzleId) {
+                const updates = {};
+                const solvedByData = activePuzzleData.solvedBy || {};
+                const playersWhoSolved = Object.entries(solvedByData);
+                let winnerId = null;
+                let announcementMsg = "Mini game 'Giải Mã Mê Cung' đã được Quản trò kết thúc. Không có ai được hồi sinh.";
+
+                // Nếu có người đã giải xong
+                if (playersWhoSolved.length > 0) {
+                    // Sắp xếp để tìm người giải sớm nhất
+                    playersWhoSolved.sort(([, a], [, b]) => a.timestamp - b.timestamp);
+                    winnerId = playersWhoSolved[0][0]; // ID của người thắng
+                    const winnerName = activePuzzleData.participants[winnerId];
+
+                    // Hồi sinh người thắng cuộc
+                    updates[`/players/${winnerId}/isAlive`] = true;
+                    announcementMsg = `Mini game 'Giải Mã Mê Cung' đã kết thúc. ${winnerName} đã giải mã thành công và được hồi sinh!`;
+                }
+                
+                // Cập nhật trạng thái game
+                updates[`/slidingPuzzles/${activePuzzleId}/status`] = 'finished';
+                updates[`/slidingPuzzles/${activePuzzleId}/winnerId`] = winnerId;
+                updates[`/slidingPuzzles/${activePuzzleId}/results`] = {
+                    winnerId: winnerId,
+                    participants: activePuzzleData.participants
+                };
+                updates['/publicData/latestAnnouncement'] = {
+                    message: announcementMsg,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                await this.database.ref(`rooms/${this.roomId}`).update(updates);
+                alert("Đã kết thúc mini game Giải Mã Mê Cung.");
+            }
+        }
+
+        this.endPuzzleGameBtn.disabled = false;
+        this.endPuzzleGameBtn.textContent = "Kết Thúc Mê Cung";
     }
 
     async handleShooting() {
@@ -344,7 +433,6 @@ class MinigameManager {
         this.database.ref(`rooms/${this.roomId}/minigameState`).set(newMinigameState);
     }
     
-    // === HÀM MỚI ĐỂ TẠO PUZZLE ===
     createSolvablePuzzle() {
         // Trạng thái đã giải: [1, 2, 3, 4, 5, 6, 7, 8, 0] (0 là ô trống)
         let puzzle = [1, 2, 3, 4, 5, 6, 7, 8, 0];
@@ -370,6 +458,33 @@ class MinigameManager {
         }
 
         return puzzle;
+    }
+
+    renderPuzzleProgressForGM(puzzleState) {
+        // Xóa các thông tin puzzle cũ
+        this.minigameLiveChoicesList.querySelectorAll('.sliding-puzzle-progress').forEach(el => el.remove());
+
+        const titleLi = document.createElement('li');
+        titleLi.className = 'sliding-puzzle-progress';
+        titleLi.innerHTML = `<hr style="margin: 10px 0;"><strong>Tiến trình Giải Mã Mê Cung:</strong>`;
+        this.minigameLiveChoicesList.appendChild(titleLi);
+
+        const solvedByData = puzzleState.solvedBy || {};
+
+        for (const pId in puzzleState.playerProgress) {
+            const progress = puzzleState.playerProgress[pId];
+            const playerName = puzzleState.participants[pId];
+            const li = document.createElement('li');
+            li.className = 'sliding-puzzle-progress';
+
+            if (solvedByData[pId]) {
+                // Hiển thị thông báo bí mật cho quản trò
+                li.innerHTML = `✅ <strong>${playerName}:</strong> <span style="color: var(--safe-color);">ĐÃ GIẢI XONG!</span> (${progress.moves || 0} lần)`;
+            } else {
+                li.innerHTML = `<strong>${playerName}:</strong> đã di chuyển ${progress.moves || 0} lần.`;
+            }
+            this.minigameLiveChoicesList.appendChild(li);
+        }
     }
 
     renderLiveChoices(state) {
@@ -487,28 +602,6 @@ class MinigameManager {
                 }, 500);
             }
         }
-        // === BẮT ĐẦU CODE MỚI ===
-        else if (state.gameType === 'sliding_puzzle') {
-            const { playerProgress, winnerId } = state;
-            this.minigameLiveChoicesList.innerHTML = '';
-            
-            if (winnerId) {
-                const winnerName = state.participants[winnerId] || 'Người chơi lạ';
-                const li = document.createElement('li');
-                li.innerHTML = `🏆 <strong>TRÒ CHƠI KẾT THÚC!</strong> Người thắng cuộc: <strong>${winnerName}</strong>`;
-                this.minigameLiveChoicesList.appendChild(li);
-                return;
-            }
-
-            for (const pId in playerProgress) {
-                const progress = playerProgress[pId];
-                const playerName = state.participants[pId];
-                const li = document.createElement('li');
-                li.innerHTML = `<strong>${playerName}:</strong> đã di chuyển ${progress.moves || 0} lần.`;
-                this.minigameLiveChoicesList.appendChild(li);
-            }
-        }
-        // === KẾT THÚC CODE MỚI ===
     }
 
     renderResults(state) {
@@ -608,9 +701,7 @@ class MinigameManager {
                 const historyText = passHistory.map(pId => participants[pId]).join(' → ');
                 resultsHTML += `<h4>Lịch sử chuyền boom:</h4><p>${historyText}</p>`;
             }
-        }
-        // === BẮT ĐẦU CODE MỚI ===
-        else if (state.gameType === 'sliding_puzzle') {
+        } else if (state.gameType === 'sliding_puzzle') {
             const { winnerId, participants } = state.results || {};
             if (winnerId) {
                 const winnerName = participants[winnerId] || 'Người chơi lạ';
@@ -619,7 +710,6 @@ class MinigameManager {
                 resultsHTML = `<p>Trò chơi đã kết thúc nhưng không có người thắng cuộc.</p>`;
             }
         }
-        // === KẾT THÚC CODE MỚI ===
         
         this.minigameResultsDetails.innerHTML = resultsHTML;
     }
@@ -627,8 +717,9 @@ class MinigameManager {
     handleStartMinigame() {
         const gameType = this.minigameSelect.value;
 
-        // === BẮT ĐẦU CODE MỚI ===
+        // ================== LOGIC PHÂN LUỒNG MỚI ==================
         if (gameType === 'sliding_puzzle') {
+            // Logic riêng cho Puzzle Trượt
             const allPlayers = this.getRoomPlayers();
             const nightStates = this.getNightStates();
             const lastNight = nightStates.length > 0 ? nightStates[nightStates.length - 1] : null;
@@ -659,19 +750,23 @@ class MinigameManager {
                 };
             }
 
-            const newMinigameState = {
+            const newPuzzleGame = {
                 status: 'active',
                 gameType: 'sliding_puzzle',
                 title: 'Mini Game: Giải Mã Mê Cung',
                 participants,
                 playerProgress,
-                winnerId: null
+                winnerId: null,
+                startTime: firebase.database.ServerValue.TIMESTAMP
             };
-            this.database.ref(`rooms/${this.roomId}/minigameState`).set(newMinigameState);
-            return; // Dừng hàm tại đây
-        }
-        // === KẾT THÚC CODE MỚI ===
+            
+            // Đẩy vào đường dẫn mới /slidingPuzzles
+            this.database.ref(`rooms/${this.roomId}/slidingPuzzles`).push(newPuzzleGame);
+            alert("Đã bắt đầu mini game 'Giải Mã Mê Cung' cho những người chơi đã chết.");
+            return; 
+        } 
         
+        // ================== LOGIC CŨ CHO CÁC GAME CÒN LẠI ==================
         if (gameType === 'returning_spirit' || gameType === 'russian_roulette') {
             const allPlayers = this.getRoomPlayers();
             this.createParticipantSelectionModal(allPlayers, (participants) => {
@@ -698,7 +793,8 @@ class MinigameManager {
             });
             return;
         }
-
+        
+        // Các game còn lại cho người sống
         const nightStates = this.getNightStates();
         const roomPlayers = this.getRoomPlayers();
         const lastNight = nightStates[nightStates.length - 1];
@@ -738,7 +834,7 @@ class MinigameManager {
             newMinigameState.title = "Mini Game: Đêm của Lòng Tin";
         } else if (gameType === 'math_whiz') {
             newMinigameState.title = "Mini Game: Thần Đồng Toán Học";
-            newMinigameState.endTime = Date.now() + 10000; // 10 giây
+            newMinigameState.endTime = Date.now() + 10000;
             newMinigameState.problem = this.generateMathProblem();
         }
 
