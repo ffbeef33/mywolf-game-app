@@ -793,22 +793,30 @@ document.addEventListener('DOMContentLoaded', () => {
         } 
         else if (target.closest('#end-night-btn')) {
             if (!nightState.isFinished) {
+                // TÍNH TOÁN KẾT QUẢ ĐÊM
                 const { finalStatus } = calculateNightStatus(nightState, roomPlayers);
+
+                // TẠO MỘT ĐỐI TƯỢNG ĐỂ CẬP NHẬT TRẠNG THÁI LÊN FIREBASE
                 const updates = {};
-                Object.keys(finalStatus).forEach(playerId => {
-                    const playerInitialStatus = nightState.initialPlayersStatus[playerId];
-                    const playerFinalStatus = finalStatus[playerId];
-                    if (playerInitialStatus && playerInitialStatus.isAlive && !playerFinalStatus.isAlive) {
-                        updates[`/players/${playerId}/isAlive`] = false;
+                let playersUpdated = false;
+
+                // DUYỆT QUA TẤT CẢ NGƯỜI CHƠI ĐỂ ĐỒNG BỘ TRẠNG THÁI isAlive
+                roomPlayers.forEach(p => {
+                    const calculatedAlive = finalStatus[p.id]?.isAlive || false;
+                    const currentFirebaseAlive = roomDataState.players[p.id]?.isAlive || false;
+
+                    if (calculatedAlive !== currentFirebaseAlive) {
+                        updates[`/players/${p.id}/isAlive`] = calculatedAlive;
+                        playersUpdated = true;
                     }
                 });
-                if (Object.keys(updates).length > 0) {
-                    database.ref(`rooms/${roomId}`).update(updates).then(() => {
-                        console.log("Đã cập nhật trạng thái isAlive cho người chơi chết.");
-                    }).catch(err => {
-                        console.error("Lỗi khi cập nhật isAlive:", err);
-                    });
+                
+                // GỬI CẬP NHẬT LÊN FIREBASE NẾU CÓ THAY ĐỔI
+                if (playersUpdated) {
+                    database.ref(`rooms/${roomId}`).update(updates);
                 }
+
+                // XỬ LÝ LOGIC CURSE/COLLECT (giữ nguyên logic cũ nếu có)
                 const { loveRedirects, liveStatuses } = calculateNightStatus(nightState, roomPlayers);
                 const curseActions = nightState.actions.filter(a => a.action === 'curse');
                 const collectActions = nightState.actions.filter(a => a.action === 'collect');
@@ -851,6 +859,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     });
                 }
+                
+                // ĐÁNH DẤU ĐÊM ĐÃ KẾT THÚC VÀ LƯU LẠI
                 nightState.isFinished = true;
                 saveNightNotes();
             }
