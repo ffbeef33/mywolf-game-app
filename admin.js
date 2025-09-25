@@ -482,7 +482,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateCounters = () => {
         const totalPlayers = document.querySelectorAll('input[name="selected-player"]:checked').length;
         let selectedRoleNames = [];
-        document.querySelectorAll('input[name="selected-role"]:checked').forEach(node => selectedRoleNames.push(node.value));
+        // Chỉ cần đọc từ các ô nhập số lượng
         document.querySelectorAll('input[name="quantity-role"]').forEach(input => {
             const count = parseInt(input.value) || 0;
             const roleName = input.dataset.roleName;
@@ -585,13 +585,8 @@ document.addEventListener('DOMContentLoaded', () => {
             for (const faction in rolesByFaction) {
                 let factionHtml = `<h4>${faction}</h4><div class="role-checkbox-group">`;
                 rolesByFaction[faction].forEach(role => {
-                    const roleNameLower = role.name.toLowerCase();
-                    const quantityRoles = ['dân làng', 'dân', 'sói', 'sói thường', 'ma sói'];
-                    if (quantityRoles.includes(roleNameLower)) {
-                        factionHtml += `<div class="role-input-item"><label for="role-${role.name}">${role.name}</label><input type="number" id="role-${role.name}" name="quantity-role" data-role-name="${role.name}" min="0" value="0" class="role-input"></div>`;
-                    } else {
-                        factionHtml += `<div class="role-checkbox-item"><input type="checkbox" id="role-${role.name}" name="selected-role" value="${role.name}" class="role-input"><label for="role-${role.name}">${role.name}</label></div>`;
-                    }
+                    // Luôn tạo ô nhập số lượng cho mỗi vai trò
+                    factionHtml += `<div class="role-input-item"><label for="role-${role.name}">${role.name}</label><input type="number" id="role-${role.name}" name="quantity-role" data-role-name="${role.name}" min="0" value="0" class="role-input"></div>`;
                 });
                 factionHtml += `</div>`;
                 rolesByFactionContainer.innerHTML += factionHtml;
@@ -607,7 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedPlayerNodes = document.querySelectorAll('input[name="selected-player"]:checked');
         const selectedPlayers = Array.from(selectedPlayerNodes).map(node => node.value);
         let selectedRoles = [];
-        document.querySelectorAll('input[name="selected-role"]:checked').forEach(node => { selectedRoles.push(node.value); });
+        // Chỉ cần đọc từ các ô nhập số lượng
         document.querySelectorAll('input[name="quantity-role"]').forEach(input => {
             const count = parseInt(input.value) || 0;
             const roleName = input.dataset.roleName;
