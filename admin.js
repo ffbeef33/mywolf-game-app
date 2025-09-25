@@ -828,14 +828,7 @@ document.addEventListener('DOMContentLoaded', () => {
             kickBtn.className = 'kick-btn';
             kickBtn.innerHTML = '&times;';
             kickBtn.title = `Kick ${player.name}`;
-            kickBtn.onclick = () => {
-                li.classList.toggle('kicked');
-                if (playersToKick.has(playerId)) {
-                    playersToKick.delete(playerId);
-                } else {
-                    playersToKick.add(playerId);
-                }
-            };
+            
             li.appendChild(kickBtn);
             playerListUI.appendChild(li);
         });
