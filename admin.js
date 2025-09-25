@@ -846,20 +846,14 @@ document.addEventListener('DOMContentLoaded', () => {
             li.className = 'role-item';
             li.textContent = roleName;
             const uniqueRoleId = `${roleName}_${index}`;
+            li.dataset.roleId = uniqueRoleId; // <<< SỬA LỖI GÁN ID
             if (rolesToRemove.has(uniqueRoleId)) li.classList.add('removed');
             
             const removeBtn = document.createElement('button');
             removeBtn.className = 'remove-role-btn';
             removeBtn.innerHTML = '&times;';
             removeBtn.title = `Loại bỏ vai trò ${roleName}`;
-            removeBtn.onclick = () => {
-                li.classList.toggle('removed');
-                if (rolesToRemove.has(uniqueRoleId)) {
-                    rolesToRemove.delete(uniqueRoleId);
-                } else {
-                    rolesToRemove.add(uniqueRoleId);
-                }
-            };
+            // Event listener cho nút này được xử lý bằng event delegation
             li.appendChild(removeBtn);
             rolesInGameList.appendChild(li);
         });
@@ -1033,19 +1027,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (addRoleModal) addRoleModal.addEventListener('click', handleRoleSelectionInteraction);
     
     if(activeRoomSection) activeRoomSection.addEventListener('click', e => {
-        if(e.target.matches('.kick-btn')){
-            const playerItem = e.target.closest('.player-item');
-            const playerId = playerItem.dataset.playerId;
-            playerItem.classList.toggle('kicked');
-            if (playersToKick.has(playerId)) playersToKick.delete(playerId);
-            else playersToKick.add(playerId);
+        const target = e.target;
+        if(target.matches('.kick-btn')){
+            const playerItem = target.closest('.player-item');
+            if (playerItem) {
+                const playerId = playerItem.dataset.playerId;
+                playerItem.classList.toggle('kicked');
+                if (playersToKick.has(playerId)) playersToKick.delete(playerId);
+                else playersToKick.add(playerId);
+            }
         }
-        if(e.target.matches('.remove-role-btn')){
-            const roleItem = e.target.closest('.role-item');
-            const roleId = `${roleItem.textContent.trim()}_${Array.from(roleItem.parentNode.children).indexOf(roleItem)}`;
-            roleItem.classList.toggle('removed');
-            if (rolesToRemove.has(roleId)) rolesToRemove.delete(roleId);
-            else rolesToRemove.add(roleId);
+        if(target.matches('.remove-role-btn')){
+            const roleItem = target.closest('.role-item');
+            if (roleItem) {
+                const roleId = roleItem.dataset.roleId; // <<< SỬA LỖI ĐỌC ID
+                roleItem.classList.toggle('removed');
+                if (rolesToRemove.has(roleId)) rolesToRemove.delete(roleId);
+                else rolesToRemove.add(roleId);
+            }
         }
     });
 
