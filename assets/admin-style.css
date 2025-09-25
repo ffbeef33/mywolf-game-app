@@ -92,7 +92,7 @@ strong { color: var(--text-color); font-weight: 700; }
 #player-list-container::-webkit-scrollbar-track, #roles-by-faction::-webkit-scrollbar-track, .modal-list::-webkit-scrollbar-track { background: var(--secondary-bg); border-radius: 10px; }
 #player-list-container::-webkit-scrollbar-thumb, #roles-by-faction::-webkit-scrollbar-thumb, .modal-list::-webkit-scrollbar-thumb { background: var(--text-color); border-radius: 10px; }
 
-.player-checkbox-grid, .role-checkbox-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.player-checkbox-grid, .role-checkbox-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
 .checkbox-item, .player-checkbox-item, .role-checkbox-item, .role-input-item { display: flex; align-items: center; background-color: var(--primary-bg); padding: 8px; border-radius: 5px; }
 input[type="checkbox"] { margin-right: 8px; }
 
@@ -575,23 +575,82 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     opacity: 0.7;
 }
 
-/* BỔ SUNG CSS CHO Ô NHẬP SỐ LƯỢNG VAI TRÒ */
-.role-input-item {
+/* ==========================================================================
+   14. === BẮT ĐẦU CSS MỚI CHO GIAO DIỆN CHỌN VAI TRÒ ===
+   ========================================================================== */
+
+.role-selection-item {
+    display: flex;
     justify-content: space-between;
-}
-
-.role-input-item label {
-    flex-grow: 1;
-    margin-right: 10px;
-}
-
-.role-input {
-    width: 60px; /* Độ rộng vừa phải cho ô nhập số */
-    padding: 8px;
+    align-items: center;
     background-color: var(--primary-bg);
+    padding: 10px;
+    border-radius: 6px;
     border: 1px solid var(--border-color);
-    border-radius: 5px;
+    transition: border-color 0.2s;
+}
+
+.role-selection-item:has(.role-checkbox:checked) {
+    border-color: var(--text-color);
+}
+
+.role-name-control {
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+    cursor: pointer;
+}
+
+.role-name-control label {
+    margin-left: 10px;
+    cursor: pointer;
+}
+
+.quantity-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.quantity-controls.hidden {
+    display: none;
+}
+
+.quantity-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background-color: var(--secondary-button-bg);
     color: var(--light-text);
-    font-size: 1rem;
+    font-size: 1.2rem;
+    font-weight: bold;
+    line-height: 28px;
+    padding: 0;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.quantity-btn:hover {
+    background-color: var(--secondary-button-hover-bg);
+    border-color: var(--text-color);
+    transform: scale(1.1);
+}
+
+.quantity-btn.plus:hover {
+    color: var(--success-color);
+    border-color: var(--success-color);
+}
+
+.quantity-btn.minus:hover {
+    color: var(--danger-bg);
+    border-color: var(--danger-bg);
+}
+
+.quantity-display {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--light-text);
+    min-width: 25px;
     text-align: center;
 }
