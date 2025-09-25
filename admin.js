@@ -1,5 +1,5 @@
 // =================================================================
-// === admin.js - SỬA LỖI DI CHÚC & CẢI THIỆN RANDOM ===
+// === admin.js - CẬP NHẬT GIAO DIỆN CHỌN SỐ LƯỢNG VAI TRÒ ===
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let playersToKick = new Set();
     let rolesToRemove = new Set();
     let playersToAdd = new Set();
-    let rolesToAdd = new Set();
+    let rolesToAdd = []; // Đổi sang Array để chứa các vai trò có số lượng
     let allPlayersData = [];
     let currentRoomId = null; 
     let roomListener = null;
@@ -88,20 +88,85 @@ document.addEventListener('DOMContentLoaded', () => {
     let favoriteDecksData = [];
     let deckModalContext = 'setup';
 
-    // --- START: HÀM XÁO TRỘN MỚI ---
-    /**
-     * Xáo trộn một mảng tại chỗ (in-place) sử dụng thuật toán Fisher-Yates.
-     * @param {Array} array Mảng cần xáo trộn.
-     */
+    // --- START: HÀM XÁO TRỘN ---
     const shuffleArray = (array) => {
         for (let i = array.length - 1; i > 0; i--) {
-            // Chọn một index ngẫu nhiên từ 0 đến i
             const j = Math.floor(Math.random() * (i + 1));
-            // Hoán đổi phần tử tại i và j
             [array[i], array[j]] = [array[j], array[i]];
         }
     };
-    // --- END: HÀM XÁO TRỘN MỚI ---
+    // --- END: HÀM XÁO TRỘN ---
+
+    /**
+     * === HÀM MỚI: TẠO GIAO DIỆN CHỌN VAI TRÒ ===
+     * Tạo HTML cho một mục chọn vai trò với checkbox và các nút +/-.
+     * @param {string} roleName - Tên của vai trò.
+     * @param {string} idPrefix - Tiền tố cho ID để tránh trùng lặp.
+     * @returns {string} - Chuỗi HTML của thành phần.
+     */
+    function createRoleSelectionHTML(roleName, idPrefix = 'role-') {
+        const uniqueId = `${idPrefix}${roleName.replace(/\s+/g, '-')}`;
+        return `
+            <div class="role-selection-item" data-role-name="${roleName}">
+                <div class="role-name-control">
+                    <input type="checkbox" id="${uniqueId}" value="${roleName}" class="role-checkbox">
+                    <label for="${uniqueId}">${roleName}</label>
+                </div>
+                <div class="quantity-controls hidden">
+                    <button type="button" class="quantity-btn minus" aria-label="Giảm số lượng">-</button>
+                    <span class="quantity-display">1</span>
+                    <button type="button" class="quantity-btn plus" aria-label="Tăng số lượng">+</button>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * === HÀM MỚI: XỬ LÝ TƯƠNG TÁC CỦA BỘ CHỌN VAI TRÒ ===
+     * Gắn listener cho checkbox và các nút +/-.
+     * @param {Event} e - Sự kiện click.
+     */
+    function handleRoleSelectionInteraction(e) {
+        const target = e.target;
+        const roleItem = target.closest('.role-selection-item');
+        if (!roleItem) return;
+
+        const quantityControls = roleItem.querySelector('.quantity-controls');
+        const quantityDisplay = roleItem.querySelector('.quantity-display');
+        const checkbox = roleItem.querySelector('.role-checkbox');
+        let currentQuantity = parseInt(quantityDisplay.textContent, 10);
+
+        if (target.matches('.role-checkbox') || target.matches('label')) {
+            const isChecked = target.matches('.role-checkbox') ? target.checked : !checkbox.checked;
+            if (isChecked) {
+                quantityDisplay.textContent = '1';
+                quantityControls.classList.remove('hidden');
+            } else {
+                quantityControls.classList.add('hidden');
+            }
+        }
+
+        if (target.matches('.quantity-btn')) {
+            if (target.classList.contains('minus')) {
+                currentQuantity--;
+            } else if (target.classList.contains('plus')) {
+                currentQuantity++;
+            }
+
+            if (currentQuantity <= 0) {
+                checkbox.checked = false;
+                quantityControls.classList.add('hidden');
+                quantityDisplay.textContent = '1'; // Reset về 1 cho lần check sau
+            } else {
+                quantityDisplay.textContent = currentQuantity;
+            }
+        }
+        
+        // Chỉ gọi updateCounters nếu sự kiện xảy ra trong khu vực setup chính
+        if (e.currentTarget.id === 'setup-section') {
+            updateCounters();
+        }
+    }
 
     // --- Các hàm xử lý logic ---
     const handleStartNightNote = () => {
@@ -113,7 +178,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // === HÀM MỚI CHO MODULE TƯƠNG TÁC ===
     const handleStartInteractiveGM = () => {
         if (currentRoomId) {
             const interactiveUrl = `interactive-gm.html?roomId=${currentRoomId}`;
@@ -122,7 +186,6 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Lỗi: Không tìm thấy ID phòng hiện tại. Vui lòng chọn một phòng để quản lý trước.');
         }
     };
-    // === KẾT THÚC HÀM MỚI ===
 
     const openDeckModal = (context) => {
         deckModalContext = context;
@@ -177,8 +240,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const applyFavoriteDeck = (deckIndex) => {
-        document.querySelectorAll('input[name="selected-role"]').forEach(cb => cb.checked = false);
-        document.querySelectorAll('input[name="quantity-role"]').forEach(input => input.value = 0);
+        // Reset tất cả lựa chọn hiện tại
+        document.querySelectorAll('.role-checkbox').forEach(cb => cb.checked = false);
+        document.querySelectorAll('.quantity-controls').forEach(qc => qc.classList.add('hidden'));
+        document.querySelectorAll('.quantity-display').forEach(qd => qd.textContent = '1');
 
         const selectedDeck = favoriteDecksData[deckIndex];
         if (!selectedDeck) return;
@@ -190,12 +255,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (const roleName in roleCounts) {
             const count = roleCounts[roleName];
-            const checkbox = document.getElementById(`role-${roleName}`);
-            const numberInput = document.querySelector(`input[data-role-name="${roleName}"]`);
-            if (numberInput) {
-                numberInput.value = count;
-            } else if (checkbox) {
+            const uniqueId = `role-${roleName.replace(/\s+/g, '-')}`;
+            const checkbox = document.getElementById(uniqueId);
+            if (checkbox) {
+                const roleItem = checkbox.closest('.role-selection-item');
+                const quantityControls = roleItem.querySelector('.quantity-controls');
+                const quantityDisplay = roleItem.querySelector('.quantity-display');
+                
                 checkbox.checked = true;
+                quantityDisplay.textContent = count;
+                quantityControls.classList.remove('hidden');
             }
         }
         updateCounters();
@@ -206,12 +275,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!selectedDeck) return;
         
         rolesToRemove.clear();
-        rolesToAdd.clear();
+        rolesToAdd = [];
         
         database.ref(`rooms/${currentRoomId}/rolesToAssign`).once('value', snapshot => {
             const currentRoles = snapshot.val() || [];
             currentRoles.forEach((role, index) => rolesToRemove.add(`${role}_${index}`));
-            selectedDeck.roles.forEach(role => rolesToAdd.add(role));
+            selectedDeck.roles.forEach(role => rolesToAdd.push(role));
             
             renderPendingAdditions();
             database.ref(`rooms/${currentRoomId}`).once('value', (roomSnapshot) => {
@@ -482,12 +551,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateCounters = () => {
         const totalPlayers = document.querySelectorAll('input[name="selected-player"]:checked').length;
         let selectedRoleNames = [];
-        // Chỉ cần đọc từ các ô nhập số lượng
-        document.querySelectorAll('input[name="quantity-role"]').forEach(input => {
-            const count = parseInt(input.value) || 0;
-            const roleName = input.dataset.roleName;
-            for (let i = 0; i < count; i++) { selectedRoleNames.push(roleName); }
+        
+        document.querySelectorAll('#roles-by-faction .role-checkbox:checked').forEach(checkbox => {
+            const roleItem = checkbox.closest('.role-selection-item');
+            const quantity = parseInt(roleItem.querySelector('.quantity-display').textContent, 10);
+            for (let i = 0; i < quantity; i++) {
+                selectedRoleNames.push(checkbox.value);
+            }
         });
+
         const totalRoles = selectedRoleNames.length;
         
         let counts = {
@@ -563,18 +635,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 faction: (role.Faction || 'Chưa phân loại').trim(),
                 description: (role.Describe || 'Không có mô tả cho vai trò này.').trim(),
                 image: (role.ImageURL || '').trim(),
-                select: (role.Select || '1').trim() // ĐỌC CỘT SELECT MỚI
+                select: (role.Select || '1').trim()
             }));
-            allRolesData.sort((a, b) => {
-                const aName = a.name.toLowerCase();
-                const bName = b.name.toLowerCase();
-                const priorityRoles = ['dân làng', 'dân', 'sói', 'sói thường', 'ma sói'];
-                const aIsPriority = priorityRoles.includes(aName);
-                const bIsPriority = priorityRoles.includes(bName);
-                if (aIsPriority && !bIsPriority) return -1;
-                if (!aIsPriority && bIsPriority) return 1;
-                return 0;
-            });
+
             const rolesByFaction = allRolesData.reduce((acc, role) => {
                 const faction = role.faction || 'Chưa phân loại';
                 if (!acc[faction]) acc[faction] = [];
@@ -585,13 +648,11 @@ document.addEventListener('DOMContentLoaded', () => {
             for (const faction in rolesByFaction) {
                 let factionHtml = `<h4>${faction}</h4><div class="role-checkbox-group">`;
                 rolesByFaction[faction].forEach(role => {
-                    // Luôn tạo ô nhập số lượng cho mỗi vai trò
-                    factionHtml += `<div class="role-input-item"><label for="role-${role.name}">${role.name}</label><input type="number" id="role-${role.name}" name="quantity-role" data-role-name="${role.name}" min="0" value="0" class="role-input"></div>`;
+                    factionHtml += createRoleSelectionHTML(role.name, 'role-');
                 });
                 factionHtml += `</div>`;
                 rolesByFactionContainer.innerHTML += factionHtml;
             }
-            updateCounters();
         } catch (error) {
             console.error("Lỗi tải vai trò:", error);
             rolesByFactionContainer.innerHTML = `<p style='color:red;'>Lỗi tải danh sách vai trò.</p>`;
@@ -602,12 +663,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedPlayerNodes = document.querySelectorAll('input[name="selected-player"]:checked');
         const selectedPlayers = Array.from(selectedPlayerNodes).map(node => node.value);
         let selectedRoles = [];
-        // Chỉ cần đọc từ các ô nhập số lượng
-        document.querySelectorAll('input[name="quantity-role"]').forEach(input => {
-            const count = parseInt(input.value) || 0;
-            const roleName = input.dataset.roleName;
-            for (let i = 0; i < count; i++) { selectedRoles.push(roleName); }
+        
+        document.querySelectorAll('#roles-by-faction .role-checkbox:checked').forEach(checkbox => {
+            const roleItem = checkbox.closest('.role-selection-item');
+            const quantity = parseInt(roleItem.querySelector('.quantity-display').textContent, 10);
+            for (let i = 0; i < quantity; i++) {
+                selectedRoles.push(checkbox.value);
+            }
         });
+
         if (selectedPlayers.length === 0) { alert('Vui lòng chọn ít nhất một người chơi.'); return; }
         if (selectedRoles.length === 0) { alert('Vui lòng chọn ít nhất một vai trò.'); return; }
         if (selectedRoles.length !== selectedPlayers.length) { alert(`Số lượng vai trò (${selectedRoles.length}) không khớp với số lượng người chơi (${selectedPlayers.length})!`); return; }
@@ -703,8 +767,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetAdminUI = () => {
         if (roomListener && currentRoomId) { database.ref(`rooms/${currentRoomId}`).off('value', roomListener); roomListener = null; }
         if (pickTimerInterval) clearInterval(pickTimerInterval);
-        document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-        document.querySelectorAll('input[type="number"]').forEach(num => num.value = 0);
+        
+        document.querySelectorAll('.role-checkbox').forEach(cb => cb.checked = false);
+        document.querySelectorAll('.quantity-controls').forEach(qc => qc.classList.add('hidden'));
+        document.querySelectorAll('.quantity-display').forEach(qd => qd.textContent = '1');
+
         currentRoomId = null;
         roomIdDisplay.textContent = "Chưa tạo";
         activeRoomSection.classList.add('hidden');
@@ -729,7 +796,7 @@ document.addEventListener('DOMContentLoaded', () => {
         playersToKick.clear();
         rolesToRemove.clear();
         playersToAdd.clear();
-        rolesToAdd.clear();
+        rolesToAdd = [];
         renderPendingAdditions();
 
         database.ref(`rooms/${currentRoomId}`).once('value', (snapshot) => {
@@ -821,7 +888,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modalRoleList.innerHTML = '';
         let roleHtml = '<div class="role-checkbox-group">';
         allRolesData.forEach(role => {
-            roleHtml += `<div class="role-checkbox-item"><input type="checkbox" id="modal-role-${role.name}" value="${role.name}"><label for="modal-role-${role.name}">${role.name}</label></div>`;
+            roleHtml += createRoleSelectionHTML(role.name, 'modal-role-');
         });
         roleHtml += '</div>';
         modalRoleList.innerHTML = roleHtml;
@@ -839,7 +906,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentRoles = roomData.rolesToAssign || [];
             const finalPlayerCount = Object.keys(currentPlayers).length - playersToKick.size + playersToAdd.size;
             const rolesAfterRemoval = currentRoles.filter((role, index) => !rolesToRemove.has(`${role}_${index}`));
-            const finalRoleCount = rolesAfterRemoval.length + rolesToAdd.size;
+            const finalRoleCount = rolesAfterRemoval.length + rolesToAdd.length;
             if (finalPlayerCount !== finalRoleCount) {
                 alert(`Lỗi: Số lượng người chơi cuối cùng (${finalPlayerCount}) không khớp với số lượng vai trò cuối cùng (${finalRoleCount}). Vui lòng điều chỉnh lại.`);
                 saveRoomChangesBtn.disabled = false;
@@ -852,7 +919,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const newPlayerId = `player_${playerName.replace(/\s+/g, '')}_${Math.random().toString(36).substr(2, 5)}`;
                 updates[`/players/${newPlayerId}`] = { name: playerName, isAlive: true, roleName: null };
             });
-            const finalRoles = [...rolesAfterRemoval, ...Array.from(rolesToAdd)];
+            const finalRoles = [...rolesAfterRemoval, ...rolesToAdd];
             updates['/rolesToAssign'] = finalRoles;
             updates['/totalPlayers'] = finalPlayerCount;
             await roomRef.update(updates);
@@ -878,11 +945,16 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             pendingPlayersContainer.classList.add('hidden');
         }
+        
+        const roleCounts = rolesToAdd.reduce((acc, role) => {
+            acc[role] = (acc[role] || 0) + 1;
+            return acc;
+        }, {});
         pendingRoleAdditions.innerHTML = '';
-        if (rolesToAdd.size > 0) {
-            rolesToAdd.forEach(roleName => {
+        if (Object.keys(roleCounts).length > 0) {
+            Object.entries(roleCounts).forEach(([roleName, count]) => {
                 const li = document.createElement('li');
-                li.textContent = roleName;
+                li.textContent = `${roleName}${count > 1 ? ` (x${count})` : ''}`;
                 pendingRoleAdditions.appendChild(li);
             });
             pendingRolesContainer.classList.remove('hidden');
@@ -899,7 +971,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (clearGamelogBtn) clearGamelogBtn.addEventListener('click', clearGameLog);
     if (deleteRoomBtn) deleteRoomBtn.addEventListener('click', deleteActiveRoom);
     if (playerListContainer) playerListContainer.addEventListener('change', updateCounters);
-    if (rolesByFactionContainer) rolesByFactionContainer.addEventListener('input', updateCounters);
     if (refreshRoomsBtn) refreshRoomsBtn.addEventListener('click', loadAndDisplayRooms);
     if (backToSetupBtn) backToSetupBtn.addEventListener('click', resetAdminUI);
     if (openDeckModalBtn) openDeckModalBtn.addEventListener('click', () => openDeckModal('setup'));
@@ -929,6 +1000,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (saveRoomChangesBtn) saveRoomChangesBtn.addEventListener('click', saveRoomChanges);
     if (openAddPlayerModalBtn) openAddPlayerModalBtn.addEventListener('click', showAddPlayerModal);
     if (openAddRoleModalBtn) openAddRoleModalBtn.addEventListener('click', showAddRoleModal);
+    
     if (confirmAddPlayersBtn) confirmAddPlayersBtn.onclick = () => {
         document.querySelectorAll('#modal-player-list input:checked').forEach(cb => {
             playersToAdd.add(cb.value);
@@ -937,17 +1009,44 @@ document.addEventListener('DOMContentLoaded', () => {
         addPlayerModal.classList.add('hidden');
     };
     if (confirmAddRolesBtn) confirmAddRolesBtn.onclick = () => {
-        document.querySelectorAll('#modal-role-list input:checked').forEach(cb => {
-            rolesToAdd.add(cb.value);
+        rolesToAdd = []; // Reset mảng
+        document.querySelectorAll('#modal-role-list .role-checkbox:checked').forEach(checkbox => {
+            const roleItem = checkbox.closest('.role-selection-item');
+            const quantity = parseInt(roleItem.querySelector('.quantity-display').textContent, 10);
+            const roleName = checkbox.value;
+            for (let i = 0; i < quantity; i++) {
+                rolesToAdd.push(roleName);
+            }
         });
         renderPendingAdditions();
         addRoleModal.classList.add('hidden');
     };
+    
     document.querySelectorAll('.close-modal-btn').forEach(btn => {
         btn.onclick = () => {
             if (addPlayerModal) addPlayerModal.classList.add('hidden');
             if (addRoleModal) addRoleModal.classList.add('hidden');
         };
+    });
+
+    if (setupSection) setupSection.addEventListener('click', handleRoleSelectionInteraction);
+    if (addRoleModal) addRoleModal.addEventListener('click', handleRoleSelectionInteraction);
+    
+    if(activeRoomSection) activeRoomSection.addEventListener('click', e => {
+        if(e.target.matches('.kick-btn')){
+            const playerItem = e.target.closest('.player-item');
+            const playerId = playerItem.dataset.playerId;
+            playerItem.classList.toggle('kicked');
+            if (playersToKick.has(playerId)) playersToKick.delete(playerId);
+            else playersToKick.add(playerId);
+        }
+        if(e.target.matches('.remove-role-btn')){
+            const roleItem = e.target.closest('.role-item');
+            const roleId = `${roleItem.textContent.trim()}_${Array.from(roleItem.parentNode.children).indexOf(roleItem)}`;
+            roleItem.classList.toggle('removed');
+            if (rolesToRemove.has(roleId)) rolesToRemove.delete(roleId);
+            else rolesToRemove.add(roleId);
+        }
     });
 
     if (startNightNoteBtn) startNightNoteBtn.addEventListener('click', handleStartNightNote);
