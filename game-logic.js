@@ -1,5 +1,5 @@
 // =================================================================
-// === game-logic.js - Sửa lỗi logic Bẫy Nhà (Trapperhouse) ========
+// === game-logic.js - Cập nhật logic thăm nhà Sói =================
 // =================================================================
 
 const KIND_TO_ACTION_MAP = {
@@ -132,11 +132,28 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
                 }
             }
         }
+        
+        // **LOGIC MỚI**: Sói ở nhà sẽ tấn công khách đến thăm
+        const attackingWolfId = wolfBiteAction ? wolfBiteAction.actorId : null;
+        const wolves = roomPlayers.filter(p => (p.faction === 'Bầy Sói' || p.faction === 'Phe Sói') && initialStatus[p.id]?.isAlive);
+        
+        wolves.forEach(wolf => {
+            if (wolf.id !== attackingWolfId) { // Chỉ Sói không được cử đi cắn mới tấn công tại nhà
+                const occupantsInWolfsHouse = finalHouseOccupants[wolf.id] || new Set();
+                occupantsInWolfsHouse.forEach(occupantId => {
+                    if (occupantId !== wolf.id) { // Khách đến thăm (không phải chính Sói đó)
+                        const visitorStatus = liveStatuses[occupantId];
+                        if (visitorStatus && !visitorStatus.isProtected) {
+                            visitorStatus.damage++;
+                            infoResults.push(`- ${roomPlayers.find(p => p.id === occupantId).name} đã bị Sói ${wolf.name} tấn công khi đến thăm nhà.`);
+                        }
+                    }
+                });
+            }
+        });
 
-        // Xử lý các hiệu ứng đặt trạng thái trước (Bảo vệ, Đặt bẫy)
-        actions.forEach(({ actorId, targets, action }) => {
-            const actionKind = ALL_ACTIONS[action]?.key || action;
-            if (actionKind === 'shieldhouse') {
+        actions.forEach(({ targets, action }) => {
+            if (ALL_ACTIONS[action]?.key === 'shieldhouse') {
                 (targets || []).forEach(targetHouseId => {
                     const occupants = finalHouseOccupants[targetHouseId] || new Set();
                     occupants.forEach(occupantId => {
@@ -144,18 +161,8 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
                     });
                 });
             }
-            if (actionKind === 'trapperhouse') {
-                (targets || []).forEach(targetId => {
-                     if (finalStatus[targetId]) {
-                        finalStatus[targetId].isHouseTrapped = true;
-                        const actor = roomPlayers.find(p=>p.id===actorId);
-                        const target = roomPlayers.find(p=>p.id===targetId);
-                        infoResults.push(`- ${actor.name} đã đặt bẫy tại nhà của ${target.name}.`);
-                    }
-                });
-            }
         });
-        
+
         const keeperActions = actions.filter(a => a.action === 'keeperhouse');
         const trappedHouses = new Set(keeperActions.flatMap(a => a.targets));
         
@@ -175,7 +182,6 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
             return true;
         });
         
-        // Xử lý kích hoạt Bẫy Nhà
         livingPlayerIds.forEach(houseOwnerId => {
             if (initialStatus[houseOwnerId]?.isHouseTrapped || finalStatus[houseOwnerId]?.isHouseTrapped) {
                 const occupants = finalHouseOccupants[houseOwnerId] || new Set();
@@ -200,7 +206,7 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
             }
         });
 
-        // Xử lý các hành động gây sát thương của chế độ Nhà Sói
+
         executableActions.forEach(({ actorId, targets, action, originalActor }) => {
             (targets || []).forEach(targetId => {
                 if (originalActor === 'wolf_group' && action === 'kill') {
@@ -263,7 +269,11 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
             const actionKind = ALL_ACTIONS[action]?.key || action;
             const duration = actor ? (actor.duration || '1') : '1';
 
-            if (actionKind === 'countershield') counterShieldedTargets.add(targetId);
+            if (actionKind === 'trapperhouse' && finalStatus[targetId]) {
+                finalStatus[targetId].isHouseTrapped = true;
+                infoResults.push(`- ${actor.name} đã đặt bẫy tại nhà của ${target.name}.`);
+            }
+            else if (actionKind === 'countershield') counterShieldedTargets.add(targetId);
             else if (actionKind === 'disable_action' && duration === 'n') finalStatus[targetId].isPermanentlyDisabled = true;
             else if (actionKind === 'freeze' && !counterShieldedTargets.has(targetId)) targetStatus.isProtected = true;
             else if (actionKind === 'gm_add_armor') targetStatus.armor++;

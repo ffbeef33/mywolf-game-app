@@ -1,5 +1,5 @@
 // =================================================================
-// === night-note.js (Cập nhật cho chế độ chơi Nhà Của Sói) ===
+// === night-note.js - Cập nhật tự động rời nhà khi dùng skill =====
 // =================================================================
 
 /**
@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let actionModal, currentActorInModal = null;
     let factionChangeModal = null;
-    let leaveHomeModal = null; // [MỚI] Modal cho việc rời nhà
+    let leaveHomeModal = null;
 
     let groupModal, groupModalTitle, groupNameInput, groupModalPlayers, groupModalConfirmBtn, currentGroupEditingPlayerId;
     
@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let customPlayerOrder = [];
     let roomDataState = {};
     let isInteractiveMode = false;
-    let gameMode = 'classic'; // BIẾN MỚI
+    let gameMode = 'classic';
 
     const handleClearLog = async () => {
         if (!roomId || !confirm('Bạn có chắc muốn xóa log và reset vai trò của tất cả người chơi trong phòng này?')) return;
@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         kind: (role.Kind || 'empty').trim(),
                         quantity: quantityValue,
                         duration: (role.Duration || '1').toString().trim().toLowerCase(),
-                        house: (role.House || '0').trim() // [CẬP NHẬT] Lấy dữ liệu từ cột House
+                        house: (role.House || '0').trim()
                     };
                 }
                 return acc;
@@ -561,7 +561,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isDisabled) statusIconsHTML += '<i class="fas fa-exclamation-triangle icon-disabled-by-ability" title="Bị vô hiệu hóa"></i>';
         }
 
-        // CẬP NHẬT: THÊM ICON BẪY
         if (playerState.isHouseTrapped) statusIconsHTML += '<i class="fas fa-house-damage icon-trapped" title="Nhà có bẫy"></i>';
     
         let roleDisplayName = player.roleName || 'Chưa có vai';
@@ -814,7 +813,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     markedForDelayKill: false, groupId: null, faction: p.faction, originalRoleName: null,
                     roleName: p.roleName, kind: p.kind, activeRule: p.activeRule, quantity: p.quantity,
                     duration: p.duration, isBoobyTrapped: false,
-                    isHouseTrapped: false, // CẬP NHẬT: THÊM TRẠNG THÁI BẪY
+                    isHouseTrapped: false,
                     canLeaveHome: (allRolesData[p.roleName]?.house === '1')
                 }];
             }));
@@ -1021,7 +1020,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const closeModal = () => {
             actionModal.classList.add('hidden');
-            // Reset modal state
             actionModal.querySelector('#wolf-attacker-selection-section').style.display = 'none';
             actionModal.querySelector('#action-selection-section').style.display = 'none';
             actionModal.querySelector('#gm-override-section').style.display = 'block';
@@ -1074,11 +1072,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
              if (!actionKey && currentActorInModal.id !== 'wolf_group') return;
 
-
             const checkedTargets = Array.from(actionModal.querySelectorAll('#action-modal-targets input:checked')).map(cb => cb.value);
             const actorId = currentActorInModal.id;
-            
             const nightState = nightStates[activeNightIndex];
+            
+            const actorRoleData = allRolesData[currentActorInModal.roleName];
+            if (gameMode === 'wolf_house' && actorRoleData && actorRoleData.house === '1' && checkedTargets.length > 0) {
+                const targetHouseId = checkedTargets[0];
+                if (!nightState.playerLocations) {
+                    nightState.playerLocations = {};
+                }
+                nightState.playerLocations[actorId] = targetHouseId;
+            }
             
             if (currentActorInModal.id === 'wolf_group' && currentActorInModal.kind === 'kill') {
                  const selectedAttackerNode = actionModal.querySelector('#action-modal-wolf-attackers input:checked');
@@ -1129,22 +1134,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetId = currentActorInModal.id;
 
             if (isInteractiveMode) {
-                // Interactive mode logic (not part of this update)
+                // ...
             } else {
                 const nightState = nightStates[activeNightIndex];
                 if (overrideAction === 'change_faction') {
                     openFactionChangeModal(currentActorInModal);
                     return;
                 }
-                if (['gm_kill', 'gm_save', 'gm_protect', 'gm_add_armor'].includes(overrideAction)) {
-                    // ... (logic remains the same)
-                } 
-                else if (overrideAction === 'gm_disable_night') {
-                    // ... (logic remains the same)
-                }
-                else if (overrideAction === 'gm_disable_perm') {
-                   // ... (logic remains the same)
-                }
+                // ...
                 saveNightNotes();
                 render(nightState);
                 closeModal();
@@ -1351,7 +1348,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             faction: p.faction, originalRoleName: null, roleName: p.roleName,
                             kind: p.kind, activeRule: p.activeRule, quantity: p.quantity,
                             duration: p.duration, isBoobyTrapped: false,
-                            isHouseTrapped: false, // Thêm trạng thái bẫy
+                            isHouseTrapped: false,
                             canLeaveHome: p.canLeaveHome
                         }];
                      }));
