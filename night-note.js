@@ -442,6 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     p.duration = playerStatus.duration;
                 }
                 p.canLeaveHome = playerStatus.canLeaveHome;
+                p.isHouseTrapped = playerStatus.isHouseTrapped;
             }
         });
 
@@ -559,6 +560,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (liveStatus.isDead) statusIconsHTML += '<i class="fas fa-skull-crossbones icon-danger" title="Dự kiến chết"></i>';
             if (liveStatus.isDisabled) statusIconsHTML += '<i class="fas fa-exclamation-triangle icon-disabled-by-ability" title="Bị vô hiệu hóa"></i>';
         }
+
+        // CẬP NHẬT: THÊM ICON BẪY
+        if (playerState.isHouseTrapped) statusIconsHTML += '<i class="fas fa-house-damage icon-trapped" title="Nhà có bẫy"></i>';
     
         let roleDisplayName = player.roleName || 'Chưa có vai';
         if (player.originalRoleName) {
@@ -810,6 +814,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     markedForDelayKill: false, groupId: null, faction: p.faction, originalRoleName: null,
                     roleName: p.roleName, kind: p.kind, activeRule: p.activeRule, quantity: p.quantity,
                     duration: p.duration, isBoobyTrapped: false,
+                    isHouseTrapped: false, // CẬP NHẬT: THÊM TRẠNG THÁI BẪY
                     canLeaveHome: (allRolesData[p.roleName]?.house === '1')
                 }];
             }));
@@ -1346,6 +1351,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             faction: p.faction, originalRoleName: null, roleName: p.roleName,
                             kind: p.kind, activeRule: p.activeRule, quantity: p.quantity,
                             duration: p.duration, isBoobyTrapped: false,
+                            isHouseTrapped: false, // Thêm trạng thái bẫy
                             canLeaveHome: p.canLeaveHome
                         }];
                      }));

@@ -1,5 +1,5 @@
 // =================================================================
-// === game-logic.js - Cập nhật cho 2 chế độ & Sửa lỗi Shieldhouse ===
+// === game-logic.js - Cập nhật logic Trapperhouse =================
 // =================================================================
 
 const KIND_TO_ACTION_MAP = {
@@ -34,7 +34,6 @@ const KIND_TO_ACTION_MAP = {
     'wizard': { key: 'wizard_save', label: 'Cứu Thế', type: 'conditional' },
     'wizard_kill': { key: 'wizard_kill', label: 'Giết', type: 'damage' },
     'assassin': { key: 'assassinate', label: 'Ám sát', type: 'conditional' },
-    // [NHÀ SÓI] Thêm các Kind mới
     'shieldhouse': { key: 'shieldhouse', label: 'Bảo vệ Nhà', type: 'defense' },
     'killwolfhouse': { key: 'killwolfhouse', label: 'Săn Sói Rời Nhà', type: 'damage' },
     'keeperhouse': { key: 'keeperhouse', label: 'Giữ Nhà', type: 'debuff' },
@@ -53,25 +52,15 @@ ALL_ACTIONS['gm_add_armor'] = { label: 'Được 1 giáp (GM)', type: 'buff' };
 ALL_ACTIONS['gm_disable_night'] = { label: 'Bị vô hiệu hoá (1 Đêm)', type: 'debuff' };
 ALL_ACTIONS['gm_disable_perm'] = { label: 'Bị vô hiệu hoá (Vĩnh viễn)', type: 'debuff' };
 
-
-/**
- * Tính toán kết quả của một đêm dựa trên hành động của người chơi.
- * @param {object} nightState Trạng thái của đêm (hành động, trạng thái người chơi).
- * @param {Array<object>} roomPlayers Danh sách tất cả người chơi trong phòng.
- * @param {string} gameMode Chế độ chơi ('classic' hoặc 'wolf_house').
- * @returns {object} Kết quả cuối cùng của đêm.
- */
 function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
     if (!nightState) return { liveStatuses: {}, finalStatus: {}, deadPlayerNames: [], infoResults: [], loveRedirects: {}, wizardSavedPlayerNames: [] };
         
     let actions = nightState.actions || [];
     const initialStatus = nightState.playersStatus;
-    // Tạo bản sao sâu để tránh thay đổi trạng thái ban đầu
     const finalStatus = JSON.parse(JSON.stringify(initialStatus));
     const liveStatuses = {}; 
     const infoResults = [];
     
-    // Áp dụng thay đổi phe ngay lập tức nếu có
     if (Array.isArray(nightState.factionChanges)) {
         nightState.factionChanges.forEach(change => {
             if (change.isImmediate && finalStatus[change.playerId]) {
@@ -80,7 +69,6 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
         });
     }
 
-    // Khởi tạo trạng thái "sống" cho mỗi người chơi còn sống
     Object.keys(initialStatus).forEach(pId => {
         if (initialStatus[pId] && initialStatus[pId].isAlive) {
             liveStatuses[pId] = {
@@ -118,13 +106,8 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
         }
     });
 
-    // =================================================================
-    // === LOGIC CHO CHẾ ĐỘ "NHÀ CỦA SÓI" (WOLF HOUSE) ================
-    // =================================================================
     if (gameMode === 'wolf_house') {
         const playerLocations = nightState.playerLocations || {};
-
-        // BƯỚC 1: XÁC ĐỊNH VỊ TRÍ CUỐI CÙNG CỦA MỌI NGƯỜI
         const finalHouseOccupants = {};
         const livingPlayerIds = roomPlayers.filter(p => initialStatus[p.id]?.isAlive).map(p => p.id);
         livingPlayerIds.forEach(pId => { finalHouseOccupants[pId] = new Set(); });
@@ -132,59 +115,70 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
         livingPlayerIds.forEach(pId => {
             const destinationHouseId = playerLocations[pId];
             if (destinationHouseId && livingPlayerIds.includes(destinationHouseId)) {
-                finalHouseOccupants[destinationHouseId].add(pId); // Đến nhà người khác
+                finalHouseOccupants[destinationHouseId].add(pId);
             } else {
-                finalHouseOccupants[pId].add(pId); // Ở nhà mình
+                finalHouseOccupants[pId].add(pId);
             }
         });
 
-        // BƯỚC 2: XỬ LÝ ƯU TIÊN CÁC HÀNH ĐỘNG PHÒNG THỦ NHÀ (FIX LỖI SHIELDHOUSE)
         const shieldHouseActions = actions.filter(a => a.action === 'shieldhouse');
         shieldHouseActions.forEach(({ targets }) => {
             (targets || []).forEach(targetHouseId => {
                 const occupants = finalHouseOccupants[targetHouseId] || new Set();
                 occupants.forEach(occupantId => {
-                    if (liveStatuses[occupantId]) {
-                        liveStatuses[occupantId].isProtected = true;
-                    }
+                    if (liveStatuses[occupantId]) liveStatuses[occupantId].isProtected = true;
                 });
             });
         });
 
-        // BƯỚC 3: XỬ LÝ CÁC HÀNH ĐỘNG VÔ HIỆU HÓA (KEEPER)
         const keeperActions = actions.filter(a => a.action === 'keeperhouse');
         const trappedHouses = new Set(keeperActions.flatMap(a => a.targets));
         
-        // Lọc và vô hiệu hóa các hành động của người bị giữ và Sói tấn công
         let executableActions = actions.filter(action => {
             const actor = roomPlayers.find(p => p.id === action.actorId);
-            if (!actor) return true; // Giữ lại các action hệ thống
-
-            // Vô hiệu hóa Sói cắn nếu nhà Sói tấn công bị giữ
+            if (!actor) return true;
             if (action.originalActor === 'wolf_group' && action.action === 'kill') {
-                const attackingWolfHouseId = action.actorId; // actorId là Sói đi cắn
-                if (trappedHouses.has(attackingWolfHouseId)) {
+                if (trappedHouses.has(action.actorId)) {
                     infoResults.push(`- Bầy Sói không thể tấn công vì nhà của Sói ${actor.name} đã bị giữ.`);
-                    return false; // Loại bỏ hành động cắn
+                    return false;
                 }
             }
-            // Vô hiệu hóa hành động của người chơi bị giữ nếu vai trò của họ yêu cầu rời nhà
-            const actorHouseId = actor.id;
-            const roleRequiresLeaving = actor.house === '1'; // Dữ liệu từ Google Sheet
-            if (trappedHouses.has(actorHouseId) && roleRequiresLeaving) {
+            if (trappedHouses.has(actor.id) && actor.house === '1') {
                 infoResults.push(`- ${actor.name} không thể thực hiện chức năng vì bị giữ trong nhà.`);
                 return false;
             }
             return true;
         });
+        
+        livingPlayerIds.forEach(houseOwnerId => {
+            if (initialStatus[houseOwnerId]?.isHouseTrapped) {
+                const occupants = finalHouseOccupants[houseOwnerId] || new Set();
+                let visitorsDamaged = 0;
+                occupants.forEach(occupantId => {
+                    if (occupantId !== houseOwnerId) {
+                        const visitorStatus = liveStatuses[occupantId];
+                        if (visitorStatus && !visitorStatus.isProtected) {
+                            visitorStatus.damage++;
+                            visitorsDamaged++;
+                            infoResults.push(`- ${roomPlayers.find(p => p.id === occupantId).name} đã dính bẫy tại nhà của ${roomPlayers.find(p => p.id === houseOwnerId).name}.`);
+                        }
+                    }
+                });
 
-        // BƯỚC 4: XỬ LÝ CÁC HÀNH ĐỘNG CÒN LẠI
+                if (visitorsDamaged > 0) {
+                    finalStatus[houseOwnerId].isHouseTrapped = false;
+                    infoResults.push(`- Bẫy tại nhà ${roomPlayers.find(p => p.id === houseOwnerId).name} đã bị kích hoạt và phá hủy.`);
+                } else {
+                    finalStatus[houseOwnerId].isHouseTrapped = true;
+                }
+            }
+        });
+
+
         executableActions.forEach(({ actorId, targets, action, originalActor }) => {
             (targets || []).forEach(targetId => {
-                // SÓI CẮN (NHÀ)
                 if (originalActor === 'wolf_group' && action === 'kill') {
-                    const targetHouseId = targetId;
-                    const occupants = finalHouseOccupants[targetHouseId] || new Set();
+                    const occupants = finalHouseOccupants[targetId] || new Set();
                     occupants.forEach(occupantId => {
                         const occupantStatus = liveStatuses[occupantId];
                         if (occupantStatus && !occupantStatus.isProtected) {
@@ -195,44 +189,18 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
                     return;
                 }
                 
-                // SĂN SÓI RỜI NHÀ
                 if (action === 'killwolfhouse') {
-                    if (playerLocations[targetId]) { // Kiểm tra xem mục tiêu có rời nhà không
+                    if (playerLocations[targetId]) {
                         const targetStatus = liveStatuses[targetId];
-                        if(targetStatus && !targetStatus.isProtected) {
-                            targetStatus.damage++;
-                        }
+                        if(targetStatus && !targetStatus.isProtected) targetStatus.damage++;
                     }
                     return;
                 }
-
-                // BẪY NHÀ
-                if (action === 'trapperhouse') {
-                    const targetHouseId = targetId;
-                    const occupants = finalHouseOccupants[targetHouseId] || new Set();
-                    occupants.forEach(occupantId => {
-                        if (occupantId !== targetHouseId) { // Bẫy không tác dụng lên chủ nhà
-                            const visitorStatus = liveStatuses[occupantId];
-                            if (visitorStatus && !visitorStatus.isProtected) {
-                                visitorStatus.damage++;
-                            }
-                        }
-                    });
-                    return;
-                }
-                // (Các hành động cá nhân khác nếu có sẽ được xử lý ở logic chung bên dưới)
             });
         });
-        
-        // (Phần logic chung cho các hành động không liên quan đến nhà sẽ chạy sau)
-        actions = executableActions; // Cập nhật lại danh sách hành động sau khi đã lọc
+        actions = executableActions;
     }
 
-    // =================================================================
-    // === LOGIC CHUNG CHO CẢ 2 CHẾ ĐỘ ================================
-    // =================================================================
-    
-    // Xử lý các hiệu ứng vô hiệu hóa trước
     const disabledByAbilityPlayerIds = new Set();
     actions.forEach(({ actorId, targets, action }) => {
         (targets || []).forEach(targetId => {
@@ -249,7 +217,6 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
         if (liveStatuses[pId]) liveStatuses[pId].isDisabled = true;
     });
 
-    // Xử lý các hành động còn lại
     const counterWards = {};    
     const counterShieldedTargets = new Set();
     const damageLinks = {};
@@ -269,8 +236,11 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
             const actionKind = ALL_ACTIONS[action]?.key || action;
             const duration = actor ? (actor.duration || '1') : '1';
 
-            // Các hiệu ứng không gây sát thương trực tiếp
-            if (actionKind === 'countershield') counterShieldedTargets.add(targetId);
+            if (actionKind === 'trapperhouse' && finalStatus[targetId]) {
+                finalStatus[targetId].isHouseTrapped = true;
+                infoResults.push(`- ${actor.name} đã đặt bẫy tại nhà của ${target.name}.`);
+            }
+            else if (actionKind === 'countershield') counterShieldedTargets.add(targetId);
             else if (actionKind === 'disable_action' && duration === 'n') finalStatus[targetId].isPermanentlyDisabled = true;
             else if (actionKind === 'freeze' && !counterShieldedTargets.has(targetId)) targetStatus.isProtected = true;
             else if (actionKind === 'gm_add_armor') targetStatus.armor++;
@@ -334,7 +304,6 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
         });
     });
 
-    // Xử lý chuyển hướng của Cupid (Yêu)
     let processedActions = JSON.parse(JSON.stringify(actions));
     processedActions.forEach(action => {
         if (['kill', 'curse'].includes(action.action) && action.actorId === 'wolf_group' && action.targets?.length > 0) {
@@ -353,8 +322,6 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
     });
 
     const disabledPlayerIds = new Set(Object.keys(liveStatuses).filter(pId => liveStatuses[pId].isDisabled));
-
-    // Xử lý các hành động có thể gây sát thương và lấy thông tin
     const killifActions = processedActions.filter(({ action }) => (ALL_ACTIONS[action]?.key || action) === 'killif');
     const otherActions = processedActions.filter(({ action }) => !['killif', 'collect', 'transform', 'love', 'detect', 'shieldhouse', 'killwolfhouse', 'keeperhouse', 'trapperhouse'].includes(ALL_ACTIONS[action]?.key || action));
     
@@ -410,11 +377,8 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
                     return;
                 }
                 
-                if(actionKind === 'killwolf' && !(finalTarget.faction === 'Bầy Sói' || finalTarget.faction === 'Phe Sói')) {
-                    // Không gây sát thương nhưng vẫn có thể bị phản damage
-                } else {
-                     finalTargetStatus.damage++;
-                }
+                if(actionKind === 'killwolf' && !(finalTarget.faction === 'Bầy Sói' || finalTarget.faction === 'Phe Sói')) { } 
+                else { finalTargetStatus.damage++; }
 
                 if (finalTargetStatus.isBoobyTrapped && liveStatuses[attacker.id] && !liveStatuses[attacker.id].isProtected) {
                     liveStatuses[attacker.id].damage++;
@@ -452,7 +416,6 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
         });
     });
 
-    // Xử lý Giết/Cứu (Killif)
     killifActions.forEach(({ actorId, targets }) => {
         (targets || []).forEach(targetId => {
             const attacker = roomPlayers.find(p => p.id === actorId);
@@ -472,7 +435,6 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
         });
     });
 
-    // Xử lý các nhóm chịu sát thương chung (Tụ tập,...)
     const damageGroups = nightState.damageGroups || {};
     const groupDamageTotals = {};
     for (const groupId in damageGroups) {
@@ -501,7 +463,6 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
         group.forEach(pId => { liveStatuses[pId].damage = totalDamage; });
     });
 
-    // Xử lý các hành động cứu
     processedActions.forEach(({ actorId, targets, action }) => {
          const actor = roomPlayers.find(p => p.id === actorId);
          if (!actor || disabledPlayerIds.has(actor.id)) return;
@@ -521,7 +482,6 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
         });
     });
 
-    // Xử lý Cứu Hết (Save All) và Cứu Thế (Wizard)
     const didSaveAll = processedActions.some(a => (ALL_ACTIONS[a.action]?.key || a.action) === 'saveall' && a.targets?.includes(a.actorId));
     if(didSaveAll) infoResults.push(`- ${roomPlayers.find(p=>p.id===processedActions.find(a=>(ALL_ACTIONS[a.action]?.key || a.action) === 'saveall').actorId).name} đã cứu tất cả mọi người!`);
 
@@ -544,7 +504,6 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
         }
     }
 
-    // TÍNH TOÁN KẾT QUẢ CUỐI CÙNG
     let deadPlayerIdsThisNight = new Set();
     Object.keys(liveStatuses).forEach(pId => {
         const status = liveStatuses[pId];
@@ -572,7 +531,6 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
         }
     });
     
-    // Xử lý hiệu ứng chết chùm (Death Link)
     let chainReactionOccurred = true;
     while(chainReactionOccurred) {
         chainReactionOccurred = false;

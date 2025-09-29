@@ -339,6 +339,12 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .status-icons .icon-armor { color: var(--neutral-color); opacity: 0.8; }
 .icon-notified { color: var(--disable-color); }
 
+/* CẬP NHẬT: STYLE CHO ICON BẪY */
+.status-icons .icon-trapped {
+    color: var(--danger-color);
+    opacity: 0.9;
+}
+
 .night-tabs-container {
     padding: 15px;
     border-radius: var(--border-radius); margin-bottom: 20px;
