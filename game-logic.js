@@ -1,5 +1,5 @@
 // =================================================================
-// === game-logic.js - Cập nhật logic Trapperhouse =================
+// === game-logic.js - Sửa lỗi Sói đi cắn không dính bẫy ===========
 // =================================================================
 
 const KIND_TO_ACTION_MAP = {
@@ -120,6 +120,19 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
                 finalHouseOccupants[pId].add(pId);
             }
         });
+        
+        // **LOGIC MỚI**: GHI NHẬN SỰ DI CHUYỂN CỦA SÓI ĐI CẮN
+        const wolfBiteAction = actions.find(a => a.originalActor === 'wolf_group' && a.action === 'kill');
+        if (wolfBiteAction) {
+            const attackingWolfId = wolfBiteAction.actorId;
+            const targetHouseId = wolfBiteAction.targets[0];
+            if (finalHouseOccupants[targetHouseId] && attackingWolfId !== targetHouseId) {
+                finalHouseOccupants[targetHouseId].add(attackingWolfId); // Thêm Sói vào nhà mục tiêu
+                if(finalHouseOccupants[attackingWolfId]) {
+                    finalHouseOccupants[attackingWolfId].delete(attackingWolfId); // Xóa Sói khỏi nhà của chính mình
+                }
+            }
+        }
 
         const shieldHouseActions = actions.filter(a => a.action === 'shieldhouse');
         shieldHouseActions.forEach(({ targets }) => {
@@ -180,10 +193,13 @@ function calculateNightStatus(nightState, roomPlayers, gameMode = 'classic') {
                 if (originalActor === 'wolf_group' && action === 'kill') {
                     const occupants = finalHouseOccupants[targetId] || new Set();
                     occupants.forEach(occupantId => {
-                        const occupantStatus = liveStatuses[occupantId];
-                        if (occupantStatus && !occupantStatus.isProtected) {
-                            occupantStatus.damage++;
-                            occupantStatus.killedByWolfBite = true;
+                        // Sói đi cắn không tự cắn chính mình
+                        if (occupantId !== actorId) { 
+                            const occupantStatus = liveStatuses[occupantId];
+                            if (occupantStatus && !occupantStatus.isProtected) {
+                                occupantStatus.damage++;
+                                occupantStatus.killedByWolfBite = true;
+                            }
                         }
                     });
                     return;
