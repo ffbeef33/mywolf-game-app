@@ -1,5 +1,5 @@
 // =================================================================
-// === night-note.js - Cập nhật tự động rời nhà khi dùng skill =====
+// === night-note.js (Cập nhật cho chế độ chơi Nhà Của Sói) ===
 // =================================================================
 
 /**
@@ -600,7 +600,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${groupTagHTML}
                         </div>
                         <div class="player-role">${roleDisplayName}</div>
-                        <div class="player-location-display" data-player-id="${player.id}"></div>
                     </div>
                 </div>
                 <div class="player-controls">
@@ -611,7 +610,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${willButtonHTML}
                 </div>
             </div>
-            <div class="action-display-list">${actionDisplayHTML}</div>
+            <div class="player-sub-info">
+                <div class="player-location-display" data-player-id="${player.id}"></div>
+                <div class="action-display-list">${actionDisplayHTML}</div>
+            </div>
         `;
         
         return row;

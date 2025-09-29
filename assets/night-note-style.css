@@ -207,13 +207,35 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     opacity: 0.7; 
 }
 
-.action-display-list {
+/* === SỬA LỖI HIỂN THỊ: CSS CHO KHU VỰC THÔNG TIN PHỤ === */
+.player-sub-info {
+    padding-left: 54px; /* Căn lề với tên và vai trò */
     margin-top: 8px;
-    padding-left: 15px;
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
+
+.player-location-display {
+    font-size: 0.9rem;
+    color: var(--neutral-color); /* Màu vàng cho dễ thấy */
+    font-style: italic;
+    font-weight: 500;
+}
+
+.player-location-display:empty {
+    display: none; /* Ẩn đi nếu không có nội dung */
+}
+
+.action-display-list {
+    margin-top: 0; /* Bỏ margin vì đã có gap từ parent */
+    padding-left: 0; /* Bỏ padding vì đã có padding từ parent */
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+/* === KẾT THÚC SỬA LỖI HIỂN THỊ === */
+
 
 .action-display-item {
     font-size: 0.9rem;
@@ -338,8 +360,6 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
 .icon-disabled-by-ability { color: var(--disable-color); }
 .status-icons .icon-armor { color: var(--neutral-color); opacity: 0.8; }
 .icon-notified { color: var(--disable-color); }
-
-/* CẬP NHẬT: STYLE CHO ICON BẪY */
 .status-icons .icon-trapped {
     color: var(--danger-color);
     opacity: 0.9;
