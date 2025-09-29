@@ -98,6 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let customPlayerOrder = [];
     let roomDataState = {};
     let isInteractiveMode = false;
+    let gameMode = 'classic'; // BIẾN MỚI
 
     const handleClearLog = async () => {
         if (!roomId || !confirm('Bạn có chắc muốn xóa log và reset vai trò của tất cả người chơi trong phòng này?')) return;
@@ -444,7 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        const { liveStatuses, infoResults, deadPlayerNames, finalStatus } = calculateNightStatus(nightState, roomPlayers);
+        const { liveStatuses, infoResults, deadPlayerNames, finalStatus } = calculateNightStatus(nightState, roomPlayers, gameMode);
         
         roomPlayers.forEach(p => {
             if(finalStatus[p.id]) {
@@ -582,7 +583,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ? `<span class="player-group-tag">${playerState.groupId}</span>`
             : '';
 
-        const leaveHomeButtonHTML = player.canLeaveHome && !isActionDisabled ? 
+        const leaveHomeButtonHTML = gameMode === 'wolf_house' && player.canLeaveHome && !isActionDisabled ? 
             `<button class="action-modal-btn leave-home-btn" data-player-id="${player.id}">Rời Nhà</button>` : '';
 
 
@@ -800,7 +801,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.warn(`Vui lòng kết thúc Đêm ${nightStates.length} trước khi thêm đêm mới.`);
                 return;
             }
-            let prevStatus = lastNight ? calculateNightStatus(lastNight, roomPlayers).finalStatus : Object.fromEntries(roomPlayers.map(p => {
+            let prevStatus = lastNight ? calculateNightStatus(lastNight, roomPlayers, gameMode).finalStatus : Object.fromEntries(roomPlayers.map(p => {
                 return [p.id, { 
                     isAlive: p.isAlive, isDisabled: false, isPermanentlyDisabled: false, isPermanentlyProtected: false,
                     isPermanentlyNotified: false, hasPermanentKillAbility: false, hasPermanentCounterWard: false,
@@ -876,7 +877,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } 
         else if (target.closest('#end-night-btn')) {
             if (!nightState.isFinished) {
-                const { finalStatus } = calculateNightStatus(nightState, roomPlayers);
+                const { finalStatus } = calculateNightStatus(nightState, roomPlayers, gameMode);
                 const updates = {};
                 const newlyDeadPlayerIds = [];
 
@@ -923,7 +924,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     database.ref(`rooms/${roomId}`).update(updates);
                 }
 
-                const { loveRedirects, liveStatuses } = calculateNightStatus(nightState, roomPlayers);
+                const { loveRedirects, liveStatuses } = calculateNightStatus(nightState, roomPlayers, gameMode);
                 const curseActions = nightState.actions.filter(a => a.action === 'curse');
                 const collectActions = nightState.actions.filter(a => a.action === 'collect');
                 if (curseActions.length > 0 || collectActions.length > 0) {
@@ -1256,13 +1257,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         targetSection.style.display = 'block';
-        targetSectionTitle.textContent = "Chọn một ngôi nhà để tấn công";
+        targetSectionTitle.textContent = (gameMode === 'wolf_house') ? "Chọn một ngôi nhà để tấn công" : "Chọn một người chơi để cắn";
         targetContainer.innerHTML = '';
         livingPlayers.forEach(p => {
+             const labelText = (gameMode === 'wolf_house') ? `Nhà của ${p.name}` : p.name;
              targetContainer.innerHTML += `
                 <div class="target-item">
                     <input type="checkbox" id="modal-house-target-${p.id}" value="${p.id}">
-                    <label for="modal-house-target-${p.id}">Nhà của ${p.name}</label>
+                    <label for="modal-house-target-${p.id}">${labelText}</label>
                 </div>
             `;
         });
@@ -1293,6 +1295,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if(!roomData) return;
             
             roomDataState = roomData;
+            
+            gameMode = roomData.gameState?.gameMode || 'classic';
+            const gameModeDisplay = document.getElementById('game-mode-display');
+            if (gameModeDisplay) {
+                gameModeDisplay.textContent = (gameMode === 'wolf_house') ? "Nhà Của Sói" : "Cổ Điển";
+            }
             
             isInteractiveMode = !!roomData.interactiveState && roomData.interactiveState.phase !== 'setup';
 
@@ -1395,6 +1403,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
             }
         });
+        
+        const toggleModeBtn = document.getElementById('toggle-game-mode-btn');
+        if (toggleModeBtn) {
+            toggleModeBtn.addEventListener('click', () => {
+                if (!roomId) return;
+                const currentModeText = gameMode === 'classic' ? 'Cổ Điển' : 'Nhà Của Sói';
+                const newMode = (gameMode === 'classic') ? 'wolf_house' : 'classic';
+                const newModeText = newMode === 'classic' ? 'Cổ Điển' : 'Nhà Của Sói';
+                
+                if (confirm(`Bạn có chắc muốn chuyển từ chế độ "${currentModeText}" sang "${newModeText}" không?`)) {
+                    database.ref(`rooms/${roomId}/gameState/gameMode`).set(newMode)
+                        .then(() => {
+                            alert('Đã chuyển chế độ thành công!');
+                        })
+                        .catch(err => {
+                            alert('Lỗi khi chuyển chế độ: ' + err.message);
+                        });
+                }
+            });
+        }
     };
     
     const urlRoomId = new URLSearchParams(window.location.search).get('roomId');

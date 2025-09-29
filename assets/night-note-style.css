@@ -752,3 +752,25 @@ button.btn-special:hover:not(:disabled) { background-color: var(--special-hover-
     font-weight: 700;
 }
 /* === KẾT THÚC CODE MỚI CHO TAG NHÓM === */
+
+/* CSS for Game Mode Controls */
+.game-mode-controls {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: var(--primary-bg);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+}
+.game-mode-controls p {
+    margin: 0;
+    font-weight: 500;
+}
+#toggle-game-mode-btn {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    background-color: var(--neutral-color);
+}
